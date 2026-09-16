@@ -37,6 +37,7 @@ export const App: React.FC = () => {
   const [includeStateDescriptions, setIncludeStateDescriptions] = useState<boolean>(
     SAMPLES[0].defaultIncludeDescriptions
   );
+  const [showTransitionPriorities, setShowTransitionPriorities] = useState<boolean>(true);
   const [liveUpdate, setLiveUpdate] = useState<boolean>(true);
 
   // UI tabs & states
@@ -67,6 +68,7 @@ export const App: React.FC = () => {
         flowchartOutput,
         collapseErrorSinkEdges,
         includeStateDescriptions,
+        showTransitionPriorities,
       });
 
       const elapsed = Math.round(performance.now() - startTime);
@@ -86,7 +88,14 @@ export const App: React.FC = () => {
       setOutputMarkdown('');
       setGenerationStats(null);
     }
-  }, [dutContent, pouContent, flowchartOutput, collapseErrorSinkEdges, includeStateDescriptions]);
+  }, [
+    dutContent,
+    pouContent,
+    flowchartOutput,
+    collapseErrorSinkEdges,
+    includeStateDescriptions,
+    showTransitionPriorities,
+  ]);
 
   // Initial & reactive generation
   useEffect(() => {
@@ -306,6 +315,18 @@ export const App: React.FC = () => {
               className="rounded bg-slate-950 border-slate-700 text-sky-500 focus:ring-sky-500 focus:ring-offset-slate-900"
             />
             <span className="text-slate-300">Include state descriptions</span>
+          </label>
+
+          {/* Show transition priorities */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              id="show-priorities-checkbox"
+              type="checkbox"
+              checked={showTransitionPriorities}
+              onChange={(e) => setShowTransitionPriorities(e.target.checked)}
+              className="rounded bg-slate-950 border-slate-700 text-sky-500 focus:ring-sky-500 focus:ring-offset-slate-900"
+            />
+            <span className="text-slate-300">Transition priorities</span>
           </label>
         </div>
 

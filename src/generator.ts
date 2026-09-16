@@ -6,12 +6,14 @@ export interface GeneratorOptions {
   collapseErrorSinkEdges?: boolean;
   flowchartOutput?: boolean;
   includeStateDescriptions?: boolean;
+  showTransitionPriorities?: boolean;
 }
 
 export interface Transition {
   from: string;
   to: string;
   guard: string | null;
+  priority?: number | null;
   source: string;
   redirectedFrom?: string | null;
   redirectedTo?: string | null;
@@ -206,6 +208,45 @@ function parseStateDescriptions(st: string | null): Map<string, string> {
   return map;
 }
 
+function preprocessDoStateLines(code: string): string[] {
+  const rawLines = code.replace(/\r/g, '').split('\n');
+  const result: string[] = [];
+  let inCondition = false;
+  let accumulated = '';
+
+  for (const raw of rawLines) {
+    const line = raw.trim();
+    if (!line) continue;
+
+    if (inCondition) {
+      accumulated += ' ' + line;
+      if (/\bTHEN\b/i.test(line)) {
+        result.push(accumulated);
+        accumulated = '';
+        inCondition = false;
+      }
+      continue;
+    }
+
+    const startsIfOrElsif = /^\s*(?:IF\b|ELSIF\b)/i.test(line);
+    const hasThen = /\bTHEN\b/i.test(line);
+
+    if (startsIfOrElsif && !hasThen) {
+      inCondition = true;
+      accumulated = line;
+      continue;
+    }
+
+    result.push(line);
+  }
+
+  if (accumulated) {
+    result.push(accumulated);
+  }
+
+  return result;
+}
+
 function parseDoState(
   st: string,
   stateVarName: string,
@@ -213,8 +254,9 @@ function parseDoState(
   states: Set<string>
 ) {
   const code = stripComments(st);
-  const lines = code.replace(/\r/g, '').split('\n');
-  let currentState: string | null = null;
+  const lines = preprocessDoStateLines(code);
+  let currentStates: string[] = [];
+  const statePriorityCounters = new Map<string, number>();
   const ifStack: IfFrame[] = [];
   const caseRx = /^\s*([A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)*)\s*:\s*(\/\/.*)?$/;
   const assign = new RegExp(`\\b(${stateVarName})\\s*:=\\s*([A-Za-z_][A-Za-z0-9_\\.]*)`, 'g');
@@ -229,9 +271,11 @@ function parseDoState(
 
     const cm = line.match(caseRx);
     if (cm && looksLikeStateLabel(cm[1])) {
+      currentStates = [];
       for (const lbl of cm[1].split(',').map((s) => s.trim())) {
-        currentState = lbl;
+        currentStates.push(lbl);
         states.add(lbl);
+        statePriorityCounters.set(lbl, 0);
       }
       ifStack.length = 0;
       continue;
@@ -264,17 +308,23 @@ function parseDoState(
     assign.lastIndex = 0;
     while ((match = assign.exec(line)) !== null) {
       const target = match[2];
-      if (currentState === null || target === currentState) continue;
-      states.add(target);
-      const guard = buildGuard(ifStack);
-      transitions.push({
-        from: currentState,
-        to: target,
-        guard,
-        source: 'doState',
-        effectiveFrom: currentState,
-        effectiveTo: target,
-      });
+      for (const currentState of currentStates) {
+        if (target === currentState) continue;
+        states.add(target);
+        const guard = buildGuard(ifStack);
+        const currentPrio = (statePriorityCounters.get(currentState) ?? 0) + 1;
+        statePriorityCounters.set(currentState, currentPrio);
+
+        transitions.push({
+          from: currentState,
+          to: target,
+          guard,
+          priority: currentPrio,
+          source: 'doState',
+          effectiveFrom: currentState,
+          effectiveTo: target,
+        });
+      }
     }
   }
 }
@@ -984,12 +1034,26 @@ function emitComposite(
   lines.push(`${indent}}`);
 }
 
+export function toCircledNumber(n: number): string {
+  if (n >= 1 && n <= 20) {
+    return String.fromCodePoint(0x2460 + n - 1); // ① .. ⑳
+  }
+  if (n >= 21 && n <= 35) {
+    return String.fromCodePoint(0x3251 + n - 21); // ㉑ .. ㉟
+  }
+  if (n >= 36 && n <= 50) {
+    return String.fromCodePoint(0x32b1 + n - 36); // ㊱ .. ㊿
+  }
+  return `(${n})`;
+}
+
 function buildMermaid(
   tr: Transition[],
   states: Set<string>,
   groups: GroupingResult,
   stateDescriptions?: Map<string, string>,
-  flowchartOutput = false
+  flowchartOutput = false,
+  showTransitionPriorities = true
 ): string {
   const firstStateToGroup = new Map<string, string>();
   for (const [k, v] of groups.groupFirstState.entries()) {
@@ -1083,16 +1147,51 @@ function buildMermaid(
     }
   }
 
+  // Calculate total out-degree from original and effective sources
+  const origOutCounts = new Map<string, number>();
+  for (const t of tr) {
+    if (t.source === 'doState' && t.from) {
+      origOutCounts.set(t.from, (origOutCounts.get(t.from) ?? 0) + 1);
+    }
+  }
+
   const seen = new Set<string>();
   const uniq: Transition[] = [];
   for (const t of tr) {
     if (redundant.has(t)) continue;
-    const key = `${t.effectiveFrom}###${t.effectiveTo}###${t.guard ?? ''}###${t.source}`;
+    const prioKey = showTransitionPriorities ? (t.priority ?? '') : '';
+    const key = `${t.effectiveFrom}###${t.effectiveTo}###${t.guard ?? ''}###${t.source}###${prioKey}`;
     if (!seen.has(key)) {
       seen.add(key);
       uniq.push(t);
     }
   }
+
+  const effectiveOutCounts = new Map<string, number>();
+  for (const t of uniq) {
+    if (!t.effectiveFrom || !t.effectiveTo || t.effectiveFrom === t.effectiveTo) continue;
+    effectiveOutCounts.set(t.effectiveFrom, (effectiveOutCounts.get(t.effectiveFrom) ?? 0) + 1);
+  }
+
+  const formatTransitionLabel = (t: Transition): string | null => {
+    let lbl = t.guard;
+
+    if (
+      showTransitionPriorities &&
+      t.priority != null &&
+      t.priority > 0 &&
+      ((origOutCounts.get(t.from) ?? 0) > 1 || (effectiveOutCounts.get(t.effectiveFrom) ?? 0) > 1)
+    ) {
+      const prioSymbol = toCircledNumber(t.priority);
+      lbl = lbl ? `${prioSymbol} ${lbl}` : prioSymbol;
+    }
+
+    if (t.source === 'preProcess') {
+      lbl = !lbl ? '[preProcess]' : `[preProcess] ${lbl}`;
+    }
+
+    return lbl;
+  };
 
   if (flowchartOutput) {
     const lines: string[] = ['flowchart TD'];
@@ -1122,10 +1221,7 @@ function buildMermaid(
       if (!t.effectiveFrom || !t.effectiveTo) continue;
       if (t.effectiveFrom === t.effectiveTo) continue;
 
-      let lbl = t.guard;
-      if (t.source === 'preProcess') {
-        lbl = !lbl ? '[preProcess]' : `[preProcess] ${lbl}`;
-      }
+      const lbl = formatTransitionLabel(t);
 
       if (!lbl) {
         lines.push(`    ${san(t.effectiveFrom)} --> ${san(t.effectiveTo)}`);
@@ -1154,10 +1250,7 @@ function buildMermaid(
       if (!t.effectiveFrom || !t.effectiveTo) continue;
       if (t.effectiveFrom === t.effectiveTo) continue;
 
-      let lbl = t.guard;
-      if (t.source === 'preProcess') {
-        lbl = !lbl ? '[preProcess]' : `[preProcess] ${lbl}`;
-      }
+      const lbl = formatTransitionLabel(t);
 
       if (!lbl) {
         lines.push(`    ${san(t.effectiveFrom)} --> ${san(t.effectiveTo)}`);
@@ -1189,6 +1282,7 @@ export function generateStatechart(
   const collapseErrorSinkEdges = options.collapseErrorSinkEdges ?? DefaultCollapseErrorSinkEdges;
   const flowchartOutput = options.flowchartOutput ?? false;
   const includeStateDescriptions = options.includeStateDescriptions ?? false;
+  const showTransitionPriorities = options.showTransitionPriorities ?? true;
 
   const doc = parseXmlDoc(tcPouContent);
   const doStateSt = getMethodSt(doc, tcPouContent, 'doState');
@@ -1243,5 +1337,12 @@ export function generateStatechart(
   determineCompositeStartStates(transitions, groups);
   extractErrorSinkStates(transitions, groups, collapseErrorSinkEdges);
 
-  return buildMermaid(transitions, states, groups, stateDescriptions, flowchartOutput);
+  return buildMermaid(
+    transitions,
+    states,
+    groups,
+    stateDescriptions,
+    flowchartOutput,
+    showTransitionPriorities
+  );
 }
