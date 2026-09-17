@@ -41,6 +41,7 @@
     "lucide-react": "^1.16.0",
     "mermaid": "^11.4.1",
     "pako": "^2.1.0",
+    "prismjs": "^1.30.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -48,6 +49,7 @@
     "@tailwindcss/vite": "^4.0.0",
     "@types/jsdom": "^30.0.0",
     "@types/pako": "^2.0.3",
+    "@types/prismjs": "^1.26.6",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",

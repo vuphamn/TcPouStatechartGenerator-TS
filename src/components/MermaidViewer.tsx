@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import mermaid from 'mermaid';
 import elkLayouts from '@mermaid-js/layout-elk';
 import {
@@ -15,7 +15,18 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  Palette,
+  Move,
 } from 'lucide-react';
+import { StateNodeStyleInspector } from './StateNodeStyleInspector.tsx';
+import { CustomNodeStylesMap, NodeDisplayProperties } from '../types.ts';
+import { extractStateNodesFromMermaid } from '../utils/nodeStyles.ts';
+import {
+  NodeOffsetsMap,
+  initializeSvgDragMetadata,
+  applyNodeOffsetsToSvg,
+  resetSvgNodeOffsets,
+} from '../utils/nodeDragger.ts';
 
 export type LayoutEngine = 'dagre' | 'elk';
 export type FlowchartCurve = 'basis' | 'linear' | 'cardinal' | 'stepAfter' | 'monotoneX' | 'natural';
@@ -40,6 +51,15 @@ export interface MermaidViewerProps {
   mermaidTheme?: MermaidTheme;
   searchQuery?: string;
   onSearchQueryChange?: (query: string) => void;
+  selectedStateId?: string | null;
+  selectedStateLabel?: string;
+  onSelectState?: (stateId: string | null, label?: string) => void;
+  customStyles?: CustomNodeStylesMap;
+  onStyleChange?: (stateId: string, style: NodeDisplayProperties) => void;
+  onResetStateStyle?: (stateId: string) => void;
+  onClearAllCustomStyles?: () => void;
+  nodeOffsets?: NodeOffsetsMap;
+  onNodeOffsetsChange?: (offsets: NodeOffsetsMap) => void;
 }
 
 interface SearchMatchItem {
@@ -186,7 +206,11 @@ function cleanSymbolFromLabel(labelEl: Element, symbol: string) {
   }
 }
 
-function enhanceSvgWithPriorityCircles(svgString: string): string {
+function enhanceSvgWithPriorityCircles(
+  svgString: string,
+  selectedStateId?: string | null,
+  customStyles?: CustomNodeStylesMap
+): string {
   if (typeof window === 'undefined' || !svgString) return svgString;
   try {
     const parser = new DOMParser();
@@ -194,9 +218,52 @@ function enhanceSvgWithPriorityCircles(svgString: string): string {
     const svgEl = doc.documentElement;
     if (!svgEl || svgEl.nodeName.toLowerCase() === 'parsererror') return svgString;
 
+    // 1. Mark state nodes with data attributes, clickability, and selection classes
+    const nodes = Array.from(doc.querySelectorAll('g.node'));
+    for (const node of nodes) {
+      const id = node.getAttribute('id') || '';
+      const match = id.match(/(?:flowchart|state)-([A-Za-z0-9_]+)-\d+$/);
+      let rawId = match ? match[1] : '';
+      if (!rawId) {
+        const dataId = node.getAttribute('data-id') || node.getAttribute('data-node-id');
+        if (dataId) rawId = dataId;
+      }
+      if (rawId && rawId !== 'root_start' && rawId !== 'root_end' && rawId !== 'startNode') {
+        node.setAttribute('data-state-id', rawId);
+        const label =
+          node.querySelector('.nodeLabel')?.textContent?.trim() ||
+          node.textContent?.trim() ||
+          rawId;
+        node.setAttribute('data-state-label', label);
+        node.classList.add('clickable-state-node');
+
+        if (selectedStateId && rawId === selectedStateId) {
+          node.classList.add('diagram-selected-node');
+        }
+
+        // Apply custom styles directly to SVG elements for instant robustness across all themes
+        if (customStyles && customStyles[rawId]) {
+          const st = customStyles[rawId];
+          const shapes = node.querySelectorAll('rect, polygon, circle, path.basic');
+          shapes.forEach((shape) => {
+            if (st.fill) (shape as HTMLElement).style.setProperty('fill', st.fill, 'important');
+            if (st.stroke) (shape as HTMLElement).style.setProperty('stroke', st.stroke, 'important');
+            if (st.strokeWidth) (shape as HTMLElement).style.setProperty('stroke-width', st.strokeWidth, 'important');
+          });
+          const textEls = node.querySelectorAll('.nodeLabel, span, p, text, div');
+          textEls.forEach((txt) => {
+            if (st.color) (txt as HTMLElement).style.setProperty('color', st.color, 'important');
+          });
+        }
+      }
+    }
+
     // Find all edgePaths groups across root and subgraphs / composite states
     const pGroups = Array.from(doc.querySelectorAll('g.edgePaths'));
-    if (pGroups.length === 0) return svgString;
+    if (pGroups.length === 0) {
+      const serializer = new XMLSerializer();
+      return serializer.serializeToString(doc);
+    }
 
     let anyBadgeAdded = false;
 
@@ -341,8 +408,6 @@ function enhanceSvgWithPriorityCircles(svgString: string): string {
       }
     }
 
-    if (!anyBadgeAdded) return svgString;
-
     const serializer = new XMLSerializer();
     return serializer.serializeToString(doc);
   } catch (err) {
@@ -358,6 +423,15 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   mermaidTheme = 'dark',
   searchQuery: externalSearchQuery,
   onSearchQueryChange,
+  selectedStateId: externalSelectedStateId,
+  selectedStateLabel: externalSelectedStateLabel,
+  onSelectState: onSelectStateProp,
+  customStyles: externalCustomStyles,
+  onStyleChange: onStyleChangeProp,
+  onResetStateStyle: onResetStateStyleProp,
+  onClearAllCustomStyles: onClearAllCustomStylesProp,
+  nodeOffsets: externalNodeOffsets,
+  onNodeOffsetsChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -367,8 +441,55 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const mouseDownPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [copiedSvg, setCopiedSvg] = useState<boolean>(false);
+
+  // Manual Node Dragging & Offsets state
+  const [internalNodeOffsets, setInternalNodeOffsets] = useState<NodeOffsetsMap>({});
+  const effectiveNodeOffsets = externalNodeOffsets !== undefined ? externalNodeOffsets : internalNodeOffsets;
+  const currentNodeOffsetsRef = useRef<NodeOffsetsMap>({});
+
+  useEffect(() => {
+    currentNodeOffsetsRef.current = { ...effectiveNodeOffsets };
+  }, [effectiveNodeOffsets]);
+
+  const setNodeOffsets = (updater: NodeOffsetsMap | ((prev: NodeOffsetsMap) => NodeOffsetsMap)) => {
+    const nextOffsets = typeof updater === 'function' ? updater(effectiveNodeOffsets) : updater;
+    currentNodeOffsetsRef.current = nextOffsets;
+    if (onNodeOffsetsChange) {
+      onNodeOffsetsChange(nextOffsets);
+    } else {
+      setInternalNodeOffsets(nextOffsets);
+    }
+  };
+
+  const [isNodeDragging, setIsNodeDragging] = useState<boolean>(false);
+  const isDraggingNodeRef = useRef<boolean>(false);
+  const draggedNodeIdRef = useRef<string | null>(null);
+  const draggedNodeElRef = useRef<SVGGElement | null>(null);
+  const nodeDragStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const nodeInitialOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const nodeMovedRef = useRef<boolean>(false);
+
+  // State selection and inspector
+  const [internalSelectedStateId, setInternalSelectedStateId] = useState<string | null>(null);
+  const [internalSelectedStateLabel, setInternalSelectedStateLabel] = useState<string>('');
+  const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(false);
+
+  const effectiveSelectedStateId =
+    externalSelectedStateId !== undefined ? externalSelectedStateId : internalSelectedStateId;
+  const effectiveSelectedStateLabel =
+    externalSelectedStateLabel !== undefined ? externalSelectedStateLabel : internalSelectedStateLabel;
+
+  // Custom node styles (fallback to local if not controlled)
+  const [internalCustomStyles, setInternalCustomStyles] = useState<CustomNodeStylesMap>({});
+  const effectiveCustomStyles = externalCustomStyles !== undefined ? externalCustomStyles : internalCustomStyles;
+
+  // Available states from Mermaid code
+  const availableStates = useMemo(() => {
+    return extractStateNodesFromMermaid(code);
+  }, [code]);
 
   // Search state
   const [internalSearchQuery, setInternalSearchQuery] = useState<string>('');
@@ -662,7 +783,11 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         const uniqueId = `mermaid-render-${Math.random().toString(36).substring(2, 9)}`;
         const { svg } = await mermaid.render(uniqueId, code);
         if (isMounted) {
-          const enhancedSvg = enhanceSvgWithPriorityCircles(svg);
+          const enhancedSvg = enhanceSvgWithPriorityCircles(
+            svg,
+            effectiveSelectedStateId,
+            effectiveCustomStyles
+          );
           setSvgContent(enhancedSvg);
         }
       } catch (err: unknown) {
@@ -677,15 +802,207 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [code, layoutEngine, flowchartCurve, mermaidTheme]);
+  }, [code, layoutEngine, flowchartCurve, mermaidTheme, effectiveCustomStyles]);
+
+  // Synchronize selection highlight class in SVG
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const svg = containerRef.current.querySelector('svg');
+    if (!svg) return;
+    svg.querySelectorAll('.diagram-selected-node').forEach((el) => {
+      el.classList.remove('diagram-selected-node');
+    });
+    if (effectiveSelectedStateId) {
+      const target = svg.querySelector(`g.node[data-state-id="${effectiveSelectedStateId}"]`);
+      if (target) {
+        target.classList.add('diagram-selected-node');
+      }
+    }
+  }, [effectiveSelectedStateId, svgContent]);
+
+  // Initialize SVG metadata for draggable state nodes and apply active offsets
+  useEffect(() => {
+    if (!containerRef.current || !svgContent) return;
+    const svg = containerRef.current.querySelector('svg');
+    if (!svg) return;
+    initializeSvgDragMetadata(svg);
+    if (Object.keys(effectiveNodeOffsets).length > 0) {
+      applyNodeOffsetsToSvg(svg, effectiveNodeOffsets);
+    }
+  }, [svgContent, effectiveNodeOffsets]);
+
+  const handleSelectState = (stateId: string | null, label?: string) => {
+    if (onSelectStateProp) {
+      onSelectStateProp(stateId, label);
+    } else {
+      setInternalSelectedStateId(stateId);
+      if (label) setInternalSelectedStateLabel(label);
+    }
+    if (stateId) {
+      setIsInspectorOpen(true);
+    }
+  };
+
+  const handleCloseInspector = () => {
+    setIsInspectorOpen(false);
+    if (onSelectStateProp) {
+      onSelectStateProp(null);
+    } else {
+      setInternalSelectedStateId(null);
+    }
+  };
+
+  const handleToggleInspector = () => {
+    if (isInspectorOpen) {
+      handleCloseInspector();
+    } else {
+      setIsInspectorOpen(true);
+      if (!effectiveSelectedStateId && availableStates.length > 0) {
+        handleSelectState(availableStates[0].id, availableStates[0].label);
+      }
+    }
+  };
+
+  const panToState = (stateId: string) => {
+    if (!containerRef.current) return;
+    const svg = containerRef.current.querySelector('svg');
+    if (!svg) return;
+    const nodeEl = svg.querySelector(`g.node[data-state-id="${stateId}"]`);
+    if (!nodeEl) return;
+    panToElement(nodeEl);
+  };
+
+  const handleStyleChange = (stateId: string, style: NodeDisplayProperties) => {
+    // 1. Immediately update DOM element in SVG for instantaneous live response
+    if (containerRef.current) {
+      const svg = containerRef.current.querySelector('svg');
+      if (svg) {
+        const nodeEl = svg.querySelector(`g.node[data-state-id="${stateId}"]`);
+        if (nodeEl) {
+          const shapes = nodeEl.querySelectorAll('rect, polygon, circle, path.basic');
+          shapes.forEach((s) => {
+            if (style.fill) (s as HTMLElement).style.setProperty('fill', style.fill, 'important');
+            else (s as HTMLElement).style.removeProperty('fill');
+
+            if (style.stroke) (s as HTMLElement).style.setProperty('stroke', style.stroke, 'important');
+            else (s as HTMLElement).style.removeProperty('stroke');
+
+            if (style.strokeWidth) (s as HTMLElement).style.setProperty('stroke-width', style.strokeWidth, 'important');
+            else (s as HTMLElement).style.removeProperty('stroke-width');
+          });
+          const textEls = nodeEl.querySelectorAll('.nodeLabel, span, p, text, div');
+          textEls.forEach((t) => {
+            if (style.color) (t as HTMLElement).style.setProperty('color', style.color, 'important');
+            else (t as HTMLElement).style.removeProperty('color');
+          });
+        }
+      }
+    }
+
+    // 2. Propagate to parent state & Mermaid generator
+    if (onStyleChangeProp) {
+      onStyleChangeProp(stateId, style);
+    } else {
+      setInternalCustomStyles((prev) => ({
+        ...prev,
+        [stateId]: style,
+      }));
+    }
+  };
+
+  const handleResetStateStyle = (stateId: string) => {
+    if (onResetStateStyleProp) {
+      onResetStateStyleProp(stateId);
+    } else {
+      setInternalCustomStyles((prev) => {
+        const next = { ...prev };
+        delete next[stateId];
+        return next;
+      });
+    }
+  };
+
+  const handleClearAllCustomStyles = () => {
+    if (onClearAllCustomStylesProp) {
+      onClearAllCustomStylesProp();
+    } else {
+      setInternalCustomStyles({});
+    }
+  };
+
+  const customizedStatesCount = Object.values(effectiveCustomStyles).filter(
+    (s) => s.fill || s.color || s.stroke || s.strokeWidth
+  ).length;
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+
+    const target = e.target as Element;
+    // If clicking inside inspector or toolbar, don't initiate drag
+    if (target.closest('#state-style-inspector') || target.closest('#mermaid-toolbar')) {
+      return;
+    }
+
+    // Check if user clicked on a state node
+    const nodeEl = (target.closest('g.clickable-state-node') ||
+      target.closest('g.node[data-state-id]')) as SVGGElement | null;
+    if (nodeEl) {
+      const stateId = nodeEl.getAttribute('data-state-id');
+      if (stateId) {
+        isDraggingNodeRef.current = true;
+        draggedNodeIdRef.current = stateId;
+        draggedNodeElRef.current = nodeEl;
+        nodeDragStartPosRef.current = { x: e.clientX, y: e.clientY };
+        nodeMovedRef.current = false;
+        const currentOffset = effectiveNodeOffsets[stateId] || { x: 0, y: 0 };
+        nodeInitialOffsetRef.current = { ...currentOffset };
+        nodeEl.classList.add('dragging-state-node');
+        setIsNodeDragging(true);
+        return;
+      }
+    }
+
+    // Otherwise initiate canvas panning
     setIsDragging(true);
     setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    // 1. Dragging a state node
+    if (isDraggingNodeRef.current && draggedNodeIdRef.current) {
+      const stateId = draggedNodeIdRef.current;
+      const screenDx = e.clientX - nodeDragStartPosRef.current.x;
+      const screenDy = e.clientY - nodeDragStartPosRef.current.y;
+
+      if (Math.hypot(screenDx, screenDy) >= 4) {
+        nodeMovedRef.current = true;
+      }
+
+      if (nodeMovedRef.current) {
+        const canvasDx = screenDx / zoom;
+        const canvasDy = screenDy / zoom;
+        const newOffset = {
+          x: Math.round(nodeInitialOffsetRef.current.x + canvasDx),
+          y: Math.round(nodeInitialOffsetRef.current.y + canvasDy),
+        };
+
+        currentNodeOffsetsRef.current = {
+          ...currentNodeOffsetsRef.current,
+          [stateId]: newOffset,
+        };
+
+        if (containerRef.current) {
+          const svg = containerRef.current.querySelector('svg');
+          if (svg) {
+            applyNodeOffsetsToSvg(svg, currentNodeOffsetsRef.current, [stateId]);
+          }
+        }
+      }
+      return;
+    }
+
+    // 2. Panning canvas
     if (!isDragging) return;
     setPan({
       x: e.clientX - dragStart.x,
@@ -693,9 +1010,106 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     });
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    // 1. Released while dragging a state node
+    if (isDraggingNodeRef.current) {
+      const stateId = draggedNodeIdRef.current;
+      const wasMoved = nodeMovedRef.current;
+      if (draggedNodeElRef.current) {
+        draggedNodeElRef.current.classList.remove('dragging-state-node');
+      }
+      isDraggingNodeRef.current = false;
+      draggedNodeIdRef.current = null;
+      draggedNodeElRef.current = null;
+      setIsNodeDragging(false);
+
+      if (wasMoved && stateId) {
+        setNodeOffsets({ ...currentNodeOffsetsRef.current });
+        return;
+      }
+
+      // Click without drag -> select state and open inspector
+      if (!wasMoved && stateId) {
+        const targetNode = containerRef.current?.querySelector(`g.node[data-state-id="${stateId}"]`);
+        const stateLabel = targetNode?.getAttribute('data-state-label') || stateId;
+        handleSelectState(stateId, stateLabel);
+        return;
+      }
+    }
+
+    // 2. Released canvas panning
     setIsDragging(false);
+    const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
+    const dy = Math.abs(e.clientY - mouseDownPosRef.current.y);
+
+    // If mouse moved less than 6 pixels, treat as a click
+    if (dx < 6 && dy < 6) {
+      const target = e.target as Element;
+      // If clicking inside inspector or toolbar, don't change selection
+      if (target.closest('#state-style-inspector') || target.closest('#mermaid-toolbar')) {
+        return;
+      }
+
+      // Check if user clicked on a state node
+      const nodeEl =
+        target.closest('g.clickable-state-node') || target.closest('g.node[data-state-id]');
+      if (nodeEl) {
+        const stateId = nodeEl.getAttribute('data-state-id');
+        const stateLabel = nodeEl.getAttribute('data-state-label') || stateId || '';
+        if (stateId) {
+          handleSelectState(stateId, stateLabel);
+          return;
+        }
+      }
+
+      // Clicked on empty canvas background -> close inspector and deselect
+      if (effectiveSelectedStateId || isInspectorOpen) {
+        handleCloseInspector();
+      }
+    }
   };
+
+  // Window-level mouseup listener to guarantee drag never gets orphaned
+  useEffect(() => {
+    const handleWindowMouseUp = () => {
+      if (isDraggingNodeRef.current) {
+        const stateId = draggedNodeIdRef.current;
+        const wasMoved = nodeMovedRef.current;
+        if (draggedNodeElRef.current) {
+          draggedNodeElRef.current.classList.remove('dragging-state-node');
+        }
+        isDraggingNodeRef.current = false;
+        draggedNodeIdRef.current = null;
+        draggedNodeElRef.current = null;
+        setIsNodeDragging(false);
+
+        if (wasMoved && stateId) {
+          setNodeOffsets({ ...currentNodeOffsetsRef.current });
+        }
+      }
+      setIsDragging(false);
+    };
+
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    return () => {
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, []);
+
+  const handleResetLayout = () => {
+    currentNodeOffsetsRef.current = {};
+    setNodeOffsets({});
+    if (containerRef.current) {
+      const svg = containerRef.current.querySelector('svg');
+      if (svg) {
+        resetSvgNodeOffsets(svg);
+      }
+    }
+  };
+
+  const movedNodesCount = Object.keys(effectiveNodeOffsets).filter(
+    (id) => effectiveNodeOffsets[id].x !== 0 || effectiveNodeOffsets[id].y !== 0
+  ).length;
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -709,15 +1123,21 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   };
 
   const handleCopySvg = () => {
-    if (!svgContent) return;
-    navigator.clipboard.writeText(svgContent);
+    if (!containerRef.current) return;
+    const svg = containerRef.current.querySelector('svg');
+    const svgToExport = svg ? new XMLSerializer().serializeToString(svg) : svgContent;
+    if (!svgToExport) return;
+    navigator.clipboard.writeText(svgToExport);
     setCopiedSvg(true);
     setTimeout(() => setCopiedSvg(false), 2000);
   };
 
   const handleDownloadSvg = () => {
-    if (!svgContent) return;
-    const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+    if (!containerRef.current) return;
+    const svg = containerRef.current.querySelector('svg');
+    const svgToExport = svg ? new XMLSerializer().serializeToString(svg) : svgContent;
+    if (!svgToExport) return;
+    const blob = new Blob([svgToExport], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -752,10 +1172,67 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFullscreen) {
-        setIsFullscreen(false);
-        if (document.fullscreenElement) {
-          document.exitFullscreen?.().catch(() => {});
+      if (e.key === 'Escape') {
+        if (isDraggingNodeRef.current) {
+          const stateId = draggedNodeIdRef.current;
+          if (stateId && containerRef.current) {
+            const svg = containerRef.current.querySelector('svg');
+            if (svg) {
+              currentNodeOffsetsRef.current[stateId] = { ...nodeInitialOffsetRef.current };
+              applyNodeOffsetsToSvg(svg, currentNodeOffsetsRef.current, [stateId]);
+            }
+          }
+          if (draggedNodeElRef.current) {
+            draggedNodeElRef.current.classList.remove('dragging-state-node');
+          }
+          isDraggingNodeRef.current = false;
+          draggedNodeIdRef.current = null;
+          draggedNodeElRef.current = null;
+          setIsNodeDragging(false);
+          return;
+        }
+        if (isInspectorOpen) {
+          handleCloseInspector();
+          return;
+        }
+        if (isFullscreen) {
+          setIsFullscreen(false);
+          if (document.fullscreenElement) {
+            document.exitFullscreen?.().catch(() => {});
+          }
+        }
+      }
+
+      // Keyboard arrow keys to nudge selected state node position
+      if (effectiveSelectedStateId && !isInspectorOpen && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const isArrow =
+          e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight';
+        if (isArrow) {
+          const activeEl = document.activeElement;
+          const isTyping =
+            activeEl &&
+            (activeEl.tagName === 'INPUT' ||
+              activeEl.tagName === 'TEXTAREA' ||
+              activeEl.getAttribute('contenteditable') === 'true');
+          if (!isTyping) {
+            e.preventDefault();
+            const step = e.shiftKey ? 15 : 3;
+            const delta = {
+              x: e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0,
+              y: e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0,
+            };
+            const current = effectiveNodeOffsets[effectiveSelectedStateId] || { x: 0, y: 0 };
+            const next = { x: current.x + delta.x, y: current.y + delta.y };
+            const nextOffsets = { ...effectiveNodeOffsets, [effectiveSelectedStateId]: next };
+            currentNodeOffsetsRef.current = nextOffsets;
+            setNodeOffsets(nextOffsets);
+            if (containerRef.current) {
+              const svg = containerRef.current.querySelector('svg');
+              if (svg) {
+                applyNodeOffsetsToSvg(svg, nextOffsets, [effectiveSelectedStateId]);
+              }
+            }
+          }
         }
       }
     };
@@ -771,7 +1248,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [isFullscreen]);
+  }, [isFullscreen, isInspectorOpen, effectiveSelectedStateId, effectiveNodeOffsets]);
 
   return (
     <div
@@ -790,6 +1267,12 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             <span className={`inline-block w-2 h-2 rounded-full ${isFullscreen ? 'bg-sky-400 animate-pulse' : 'bg-emerald-400'}`}></span>
             <span className="hidden xl:inline">Interactive Diagram View</span>
             <span className="xl:hidden font-semibold">Diagram</span>
+          </div>
+
+          {/* Drag layout hint badge */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-900/80 border border-slate-800 text-[11px] text-slate-400 select-none">
+            <Move className="w-3 h-3 text-sky-400" />
+            <span>Drag nodes to adjust layout</span>
           </div>
 
           {/* Search Input for States and Transitions */}
@@ -861,6 +1344,46 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Node Styles Inspector Toggle */}
+          <button
+            id="toggle-node-styles-btn"
+            type="button"
+            onClick={handleToggleInspector}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium ${
+              isInspectorOpen
+                ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm ring-1 ring-sky-400/40'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
+            }`}
+            title="Customize State Node Colors (Background & Foreground)"
+          >
+            <Palette className="w-3.5 h-3.5 text-sky-400" />
+            <span className="hidden sm:inline">Node Styles</span>
+            {customizedStatesCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 font-bold text-[10px]">
+                {customizedStatesCount}
+              </span>
+            )}
+          </button>
+
+          {/* Reset Diagram Layout Button (shown when any node has been repositioned) */}
+          {movedNodesCount > 0 && (
+            <button
+              id="reset-diagram-layout-btn"
+              type="button"
+              onClick={handleResetLayout}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-medium transition-all shadow-sm"
+              title="Reset manual node positions back to default Mermaid layout"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Reset Layout</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-bold text-[10px]">
+                {movedNodesCount}
+              </span>
+            </button>
+          )}
+
+          <div className="w-[1px] h-4 bg-slate-800 mx-1"></div>
+
           <button
             id="zoom-out-button"
             type="button"
@@ -958,7 +1481,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             : mermaidTheme === 'neutral'
             ? 'bg-[#f5f5f4] bg-[radial-gradient(#d6d3d1_1px,transparent_1px)]'
             : 'bg-[#f8fafc] bg-[radial-gradient(#cbd5e1_1px,transparent_1px)]'
-        } ${isDragging ? 'cursor-grabbing' : ''}`}
+        } ${isDragging || isNodeDragging ? 'cursor-grabbing select-none' : ''}`}
       >
         {error ? (
           <div className="flex flex-col items-center justify-center h-full p-6 text-center text-rose-400 max-w-md mx-auto">
@@ -974,7 +1497,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transformOrigin: '0 0',
-              transition: isDragging ? 'none' : 'transform 0.05s ease-out',
+              transition: isDragging || isNodeDragging ? 'none' : 'transform 0.05s ease-out',
             }}
             className="w-full h-full p-8 select-none flex items-center justify-center [&>svg]:max-w-none [&>svg]:max-h-none"
             dangerouslySetInnerHTML={{ __html: svgContent }}
@@ -983,6 +1506,24 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
           <div className="flex items-center justify-center h-full text-slate-500 text-sm">
             Diagram will appear here once generated
           </div>
+        )}
+
+        {/* Floating State Node Style Inspector */}
+        {isInspectorOpen && effectiveSelectedStateId && (
+          <StateNodeStyleInspector
+            selectedStateId={effectiveSelectedStateId}
+            selectedStateLabel={effectiveSelectedStateLabel}
+            availableStates={availableStates}
+            customStyles={effectiveCustomStyles}
+            onStyleChange={handleStyleChange}
+            onResetStateStyle={handleResetStateStyle}
+            onClearAllCustomStyles={handleClearAllCustomStyles}
+            onSelectState={(id, label) => {
+              handleSelectState(id, label);
+              if (id) panToState(id);
+            }}
+            onClose={handleCloseInspector}
+          />
         )}
       </div>
     </div>

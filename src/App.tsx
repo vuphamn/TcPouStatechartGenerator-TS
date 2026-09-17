@@ -14,12 +14,16 @@ import {
   AlertTriangle,
   PanelLeftClose,
   PanelLeftOpen,
+  Palette,
 } from 'lucide-react';
 import { generateStatechart, PriorityFormat } from './generator.ts';
 import { MermaidViewer, LayoutEngine, FlowchartCurve, MermaidTheme } from './components/MermaidViewer.tsx';
+import { MermaidMarkdownViewer } from './components/MermaidMarkdownViewer.tsx';
 import { FileDropzone } from './components/FileDropzone.tsx';
 import { SAMPLES, SampleItem } from './samples/samplesData.ts';
 import { getMermaidLiveUrl } from './utils/mermaidLive.ts';
+import { CustomNodeStylesMap, NodeDisplayProperties } from './types.ts';
+import { applyCustomStylesToMermaid } from './utils/nodeStyles.ts';
 
 export const App: React.FC = () => {
   // Active sample or custom state
@@ -49,7 +53,14 @@ export const App: React.FC = () => {
   const [diagramSearchQuery, setDiagramSearchQuery] = useState<string>('');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [copiedMarkdown, setCopiedMarkdown] = useState<boolean>(false);
-  const [outputMarkdown, setOutputMarkdown] = useState<string>('');
+
+  // Node display customizations
+  const [customNodeStyles, setCustomNodeStyles] = useState<CustomNodeStylesMap>({});
+  const [selectedStateId, setSelectedStateId] = useState<string | null>(null);
+  const [selectedStateLabel, setSelectedStateLabel] = useState<string>('');
+
+  // Raw generated Mermaid Markdown
+  const [rawMarkdown, setRawMarkdown] = useState<string>('');
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generationStats, setGenerationStats] = useState<{
     statesCount: number;
@@ -60,7 +71,7 @@ export const App: React.FC = () => {
   // Core generation logic
   const handleGenerate = useCallback(() => {
     if (!dutContent.trim() && !pouContent.trim()) {
-      setOutputMarkdown('');
+      setRawMarkdown('');
       setGenerationError('Please provide both .TcDUT and .TcPOU content.');
       setGenerationStats(null);
       return;
@@ -78,7 +89,7 @@ export const App: React.FC = () => {
       });
 
       const elapsed = Math.round(performance.now() - startTime);
-      setOutputMarkdown(result);
+      setRawMarkdown(result);
 
       // Simple stats extraction
       const lines = result.split('\n');
@@ -91,7 +102,7 @@ export const App: React.FC = () => {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setGenerationError(msg);
-      setOutputMarkdown('');
+      setRawMarkdown('');
       setGenerationStats(null);
     }
   }, [
@@ -103,6 +114,36 @@ export const App: React.FC = () => {
     showTransitionPriorities,
     priorityFormat,
   ]);
+
+  // Apply custom node styles to Mermaid markdown
+  const outputMarkdown = useMemo(() => {
+    return applyCustomStylesToMermaid(rawMarkdown, customNodeStyles);
+  }, [rawMarkdown, customNodeStyles]);
+
+  const handleStyleChange = useCallback((stateId: string, style: NodeDisplayProperties) => {
+    setCustomNodeStyles((prev) => ({
+      ...prev,
+      [stateId]: style,
+    }));
+  }, []);
+
+  const handleResetStateStyle = useCallback((stateId: string) => {
+    setCustomNodeStyles((prev) => {
+      const next = { ...prev };
+      delete next[stateId];
+      return next;
+    });
+  }, []);
+
+  const handleClearAllCustomStyles = useCallback(() => {
+    setCustomNodeStyles({});
+  }, []);
+
+  const customizedStatesCount = useMemo(() => {
+    return Object.values(customNodeStyles).filter(
+      (s) => s.fill || s.color || s.stroke || s.strokeWidth
+    ).length;
+  }, [customNodeStyles]);
 
   // Initial & reactive generation
   useEffect(() => {
@@ -120,6 +161,9 @@ export const App: React.FC = () => {
     setPouContent(sample.pouContent);
     setFlowchartOutput(sample.defaultFlowchart);
     setIncludeStateDescriptions(sample.defaultIncludeDescriptions);
+    setCustomNodeStyles({});
+    setSelectedStateId(null);
+    setSelectedStateLabel('');
   };
 
   // Actions
@@ -464,6 +508,24 @@ export const App: React.FC = () => {
               <option value="default">default</option>
             </select>
           </div>
+
+          {/* Custom Node Styles Count Badge */}
+          {customizedStatesCount > 0 && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-sky-950/60 border border-sky-800/60 text-sky-400 text-[11px]">
+              <Palette className="w-3 h-3" />
+              <span>
+                {customizedStatesCount} custom state{customizedStatesCount > 1 ? 's' : ''}
+              </span>
+              <button
+                type="button"
+                onClick={handleClearAllCustomStyles}
+                className="ml-1 p-0.5 text-slate-400 hover:text-rose-400 transition-colors"
+                title="Reset all custom state node styles"
+              >
+                <RotateCcw className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Stats & Live update toggle */}
@@ -619,23 +681,24 @@ export const App: React.FC = () => {
                 mermaidTheme={mermaidTheme}
                 searchQuery={diagramSearchQuery}
                 onSearchQueryChange={setDiagramSearchQuery}
+                selectedStateId={selectedStateId}
+                selectedStateLabel={selectedStateLabel}
+                onSelectState={(id, label) => {
+                  setSelectedStateId(id);
+                  if (label) setSelectedStateLabel(label);
+                }}
+                customStyles={customNodeStyles}
+                onStyleChange={handleStyleChange}
+                onResetStateStyle={handleResetStateStyle}
+                onClearAllCustomStyles={handleClearAllCustomStyles}
               />
             ) : (
-              <div
-                id="markdown-code-view"
-                className="w-full h-full bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden"
-              >
-                <div className="flex items-center justify-between px-4 py-2 bg-slate-950/70 border-b border-slate-800 text-xs text-slate-400 font-mono">
-                  <span>output.statechart.md</span>
-                  <span>{outputMarkdown.split('\n').length} lines</span>
-                </div>
-                <textarea
-                  id="markdown-output-textarea"
-                  readOnly
-                  value={outputMarkdown}
-                  className="flex-1 w-full bg-slate-900 text-slate-200 font-mono text-xs p-4 resize-none focus:outline-none leading-relaxed select-all"
-                />
-              </div>
+              <MermaidMarkdownViewer
+                code={outputMarkdown}
+                fileName={`${pouFileName.replace(/\.TcPOU$/i, '') || 'statechart'}.statechart.md`}
+                searchQuery={diagramSearchQuery}
+                onSearchQueryChange={setDiagramSearchQuery}
+              />
             )}
           </div>
         </main>
