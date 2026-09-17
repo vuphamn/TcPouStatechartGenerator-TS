@@ -15,8 +15,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
-import { generateStatechart } from './generator.ts';
-import { MermaidViewer } from './components/MermaidViewer.tsx';
+import { generateStatechart, PriorityFormat } from './generator.ts';
+import { MermaidViewer, LayoutEngine, FlowchartCurve, MermaidTheme } from './components/MermaidViewer.tsx';
 import { FileDropzone } from './components/FileDropzone.tsx';
 import { SAMPLES, SampleItem } from './samples/samplesData.ts';
 import { getMermaidLiveUrl } from './utils/mermaidLive.ts';
@@ -38,10 +38,15 @@ export const App: React.FC = () => {
     SAMPLES[0].defaultIncludeDescriptions
   );
   const [showTransitionPriorities, setShowTransitionPriorities] = useState<boolean>(true);
+  const [priorityFormat, setPriorityFormat] = useState<PriorityFormat>('circled');
+  const [layoutEngine, setLayoutEngine] = useState<LayoutEngine>('elk');
+  const [flowchartCurve, setFlowchartCurve] = useState<FlowchartCurve>('basis');
+  const [mermaidTheme, setMermaidTheme] = useState<MermaidTheme>('dark');
   const [liveUpdate, setLiveUpdate] = useState<boolean>(true);
 
   // UI tabs & states
   const [activeTab, setActiveTab] = useState<'diagram' | 'markdown'>('diagram');
+  const [diagramSearchQuery, setDiagramSearchQuery] = useState<string>('');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [copiedMarkdown, setCopiedMarkdown] = useState<boolean>(false);
   const [outputMarkdown, setOutputMarkdown] = useState<string>('');
@@ -69,6 +74,7 @@ export const App: React.FC = () => {
         collapseErrorSinkEdges,
         includeStateDescriptions,
         showTransitionPriorities,
+        priorityFormat,
       });
 
       const elapsed = Math.round(performance.now() - startTime);
@@ -95,6 +101,7 @@ export const App: React.FC = () => {
     collapseErrorSinkEdges,
     includeStateDescriptions,
     showTransitionPriorities,
+    priorityFormat,
   ]);
 
   // Initial & reactive generation
@@ -139,7 +146,11 @@ export const App: React.FC = () => {
 
   const handleOpenMermaidLive = () => {
     if (!outputMarkdown) return;
-    const liveUrl = getMermaidLiveUrl(outputMarkdown);
+    const liveUrl = getMermaidLiveUrl(outputMarkdown, {
+      layout: layoutEngine,
+      curve: flowchartCurve,
+      theme: mermaidTheme,
+    });
     window.open(liveUrl, '_blank', 'noopener,noreferrer');
   };
 
@@ -275,6 +286,7 @@ export const App: React.FC = () => {
               id="format-flowchart-btn"
               type="button"
               onClick={() => setFlowchartOutput(true)}
+              title="Flowchart format (TD): Direct transition arrows with subgraph hierarchy"
               className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
                 flowchartOutput ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
               }`}
@@ -285,6 +297,7 @@ export const App: React.FC = () => {
               id="format-statediagram-btn"
               type="button"
               onClick={() => setFlowchartOutput(false)}
+              title="State diagram format (v2): Standard UML statechart notation"
               className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
                 !flowchartOutput ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
               }`}
@@ -317,17 +330,140 @@ export const App: React.FC = () => {
             <span className="text-slate-300">Include state descriptions</span>
           </label>
 
-          {/* Show transition priorities */}
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              id="show-priorities-checkbox"
-              type="checkbox"
-              checked={showTransitionPriorities}
-              onChange={(e) => setShowTransitionPriorities(e.target.checked)}
-              className="rounded bg-slate-950 border-slate-700 text-sky-500 focus:ring-sky-500 focus:ring-offset-slate-900"
-            />
-            <span className="text-slate-300">Transition priorities</span>
-          </label>
+          {/* Show transition priorities & format */}
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                id="show-priorities-checkbox"
+                type="checkbox"
+                checked={showTransitionPriorities}
+                onChange={(e) => setShowTransitionPriorities(e.target.checked)}
+                className="rounded bg-slate-950 border-slate-700 text-sky-500 focus:ring-sky-500 focus:ring-offset-slate-900"
+              />
+              <span className="text-slate-300">Priorities</span>
+            </label>
+
+            {showTransitionPriorities && (
+              <div
+                id="priority-format-toggle"
+                className="flex items-center bg-slate-950 p-0.5 rounded-md border border-slate-800 text-[11px]"
+              >
+                <button
+                  id="prio-format-paren"
+                  type="button"
+                  onClick={() => setPriorityFormat('paren')}
+                  title="Parentheses format: (1) - clean, standard text, universal font support in mermaid.live"
+                  className={`px-2 py-0.5 rounded font-mono transition-colors ${
+                    priorityFormat === 'paren'
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  (1)
+                </button>
+                <button
+                  id="prio-format-bracket"
+                  type="button"
+                  onClick={() => setPriorityFormat('bracket')}
+                  title="Bracket format: [1] - standard UML index notation"
+                  className={`px-2 py-0.5 rounded font-mono transition-colors ${
+                    priorityFormat === 'bracket'
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  [1]
+                </button>
+                <button
+                  id="prio-format-circled"
+                  type="button"
+                  onClick={() => setPriorityFormat('circled')}
+                  title="Circled Unicode format: ① - TwinCAT visual circled style"
+                  className={`px-2 py-0.5 rounded font-mono transition-colors ${
+                    priorityFormat === 'circled'
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  ①
+                </button>
+              </div>
+            )}
+          </div>
+          {/* Layout Engine: Dagre vs ELK */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400 text-[11px] font-medium">Engine:</span>
+            <div
+              id="layout-engine-toggle"
+              className="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[11px]"
+            >
+              <button
+                id="layout-engine-dagre"
+                type="button"
+                onClick={() => setLayoutEngine('dagre')}
+                title="Dagre layout engine: classic Mermaid hierarchical DAG layout"
+                className={`px-2.5 py-0.5 rounded-md font-medium transition-colors ${
+                  layoutEngine === 'dagre'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Dagre
+              </button>
+              <button
+                id="layout-engine-elk"
+                type="button"
+                onClick={() => setLayoutEngine('elk')}
+                title="ELK (Eclipse Layout Kernel) engine: advanced layered routing matching mermaid.live ELK option"
+                className={`px-2.5 py-0.5 rounded-md font-medium transition-colors ${
+                  layoutEngine === 'elk'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                ELK
+              </button>
+            </div>
+          </div>
+
+          {/* Flowchart Curve Interpolation */}
+          {flowchartOutput && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 text-[11px] font-medium">Curve:</span>
+              <select
+                id="flowchart-curve-select"
+                value={flowchartCurve}
+                onChange={(e) => setFlowchartCurve(e.target.value as FlowchartCurve)}
+                className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500 cursor-pointer"
+                title="Flowchart link curve interpolation (basis, linear, cardinal, stepAfter, etc.)"
+              >
+                <option value="basis">basis (Smooth Spline)</option>
+                <option value="linear">linear (Straight Lines)</option>
+                <option value="cardinal">cardinal (Pass-through)</option>
+                <option value="stepAfter">stepAfter (Stepped Orthogonal)</option>
+                <option value="monotoneX">monotoneX (Monotone Smooth)</option>
+                <option value="natural">natural (Natural Spline)</option>
+              </select>
+            </div>
+          )}
+
+          {/* Theme Preset Dropdown */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400 text-[11px] font-medium">Theme:</span>
+            <select
+              id="mermaid-theme-select"
+              value={mermaidTheme}
+              onChange={(e) => setMermaidTheme(e.target.value as MermaidTheme)}
+              className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500 cursor-pointer"
+              title="Mermaid theme preset (dark, base, forest, neutral, default)"
+            >
+              <option value="dark">dark</option>
+              <option value="base">base</option>
+              <option value="forest">forest</option>
+              <option value="neutral">neutral</option>
+              <option value="default">default</option>
+            </select>
+          </div>
         </div>
 
         {/* Stats & Live update toggle */}
@@ -476,7 +612,14 @@ export const App: React.FC = () => {
           {/* Tab Content */}
           <div className="flex-1 min-h-0 relative">
             {activeTab === 'diagram' ? (
-              <MermaidViewer code={outputMarkdown} />
+              <MermaidViewer
+                code={outputMarkdown}
+                layoutEngine={layoutEngine}
+                flowchartCurve={flowchartCurve}
+                mermaidTheme={mermaidTheme}
+                searchQuery={diagramSearchQuery}
+                onSearchQueryChange={setDiagramSearchQuery}
+              />
             ) : (
               <div
                 id="markdown-code-view"

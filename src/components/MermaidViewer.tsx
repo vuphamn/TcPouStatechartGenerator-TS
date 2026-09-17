@@ -1,23 +1,52 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
-import { ZoomIn, ZoomOut, RotateCcw, Maximize2, Minimize2, AlertCircle, Copy, Check } from 'lucide-react';
+import elkLayouts from '@mermaid-js/layout-elk';
+import {
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Maximize2,
+  Minimize2,
+  AlertCircle,
+  Copy,
+  Check,
+  Download,
+  Search,
+  X,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'dark',
-  securityLevel: 'loose',
-  flowchart: {
-    useMaxWidth: false,
-    htmlLabels: true,
-    curve: 'basis',
-  },
-  state: {
-    useMaxWidth: false,
-  },
-});
+export type LayoutEngine = 'dagre' | 'elk';
+export type FlowchartCurve = 'basis' | 'linear' | 'cardinal' | 'stepAfter' | 'monotoneX' | 'natural';
+export type MermaidTheme = 'dark' | 'neutral' | 'forest' | 'base' | 'default';
 
-interface MermaidViewerProps {
+let elkRegistered = false;
+function ensureElkRegistered() {
+  if (!elkRegistered && typeof mermaid.registerLayoutLoaders === 'function') {
+    try {
+      mermaid.registerLayoutLoaders(elkLayouts);
+      elkRegistered = true;
+    } catch (e) {
+      console.warn('Failed to register ELK layout loaders:', e);
+    }
+  }
+}
+
+export interface MermaidViewerProps {
   code: string;
+  layoutEngine?: LayoutEngine;
+  flowchartCurve?: FlowchartCurve;
+  mermaidTheme?: MermaidTheme;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
+}
+
+interface SearchMatchItem {
+  type: 'state' | 'transition';
+  name: string;
+  element: Element;
+  associatedPaths?: Element[];
 }
 
 interface ParsedPath {
@@ -33,6 +62,16 @@ interface ParsedPath {
 
 function extractPriorityFromText(text: string): { priority: number; symbol: string } | null {
   if (!text) return null;
+  // Check (1) or (2)...
+  const mParen = text.match(/(?:^|\s)\((\d+)\)/);
+  if (mParen) {
+    return { priority: parseInt(mParen[1], 10), symbol: `(${mParen[1]})` };
+  }
+  // Check [1] or [2]...
+  const mBracket = text.match(/(?:^|\s)\[(\d+)\]/);
+  if (mBracket) {
+    return { priority: parseInt(mBracket[1], 10), symbol: `[${mBracket[1]}]` };
+  }
   // Check Unicode circled numbers ①..⑳ (0x2460..0x2473)
   for (let i = 1; i <= 20; i++) {
     const sym = String.fromCodePoint(0x2460 + i - 1);
@@ -128,15 +167,22 @@ function getLabelPos(el: Element): { x: number; y: number } | null {
 }
 
 function cleanSymbolFromLabel(labelEl: Element, symbol: string) {
-  const textNodes = labelEl.querySelectorAll('tspan, text, span, p, div');
-  if (textNodes.length > 0) {
-    textNodes.forEach((node) => {
-      if (node.textContent && node.textContent.includes(symbol)) {
-        node.textContent = node.textContent.replace(symbol, '').trim();
+  try {
+    const doc = labelEl.ownerDocument;
+    const walker = doc.createTreeWalker(labelEl, 4 /* NodeFilter.SHOW_TEXT */);
+    let textNode = walker.nextNode();
+    while (textNode) {
+      if (textNode.nodeValue && textNode.nodeValue.includes(symbol)) {
+        textNode.nodeValue = textNode.nodeValue.replace(symbol, '').trim();
+        break;
       }
-    });
-  } else if (labelEl.textContent && labelEl.textContent.includes(symbol)) {
-    labelEl.textContent = labelEl.textContent.replace(symbol, '').trim();
+      textNode = walker.nextNode();
+    }
+  } catch {
+    // Fallback if TreeWalker is unsupported
+    if (labelEl.textContent && labelEl.textContent.includes(symbol)) {
+      labelEl.textContent = labelEl.textContent.replace(symbol, '').trim();
+    }
   }
 }
 
@@ -148,114 +194,154 @@ function enhanceSvgWithPriorityCircles(svgString: string): string {
     const svgEl = doc.documentElement;
     if (!svgEl || svgEl.nodeName.toLowerCase() === 'parsererror') return svgString;
 
-    const edgeLabels = Array.from(doc.querySelectorAll('.edgeLabel, .edgeLabels .edgeLabel'));
-    if (edgeLabels.length === 0) return svgString;
+    // Find all edgePaths groups across root and subgraphs / composite states
+    const pGroups = Array.from(doc.querySelectorAll('g.edgePaths'));
+    if (pGroups.length === 0) return svgString;
 
-    const allPaths = Array.from(
-      doc.querySelectorAll('.edgePath path, .edgePaths path, path.transition, path.path')
-    ).filter((p) => !p.closest('defs') && !p.closest('marker') && p.getAttribute('d'));
+    let anyBadgeAdded = false;
 
-    const parsedPaths: ParsedPath[] = [];
-    for (const p of allPaths) {
-      const parsed = parsePathData(p);
-      if (parsed) parsedPaths.push(parsed);
-    }
+    for (const pGroup of pGroups) {
+      const parent = pGroup.parentElement;
+      if (!parent) continue;
 
-    if (parsedPaths.length === 0) return svgString;
+      // Find matching edgeLabels group within the same cluster container
+      const lGroup =
+        parent.querySelector(':scope > g.edgeLabels') ||
+        Array.from(parent.children).find((c) => c.classList && c.classList.contains('edgeLabels'));
 
-    const usedPaths = new Set<ParsedPath>();
-    const badgesToDraw: { cx: number; cy: number; priority: number }[] = [];
+      if (!lGroup) continue;
 
-    for (const labelEl of edgeLabels) {
-      const text = labelEl.textContent || '';
-      const prioInfo = extractPriorityFromText(text);
-      if (!prioInfo) continue;
+      const paths = Array.from(pGroup.querySelectorAll('path')).filter(
+        (p) => !p.closest('defs') && !p.closest('marker') && p.getAttribute('d')
+      );
+      const labels = Array.from(lGroup.querySelectorAll('g.edgeLabel'));
 
-      const labelPos = getLabelPos(labelEl);
+      if (paths.length === 0 || labels.length === 0) continue;
 
-      // Try matching by class/id tokens first (e.g. LS-X LE-Y)
-      let matchedPath: ParsedPath | null = null;
-      const labelClass = labelEl.getAttribute('class') || '';
-      const classTokens = labelClass.match(/L[SE]-[A-Za-z0-9_]+/g);
+      // Dedicated priority layer inside this cluster (rendered directly after edgePaths)
+      const clusterBadgeLayer = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
+      clusterBadgeLayer.setAttribute('class', 'priority-badges-cluster');
 
-      if (classTokens && classTokens.length > 0) {
-        for (const pp of parsedPaths) {
-          if (usedPaths.has(pp)) continue;
-          if (classTokens.every((tok) => pp.classes.includes(tok) || pp.id.includes(tok))) {
-            matchedPath = pp;
-            break;
+      const usedPathIndices = new Set<number>();
+
+      for (let i = 0; i < labels.length; i++) {
+        const labelEl = labels[i];
+        const text = labelEl.textContent || '';
+        const prioInfo = extractPriorityFromText(text);
+        if (!prioInfo) continue;
+
+        // In Mermaid, edges and labels can be linked via data-id (ELK / Flowchart-v2) or 1-to-1 index (Dagre)
+        let pathEl: Element | null = null;
+
+        // 1. Check data-id attribute (Flowchart-v2 / ELK provides matching data-id on path and label)
+        const labelDataId =
+          labelEl.getAttribute('data-id') ||
+          labelEl.querySelector('[data-id]')?.getAttribute('data-id');
+        if (labelDataId) {
+          const match = paths.find(
+            (p) => p.getAttribute('data-id') === labelDataId && !usedPathIndices.has(paths.indexOf(p))
+          );
+          if (match) {
+            pathEl = match;
+            usedPathIndices.add(paths.indexOf(match));
           }
         }
-      }
 
-      // Fallback: match by geometric distance
-      if (!matchedPath && labelPos) {
-        let bestDist = Infinity;
-        for (const pp of parsedPaths) {
-          if (usedPaths.has(pp)) continue;
-          const dist = minDistanceToPath(labelPos, pp.allPoints);
-          if (dist < bestDist) {
-            bestDist = dist;
-            matchedPath = pp;
+        // 2. 1-to-1 index matching (Standard Dagre behavior where edgePaths and edgeLabels have identical counts)
+        if (!pathEl && i < paths.length && !usedPathIndices.has(i)) {
+          pathEl = paths[i];
+          usedPathIndices.add(i);
+        }
+
+        // 3. Proximity fallback: find the closest path whose spline points pass near the label
+        if (!pathEl) {
+          const labelPos = getLabelPos(labelEl);
+          if (labelPos) {
+            let bestDist = Infinity;
+            let bestIdx = -1;
+            for (let pIdx = 0; pIdx < paths.length; pIdx++) {
+              if (usedPathIndices.has(pIdx)) continue;
+              const pData = parsePathData(paths[pIdx]);
+              if (!pData) continue;
+              const dist = minDistanceToPath(labelPos, pData.allPoints);
+              if (dist < bestDist) {
+                bestDist = dist;
+                bestIdx = pIdx;
+              }
+            }
+            if (bestIdx >= 0 && bestDist < 150) {
+              pathEl = paths[bestIdx];
+              usedPathIndices.add(bestIdx);
+            }
           }
         }
-      }
 
-      if (matchedPath) {
-        usedPaths.add(matchedPath);
-        // Position circle badge 10px from edge start endpoint along direction
-        const offset = 10;
-        const cx = matchedPath.startX + matchedPath.dirX * offset;
-        const cy = matchedPath.startY + matchedPath.dirY * offset;
-        badgesToDraw.push({ cx, cy, priority: prioInfo.priority });
+        // 4. Fallback: search for first unused path in this cluster
+        if (!pathEl) {
+          for (let pIdx = 0; pIdx < paths.length; pIdx++) {
+            if (!usedPathIndices.has(pIdx)) {
+              pathEl = paths[pIdx];
+              usedPathIndices.add(pIdx);
+              break;
+            }
+          }
+        }
 
-        // Clean symbol from label in diagram view
+        if (!pathEl) continue;
+
+        const parsed = parsePathData(pathEl);
+        if (!parsed) continue;
+
+        // Position badge 20px from edge start endpoint along direction vector to ensure clean clearance from state border
+        const offset = 20;
+        const cx = parsed.startX + parsed.dirX * offset;
+        const cy = parsed.startY + parsed.dirY * offset;
+
+        // TwinCAT XAE UML Statechart style circular badge
+        const badgeG = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
+        badgeG.setAttribute('class', 'priority-badge tc-priority-badge');
+        const pathDataId = pathEl.getAttribute('id') || pathEl.getAttribute('data-id') || `path-${paths.indexOf(pathEl as SVGPathElement)}`;
+        badgeG.setAttribute('data-path-id', pathDataId);
+        if (!pathEl.getAttribute('data-path-id')) {
+          pathEl.setAttribute('data-path-id', pathDataId);
+        }
+
+        const circle = doc.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', cx.toFixed(1));
+        circle.setAttribute('cy', cy.toFixed(1));
+        circle.setAttribute('r', '8.5');
+        circle.setAttribute('fill', '#ffffff');
+        circle.setAttribute('stroke', '#0f172a');
+        circle.setAttribute('stroke-width', '1.5');
+        circle.setAttribute('filter', 'drop-shadow(0px 1px 2px rgba(0,0,0,0.35))');
+
+        const textEl = doc.createElementNS('http://www.w3.org/2000/svg', 'text');
+        textEl.setAttribute('x', cx.toFixed(1));
+        textEl.setAttribute('y', cy.toFixed(1));
+        textEl.setAttribute('text-anchor', 'middle');
+        textEl.setAttribute('dominant-baseline', 'central');
+        textEl.setAttribute('font-family', 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+        textEl.setAttribute('font-size', prioInfo.priority >= 10 ? '9' : '10.5');
+        textEl.setAttribute('font-weight', '700');
+        textEl.setAttribute('fill', '#0f172a');
+        textEl.textContent = String(prioInfo.priority);
+
+        badgeG.appendChild(circle);
+        badgeG.appendChild(textEl);
+        clusterBadgeLayer.appendChild(badgeG);
+        anyBadgeAdded = true;
+
+        // Clean priority symbol from label text
         cleanSymbolFromLabel(labelEl, prioInfo.symbol);
       }
+
+      if (clusterBadgeLayer.childNodes.length > 0) {
+        // Append as last child of parent container so badges render on top of nodes and edges in SVG painter's model
+        parent.appendChild(clusterBadgeLayer);
+      }
     }
 
-    if (badgesToDraw.length === 0) return svgString;
-
-    // Create or get priority circles layer
-    let layer: Element | null = doc.getElementById('priority-circles-layer');
-    if (!layer) {
-      const gLayer = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
-      gLayer.setAttribute('id', 'priority-circles-layer');
-      gLayer.setAttribute('class', 'priority-layer');
-      svgEl.appendChild(gLayer);
-      layer = gLayer;
-    }
-
-    for (const badge of badgesToDraw) {
-      const g = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
-      g.setAttribute('class', 'priority-badge');
-
-      // Outer circle: TwinCAT XAE styling (crisp white circle, 1.5px dark border)
-      const circle = doc.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('cx', badge.cx.toFixed(1));
-      circle.setAttribute('cy', badge.cy.toFixed(1));
-      circle.setAttribute('r', '9');
-      circle.setAttribute('fill', '#ffffff');
-      circle.setAttribute('stroke', '#0f172a');
-      circle.setAttribute('stroke-width', '1.5');
-      circle.setAttribute('filter', 'drop-shadow(0px 1px 2px rgba(0,0,0,0.35))');
-
-      // Centered priority number
-      const text = doc.createElementNS('http://www.w3.org/2000/svg', 'text');
-      text.setAttribute('x', badge.cx.toFixed(1));
-      text.setAttribute('y', badge.cy.toFixed(1));
-      text.setAttribute('text-anchor', 'middle');
-      text.setAttribute('dominant-baseline', 'central');
-      text.setAttribute('font-family', 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
-      text.setAttribute('font-size', badge.priority >= 10 ? '9.5' : '11');
-      text.setAttribute('font-weight', '700');
-      text.setAttribute('fill', '#0f172a');
-      text.textContent = String(badge.priority);
-
-      g.appendChild(circle);
-      g.appendChild(text);
-      layer.appendChild(g);
-    }
+    if (!anyBadgeAdded) return svgString;
 
     const serializer = new XMLSerializer();
     return serializer.serializeToString(doc);
@@ -265,8 +351,16 @@ function enhanceSvgWithPriorityCircles(svgString: string): string {
   }
 }
 
-export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code }) => {
+export const MermaidViewer: React.FC<MermaidViewerProps> = ({
+  code,
+  layoutEngine = 'elk',
+  flowchartCurve = 'basis',
+  mermaidTheme = 'dark',
+  searchQuery: externalSearchQuery,
+  onSearchQueryChange,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [svgContent, setSvgContent] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState<number>(1);
@@ -275,6 +369,270 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code }) => {
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [copiedSvg, setCopiedSvg] = useState<boolean>(false);
+
+  // Search state
+  const [internalSearchQuery, setInternalSearchQuery] = useState<string>('');
+  const effectiveSearchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
+  const [matches, setMatches] = useState<SearchMatchItem[]>([]);
+  const [activeMatchIndex, setActiveMatchIndex] = useState<number>(0);
+  const [matchesBreakdown, setMatchesBreakdown] = useState<{ states: number; transitions: number }>({
+    states: 0,
+    transitions: 0,
+  });
+
+  const panToElement = (elem: Element) => {
+    if (!containerRef.current) return;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const elemRect = elem.getBoundingClientRect();
+
+    if (elemRect.width === 0 && elemRect.height === 0) return;
+
+    const currentElemCenterX = elemRect.left + elemRect.width / 2;
+    const currentElemCenterY = elemRect.top + elemRect.height / 2;
+    const targetCenterX = containerRect.left + containerRect.width / 2;
+    const targetCenterY = containerRect.top + containerRect.height / 2;
+
+    const deltaX = targetCenterX - currentElemCenterX;
+    const deltaY = targetCenterY - currentElemCenterY;
+
+    setPan((prev) => ({
+      x: prev.x + deltaX,
+      y: prev.y + deltaY,
+    }));
+  };
+
+  const clearHighlighting = () => {
+    if (!containerRef.current) return;
+    const svg = containerRef.current.querySelector('svg');
+    if (!svg) return;
+
+    svg.classList.remove('diagram-search-active');
+    const prevHighlighted = svg.querySelectorAll(
+      '.diagram-match-node, .diagram-match-edge, .diagram-match-path, .diagram-match-active'
+    );
+    prevHighlighted.forEach((el) => {
+      el.classList.remove(
+        'diagram-match-node',
+        'diagram-match-edge',
+        'diagram-match-path',
+        'diagram-match-active'
+      );
+    });
+  };
+
+  const applySearchHighlighting = (
+    query: string,
+    targetActiveIndex = 0,
+    shouldPan = false
+  ) => {
+    if (!containerRef.current) return;
+    const svg = containerRef.current.querySelector('svg');
+    if (!svg) return;
+
+    const term = query.trim().toLowerCase();
+
+    // Reset previous search classes
+    clearHighlighting();
+
+    if (!term) {
+      setMatches([]);
+      setMatchesBreakdown({ states: 0, transitions: 0 });
+      setActiveMatchIndex(0);
+      return;
+    }
+
+    svg.classList.add('diagram-search-active');
+
+    const newMatches: SearchMatchItem[] = [];
+    let stateMatches = 0;
+    let transitionMatches = 0;
+
+    // 1. Match States (g.node)
+    const nodes = Array.from(svg.querySelectorAll('g.node'));
+    nodes.forEach((node) => {
+      const text = node.textContent || '';
+      if (text.toLowerCase().includes(term)) {
+        node.classList.add('diagram-match-node');
+        stateMatches++;
+        newMatches.push({
+          type: 'state',
+          name: text.trim().replace(/\s+/g, ' '),
+          element: node,
+        });
+      }
+    });
+
+    // 2. Match Transitions (g.edgeLabel & corresponding paths)
+    const pGroup = svg.querySelector('g.edgePaths');
+    const allPaths = pGroup
+      ? Array.from(pGroup.querySelectorAll('path')).filter(
+          (p) => !p.closest('defs') && p.getAttribute('d')
+        )
+      : [];
+    const edgeLabels = Array.from(svg.querySelectorAll('g.edgeLabel'));
+
+    edgeLabels.forEach((labelEl, idx) => {
+      const text = labelEl.textContent || '';
+      if (text.toLowerCase().includes(term)) {
+        labelEl.classList.add('diagram-match-edge');
+        transitionMatches++;
+
+        // Find linked path
+        let matchedPath: Element | null = null;
+        const labelDataId =
+          labelEl.getAttribute('data-id') ||
+          labelEl.querySelector('[data-id]')?.getAttribute('data-id');
+
+        if (labelDataId) {
+          matchedPath =
+            allPaths.find((p) => p.getAttribute('data-id') === labelDataId) ||
+            null;
+        }
+
+        if (!matchedPath && idx < allPaths.length) {
+          matchedPath = allPaths[idx];
+        }
+
+        const associatedPaths: Element[] = [];
+        if (matchedPath) {
+          matchedPath.classList.add('diagram-match-path');
+          associatedPaths.push(matchedPath);
+
+          const pathId =
+            matchedPath.getAttribute('id') ||
+            matchedPath.getAttribute('data-id') ||
+            matchedPath.getAttribute('data-path-id') ||
+            String(allPaths.indexOf(matchedPath as SVGPathElement));
+
+          const badges = svg.querySelectorAll(
+            `.tc-priority-badge[data-path-id="${pathId}"]`
+          );
+          badges.forEach((b) => {
+            b.classList.add('diagram-match-path');
+            associatedPaths.push(b);
+          });
+        }
+
+        newMatches.push({
+          type: 'transition',
+          name: text.trim().replace(/\s+/g, ' '),
+          element: labelEl,
+          associatedPaths,
+        });
+      }
+    });
+
+    setMatches(newMatches);
+    setMatchesBreakdown({ states: stateMatches, transitions: transitionMatches });
+
+    if (newMatches.length > 0) {
+      const idx = Math.max(0, Math.min(targetActiveIndex, newMatches.length - 1));
+      setActiveMatchIndex(idx);
+      const activeMatch = newMatches[idx];
+      activeMatch.element.classList.add('diagram-match-active');
+      activeMatch.associatedPaths?.forEach((p) =>
+        p.classList.add('diagram-match-active')
+      );
+
+      if (shouldPan) {
+        panToElement(activeMatch.element);
+      }
+    } else {
+      setActiveMatchIndex(0);
+    }
+  };
+
+  const handleSearchChange = (val: string) => {
+    if (onSearchQueryChange) {
+      onSearchQueryChange(val);
+    } else {
+      setInternalSearchQuery(val);
+    }
+    applySearchHighlighting(val, 0, true);
+  };
+
+  const clearSearch = () => {
+    if (onSearchQueryChange) {
+      onSearchQueryChange('');
+    } else {
+      setInternalSearchQuery('');
+    }
+    clearHighlighting();
+    setMatches([]);
+    setMatchesBreakdown({ states: 0, transitions: 0 });
+    setActiveMatchIndex(0);
+  };
+
+  const switchActiveMatch = (newIdx: number) => {
+    if (!containerRef.current || matches.length === 0) return;
+    const svg = containerRef.current.querySelector('svg');
+    if (!svg) return;
+
+    const prevActives = svg.querySelectorAll('.diagram-match-active');
+    prevActives.forEach((el) => el.classList.remove('diagram-match-active'));
+
+    const item = matches[newIdx];
+    if (item) {
+      item.element.classList.add('diagram-match-active');
+      item.associatedPaths?.forEach((p) =>
+        p.classList.add('diagram-match-active')
+      );
+      setActiveMatchIndex(newIdx);
+      panToElement(item.element);
+    }
+  };
+
+  const goToNextMatch = () => {
+    if (matches.length <= 1) return;
+    const nextIdx = (activeMatchIndex + 1) % matches.length;
+    switchActiveMatch(nextIdx);
+  };
+
+  const goToPrevMatch = () => {
+    if (matches.length <= 1) return;
+    const prevIdx = (activeMatchIndex - 1 + matches.length) % matches.length;
+    switchActiveMatch(prevIdx);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        goToPrevMatch();
+      } else {
+        goToNextMatch();
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      clearSearch();
+      searchInputRef.current?.blur();
+    }
+  };
+
+  // Re-apply search highlighting when svgContent updates
+  useEffect(() => {
+    if (svgContent && effectiveSearchQuery.trim()) {
+      const timer = setTimeout(() => {
+        applySearchHighlighting(effectiveSearchQuery, activeMatchIndex, false);
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [svgContent, effectiveSearchQuery]);
+
+  // Global shortcut to focus search
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -286,6 +644,21 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code }) => {
       }
       try {
         setError(null);
+        ensureElkRegistered();
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: mermaidTheme,
+          securityLevel: 'loose',
+          layout: layoutEngine,
+          flowchart: {
+            useMaxWidth: false,
+            htmlLabels: true,
+            curve: flowchartCurve,
+          },
+          state: {
+            useMaxWidth: false,
+          },
+        });
         const uniqueId = `mermaid-render-${Math.random().toString(36).substring(2, 9)}`;
         const { svg } = await mermaid.render(uniqueId, code);
         if (isMounted) {
@@ -304,7 +677,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code }) => {
     return () => {
       isMounted = false;
     };
-  }, [code]);
+  }, [code, layoutEngine, flowchartCurve, mermaidTheme]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -342,25 +715,152 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code }) => {
     setTimeout(() => setCopiedSvg(false), 2000);
   };
 
+  const handleDownloadSvg = () => {
+    if (!svgContent) return;
+    const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'statechart.svg';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const toggleFullscreen = async () => {
+    if (!isFullscreen) {
+      setIsFullscreen(true);
+      try {
+        if (document.fullscreenEnabled && !document.fullscreenElement) {
+          await document.documentElement.requestFullscreen?.().catch(() => {});
+        }
+      } catch {
+        // Fallback gracefully to CSS fixed window expansion
+      }
+    } else {
+      setIsFullscreen(false);
+      try {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen?.().catch(() => {});
+        }
+      } catch {
+        // Fallback
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+        if (document.fullscreenElement) {
+          document.exitFullscreen?.().catch(() => {});
+        }
+      }
+    };
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isFullscreen]);
+
   return (
     <div
       id="mermaid-viewer-container"
       className={`relative flex flex-col w-full h-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden ${
-        isFullscreen ? 'fixed inset-0 z-50 rounded-none border-none' : ''
+        isFullscreen ? 'fixed inset-0 z-[100] w-screen h-screen rounded-none border-none shadow-2xl' : ''
       }`}
     >
       {/* Viewer Header / Toolbar */}
       <div
         id="mermaid-toolbar"
-        className="flex items-center justify-between px-4 py-2 bg-slate-950/80 border-b border-slate-800 backdrop-blur text-xs text-slate-300 z-10"
+        className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2 bg-slate-950/90 border-b border-slate-800 backdrop-blur text-xs text-slate-300 z-10"
       >
-        <div className="flex items-center gap-2 font-medium">
-          <span className="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span>Interactive Diagram View</span>
-          <span className="text-slate-500 text-[11px]">(Drag to pan, scroll to zoom)</span>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="flex items-center gap-2 font-medium shrink-0">
+            <span className={`inline-block w-2 h-2 rounded-full ${isFullscreen ? 'bg-sky-400 animate-pulse' : 'bg-emerald-400'}`}></span>
+            <span className="hidden xl:inline">Interactive Diagram View</span>
+            <span className="xl:hidden font-semibold">Diagram</span>
+          </div>
+
+          {/* Search Input for States and Transitions */}
+          <div className="relative flex items-center min-w-[200px] max-w-xs sm:max-w-sm md:max-w-md w-full">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
+            <input
+              ref={searchInputRef}
+              id="diagram-search-input"
+              type="text"
+              value={effectiveSearchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Search states or transitions... (Ctrl+F)"
+              className="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg pl-8 pr-20 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/50 transition-all"
+            />
+            {effectiveSearchQuery.trim() && (
+              <div className="absolute right-1.5 flex items-center gap-0.5">
+                <span
+                  id="diagram-search-matches-count"
+                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded border leading-none ${
+                    matches.length > 0
+                      ? 'bg-sky-950/90 text-sky-300 border-sky-800/80'
+                      : 'bg-rose-950/90 text-rose-300 border-rose-800/80'
+                  }`}
+                  title={
+                    matches.length > 0
+                      ? `${matchesBreakdown.states} states, ${matchesBreakdown.transitions} transitions matching`
+                      : 'No matching states or transitions'
+                  }
+                >
+                  {matches.length > 0 ? `${activeMatchIndex + 1}/${matches.length}` : '0 found'}
+                </span>
+
+                {matches.length > 1 && (
+                  <div className="flex items-center">
+                    <button
+                      id="diagram-search-prev-btn"
+                      type="button"
+                      onClick={goToPrevMatch}
+                      className="p-0.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded transition-colors"
+                      title="Previous match (Shift+Enter)"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      id="diagram-search-next-btn"
+                      type="button"
+                      onClick={goToNextMatch}
+                      className="p-0.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded transition-colors"
+                      title="Next match (Enter)"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  id="diagram-search-clear-btn"
+                  type="button"
+                  onClick={clearSearch}
+                  className="p-0.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded transition-colors"
+                  title="Clear search (Esc)"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             id="zoom-out-button"
             type="button"
@@ -398,19 +898,45 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code }) => {
             onClick={handleCopySvg}
             disabled={!svgContent}
             className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
-            title="Copy SVG"
+            title="Copy SVG (includes TwinCAT-style endpoint priority badges)"
           >
             {copiedSvg ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{copiedSvg ? 'Copied SVG' : 'Copy SVG'}</span>
           </button>
           <button
-            id="fullscreen-toggle-button"
+            id="download-svg-button"
             type="button"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            onClick={handleDownloadSvg}
+            disabled={!svgContent}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
+            title="Download SVG vector diagram"
           >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">SVG</span>
+          </button>
+          <div className="w-[1px] h-4 bg-slate-800 mx-1"></div>
+          <button
+            id="fullscreen-button"
+            type="button"
+            onClick={toggleFullscreen}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium ${
+              isFullscreen
+                ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm ring-1 ring-sky-400/40'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
+            }`}
+            title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Expand diagram canvas to fill the entire browser window'}
+          >
+            {isFullscreen ? (
+              <>
+                <Minimize2 className="w-3.5 h-3.5" />
+                <span>Exit Fullscreen</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Fullscreen</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -424,9 +950,15 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code }) => {
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
-        className={`flex-1 relative overflow-hidden bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] cursor-grab ${
-          isDragging ? 'cursor-grabbing' : ''
-        }`}
+        className={`flex-1 relative overflow-hidden [background-size:16px_16px] cursor-grab transition-colors duration-200 ${
+          mermaidTheme === 'dark'
+            ? 'bg-slate-900 bg-[radial-gradient(#1e293b_1px,transparent_1px)]'
+            : mermaidTheme === 'forest'
+            ? 'bg-[#f4f7f4] bg-[radial-gradient(#cbd5e1_1px,transparent_1px)]'
+            : mermaidTheme === 'neutral'
+            ? 'bg-[#f5f5f4] bg-[radial-gradient(#d6d3d1_1px,transparent_1px)]'
+            : 'bg-[#f8fafc] bg-[radial-gradient(#cbd5e1_1px,transparent_1px)]'
+        } ${isDragging ? 'cursor-grabbing' : ''}`}
       >
         {error ? (
           <div className="flex flex-col items-center justify-center h-full p-6 text-center text-rose-400 max-w-md mx-auto">

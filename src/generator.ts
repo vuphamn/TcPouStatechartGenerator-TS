@@ -2,11 +2,14 @@
 
 import { DOMParser as XmldomParser } from '@xmldom/xmldom';
 
+export type PriorityFormat = 'paren' | 'bracket' | 'circled';
+
 export interface GeneratorOptions {
   collapseErrorSinkEdges?: boolean;
   flowchartOutput?: boolean;
   includeStateDescriptions?: boolean;
   showTransitionPriorities?: boolean;
+  priorityFormat?: PriorityFormat;
 }
 
 export interface Transition {
@@ -1053,7 +1056,8 @@ function buildMermaid(
   groups: GroupingResult,
   stateDescriptions?: Map<string, string>,
   flowchartOutput = false,
-  showTransitionPriorities = true
+  showTransitionPriorities = true,
+  priorityFormat: PriorityFormat = 'paren'
 ): string {
   const firstStateToGroup = new Map<string, string>();
   for (const [k, v] of groups.groupFirstState.entries()) {
@@ -1182,7 +1186,14 @@ function buildMermaid(
       t.priority > 0 &&
       ((origOutCounts.get(t.from) ?? 0) > 1 || (effectiveOutCounts.get(t.effectiveFrom) ?? 0) > 1)
     ) {
-      const prioSymbol = toCircledNumber(t.priority);
+      let prioSymbol: string;
+      if (priorityFormat === 'bracket') {
+        prioSymbol = `[${t.priority}]`;
+      } else if (priorityFormat === 'circled') {
+        prioSymbol = toCircledNumber(t.priority);
+      } else {
+        prioSymbol = `(${t.priority})`;
+      }
       lbl = lbl ? `${prioSymbol} ${lbl}` : prioSymbol;
     }
 
@@ -1283,6 +1294,7 @@ export function generateStatechart(
   const flowchartOutput = options.flowchartOutput ?? false;
   const includeStateDescriptions = options.includeStateDescriptions ?? false;
   const showTransitionPriorities = options.showTransitionPriorities ?? true;
+  const priorityFormat = options.priorityFormat ?? 'circled';
 
   const doc = parseXmlDoc(tcPouContent);
   const doStateSt = getMethodSt(doc, tcPouContent, 'doState');
@@ -1343,6 +1355,7 @@ export function generateStatechart(
     groups,
     stateDescriptions,
     flowchartOutput,
-    showTransitionPriorities
+    showTransitionPriorities,
+    priorityFormat
   );
 }

@@ -6,3 +6,86 @@ html, body, #root {
   padding: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
+
+/* Diagram Search Highlighting */
+.diagram-search-active .node,
+.diagram-search-active .edgePath,
+.diagram-search-active .edgeLabel,
+.diagram-search-active .tc-priority-badge {
+  opacity: 0.15;
+  transition: opacity 0.2s ease, stroke 0.2s ease, filter 0.2s ease;
+}
+
+/* Matching States (Nodes) */
+.diagram-search-active .node.diagram-match-node {
+  opacity: 1 !important;
+}
+.diagram-search-active .node.diagram-match-node rect,
+.diagram-search-active .node.diagram-match-node polygon,
+.diagram-search-active .node.diagram-match-node circle,
+.diagram-search-active .node.diagram-match-node path {
+  stroke: #38bdf8 !important;
+  stroke-width: 3px !important;
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.75)) !important;
+}
+.diagram-search-active .node.diagram-match-node .nodeLabel,
+.diagram-search-active .node.diagram-match-node span,
+.diagram-search-active .node.diagram-match-node p {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* Matching Transitions (Edge Labels) */
+.diagram-search-active .edgeLabel.diagram-match-edge {
+  opacity: 1 !important;
+}
+.diagram-search-active .edgeLabel.diagram-match-edge .labelBkg,
+.diagram-search-active .edgeLabel.diagram-match-edge .edgeLabel {
+  background: rgba(14, 165, 233, 0.35) !important;
+  border: 1.5px solid #38bdf8 !important;
+  border-radius: 4px;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.7) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* Matching Transitions (Edge Paths) */
+.diagram-search-active .edgePath path.diagram-match-path,
+.diagram-search-active path.diagram-match-path {
+  opacity: 1 !important;
+  stroke: #38bdf8 !important;
+  stroke-width: 3.5px !important;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.8)) !important;
+}
+.diagram-search-active .tc-priority-badge.diagram-match-path {
+  opacity: 1 !important;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.8)) !important;
+}
+
+/* Currently Focused / Active Match (Golden Amber glow) */
+.diagram-search-active .node.diagram-match-node.diagram-match-active rect,
+.diagram-search-active .node.diagram-match-node.diagram-match-active polygon,
+.diagram-search-active .node.diagram-match-node.diagram-match-active circle,
+.diagram-search-active .node.diagram-match-node.diagram-match-active path {
+  stroke: #f59e0b !important;
+  stroke-width: 4px !important;
+  filter: drop-shadow(0 0 18px rgba(245, 158, 11, 0.95)) !important;
+}
+.diagram-search-active .edgeLabel.diagram-match-edge.diagram-match-active .labelBkg,
+.diagram-search-active .edgeLabel.diagram-match-edge.diagram-match-active .edgeLabel {
+  background: rgba(245, 158, 11, 0.45) !important;
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.95) !important;
+}
+.diagram-search-active .edgePath path.diagram-match-path.diagram-match-active,
+.diagram-search-active path.diagram-match-path.diagram-match-active {
+  stroke: #f59e0b !important;
+  stroke-width: 4.5px !important;
+  filter: drop-shadow(0 0 14px rgba(245, 158, 11, 0.95)) !important;
+}
+.diagram-search-active .tc-priority-badge.diagram-match-path.diagram-match-active {
+  filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.95)) !important;
+}
+.diagram-search-active .tc-priority-badge.diagram-match-path.diagram-match-active circle {
+  stroke: #f59e0b !important;
+}
