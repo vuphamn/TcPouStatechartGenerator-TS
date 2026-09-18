@@ -17,15 +17,36 @@ import {
   ChevronUp,
   Palette,
   Move,
+  StickyNote,
 } from 'lucide-react';
 import { StateNodeStyleInspector } from './StateNodeStyleInspector.tsx';
-import { CustomNodeStylesMap, NodeDisplayProperties } from '../types.ts';
+import { DiagramContextMenu } from './DiagramContextMenu.tsx';
+import { NoteDialog } from './NoteDialog.tsx';
+import { NotesDrawer } from './NotesDrawer.tsx';
+import { NoteOverlaysLayer } from './NoteOverlaysLayer.tsx';
+import {
+  CustomNodeStylesMap,
+  NodeDisplayProperties,
+  DiagramNotes,
+  ContextMenuTarget,
+  EdgeInfo,
+  NotePosition,
+} from '../types.ts';
 import { extractStateNodesFromMermaid } from '../utils/nodeStyles.ts';
 import {
+  extractEdgesFromMermaid,
+  countTotalNotes,
+} from '../utils/diagramNotes.ts';
+import {
   NodeOffsetsMap,
+  EdgeOffsetsMap,
+  EdgeOffset,
   initializeSvgDragMetadata,
-  applyNodeOffsetsToSvg,
-  resetSvgNodeOffsets,
+  applyDiagramOffsetsToSvg,
+  resetSvgDiagramOffsets,
+  cleanNodeId,
+  findNodeElement,
+  parseTranslation,
 } from '../utils/nodeDragger.ts';
 
 export type LayoutEngine = 'dagre' | 'elk';
@@ -60,6 +81,12 @@ export interface MermaidViewerProps {
   onClearAllCustomStyles?: () => void;
   nodeOffsets?: NodeOffsetsMap;
   onNodeOffsetsChange?: (offsets: NodeOffsetsMap) => void;
+  notes?: DiagramNotes;
+  onSaveNote?: (target: ContextMenuTarget, noteText: string) => void;
+  onDeleteNote?: (target: ContextMenuTarget) => void;
+  onClearAllNotes?: () => void;
+  onUpdateNotePosition?: (targetId: string, pos: NotePosition) => void;
+  onOpenMermaidLive?: () => void;
 }
 
 interface SearchMatchItem {
@@ -206,10 +233,215 @@ function cleanSymbolFromLabel(labelEl: Element, symbol: string) {
   }
 }
 
+function resolveEdgeFromElement(
+  targetEl: Element,
+  svg: SVGSVGElement | null,
+  availableEdges: EdgeInfo[]
+): EdgeInfo | null {
+  // 0. Click on edge handle (start, end, or waypoint handle)
+  const handleEl = targetEl.closest('.tc-edge-handle');
+  if (handleEl) {
+    const handleEdgeId = handleEl.getAttribute('data-edge-id');
+    if (handleEdgeId) {
+      const srcId = handleEl.getAttribute('data-source-id');
+      const tgtId = handleEl.getAttribute('data-target-id');
+      const found = availableEdges.find(
+        (e) => e.id === handleEdgeId || (srcId && tgtId && e.from === srcId && e.to === tgtId)
+      );
+      if (found) return { ...found, id: handleEdgeId };
+      return { id: handleEdgeId, from: srcId || '', to: tgtId || '' };
+    }
+  }
+
+  // 1. Direct path / hitbox element / edge group
+  const pathEl = (targetEl.closest('path.tc-edge-path') ||
+    targetEl.closest('.tc-edge-hitbox') ||
+    targetEl.closest('g.edgePath') ||
+    targetEl.closest('g.edgePaths path') ||
+    targetEl.closest('[data-edge-id]')) as Element | null;
+
+  if (pathEl) {
+    const realPath = pathEl.classList.contains('tc-edge-hitbox')
+      ? (pathEl.previousElementSibling as SVGPathElement | null) || pathEl
+      : (pathEl.tagName.toLowerCase() === 'path' ? pathEl : pathEl.querySelector('path') || pathEl);
+
+    const pathId =
+      realPath.getAttribute('data-path-id') ||
+      realPath.getAttribute('id') ||
+      pathEl.getAttribute('data-path-id') ||
+      pathEl.getAttribute('id') ||
+      '';
+
+    let sourceId =
+      realPath.getAttribute('data-source-id') ||
+      pathEl.getAttribute('data-source-id') ||
+      '';
+    let targetId =
+      realPath.getAttribute('data-target-id') ||
+      pathEl.getAttribute('data-target-id') ||
+      '';
+
+    if (!sourceId || !targetId) {
+      const classStr = `${pathEl.getAttribute('class') || ''} ${realPath.getAttribute('class') || ''} ${pathEl.parentElement?.getAttribute('class') || ''}`;
+      const ls = classStr.match(/\bLS-([A-Za-z0-9_]+)\b/);
+      const le = classStr.match(/\bLE-([A-Za-z0-9_]+)\b/);
+      if (ls) sourceId = ls[1];
+      if (le) targetId = le[1];
+
+      if (!sourceId || !targetId) {
+        const idStr = `${realPath.getAttribute('id') || pathEl.getAttribute('id') || ''}`;
+        const lMatch = idStr.match(/\bL-([A-Za-z0-9_]+)-([A-Za-z0-9_]+)/);
+        if (lMatch) {
+          sourceId = lMatch[1];
+          targetId = lMatch[2];
+        }
+      }
+    }
+
+    // Try finding matching edge in availableEdges
+    let matchedEdge = pathId ? availableEdges.find((e) => e.id === pathId) : null;
+    if (!matchedEdge && sourceId && targetId) {
+      matchedEdge = availableEdges.find((e) => e.from === sourceId && e.to === targetId);
+    }
+
+    if (matchedEdge) {
+      return {
+        ...matchedEdge,
+        id: pathId || matchedEdge.id,
+        from: sourceId || matchedEdge.from,
+        to: targetId || matchedEdge.to,
+      };
+    }
+
+    if (sourceId && targetId) {
+      return {
+        id: pathId || `${sourceId}->${targetId}`,
+        from: sourceId,
+        to: targetId,
+      };
+    }
+
+    if (pathId) {
+      return {
+        id: pathId,
+        from: '',
+        to: '',
+      };
+    }
+  }
+
+  // 2. Edge label element
+  const labelEl = (targetEl.closest('g.edgeLabel') ||
+    targetEl.closest('.clickable-edge-label')) as SVGGElement | null;
+  if (labelEl) {
+    const linkedPathId = labelEl.getAttribute('data-linked-path-id');
+    if (linkedPathId && svg) {
+      const p = svg.querySelector(
+        `path[data-path-id="${linkedPathId}"], path[data-edge-id="${linkedPathId}"], path#${linkedPathId}`
+      ) as SVGPathElement | null;
+      if (p) return resolveEdgeFromElement(p, svg, availableEdges);
+    }
+
+    const text = labelEl.textContent?.trim() || '';
+    if (text) {
+      const cleanLabelText = text
+        .replace(/📝.*$/, '')
+        .replace(/^\(\d+\)\s*/, '')
+        .replace(/^\[\d+\]\s*/, '')
+        .trim();
+      const match = availableEdges.find((e) => {
+        if (!e.label) return false;
+        const eClean = e.label
+          .replace(/📝.*$/, '')
+          .replace(/^\(\d+\)\s*/, '')
+          .replace(/^\[\d+\]\s*/, '')
+          .trim();
+        return eClean && (cleanLabelText.includes(eClean) || eClean.includes(cleanLabelText));
+      });
+      if (match) return match;
+    }
+
+    if (svg) {
+      const allLabels = Array.from(svg.querySelectorAll('g.edgeLabels g.edgeLabel'));
+      const idx = allLabels.indexOf(labelEl);
+      if (idx >= 0 && idx < availableEdges.length) {
+        return availableEdges[idx];
+      }
+    }
+  }
+
+  // 3. Priority badge element
+  const badgeEl = targetEl.closest('.tc-priority-badge') as SVGGElement | null;
+  if (badgeEl && svg) {
+    const pathId = badgeEl.getAttribute('data-path-id');
+    if (pathId) {
+      const p = svg.querySelector(
+        `path[data-path-id="${pathId}"], path[data-edge-id="${pathId}"], path#${pathId}`
+      ) as SVGPathElement | null;
+      if (p) return resolveEdgeFromElement(p, svg, availableEdges);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Finds an edge whose rendered SVG path is within `tolerance` pixels of the screen click point.
+ * Ensures effortless edge selection even if clicking slightly off the thin line.
+ */
+export function findEdgeNearPoint(
+  svg: SVGSVGElement,
+  clientX: number,
+  clientY: number,
+  availableEdges: EdgeInfo[],
+  tolerance: number = 24
+): EdgeInfo | null {
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  const pt = svg.createSVGPoint();
+  pt.x = clientX;
+  pt.y = clientY;
+  const svgPt = pt.matrixTransform(ctm.inverse());
+
+  const paths = Array.from(
+    svg.querySelectorAll<SVGPathElement>('path.tc-edge-path, g.edgePaths path[data-orig-d], g.edgePaths path')
+  ).filter(
+    (p) => !p.closest('defs') && !p.closest('marker') && p.getAttribute('d') && !p.classList.contains('tc-edge-hitbox')
+  );
+
+  let bestEdge: EdgeInfo | null = null;
+  let bestDist = tolerance;
+
+  for (const path of paths) {
+    try {
+      const len = path.getTotalLength();
+      if (len <= 0) continue;
+      const steps = 24;
+      for (let i = 0; i <= steps; i++) {
+        const p = path.getPointAtLength((i / steps) * len);
+        const dist = Math.hypot(p.x - svgPt.x, p.y - svgPt.y);
+        if (dist < bestDist) {
+          const resolved = resolveEdgeFromElement(path, svg, availableEdges);
+          if (resolved && resolved.from?.trim() && resolved.to?.trim()) {
+            bestDist = dist;
+            bestEdge = resolved;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return bestEdge;
+}
+
 function enhanceSvgWithPriorityCircles(
   svgString: string,
   selectedStateId?: string | null,
-  customStyles?: CustomNodeStylesMap
+  customStyles?: CustomNodeStylesMap,
+  selectedEdgeId?: string | null,
+  notes?: DiagramNotes
 ): string {
   if (typeof window === 'undefined' || !svgString) return svgString;
   try {
@@ -222,11 +454,14 @@ function enhanceSvgWithPriorityCircles(
     const nodes = Array.from(doc.querySelectorAll('g.node'));
     for (const node of nodes) {
       const id = node.getAttribute('id') || '';
-      const match = id.match(/(?:flowchart|state)-([A-Za-z0-9_]+)-\d+$/);
-      let rawId = match ? match[1] : '';
+      let rawId = cleanNodeId(id);
       if (!rawId) {
         const dataId = node.getAttribute('data-id') || node.getAttribute('data-node-id');
-        if (dataId) rawId = dataId;
+        if (dataId) rawId = cleanNodeId(dataId);
+      }
+      if (!rawId) {
+        const labelText = node.querySelector('.nodeLabel')?.textContent?.trim() || node.textContent?.trim();
+        if (labelText) rawId = cleanNodeId(labelText);
       }
       if (rawId && rawId !== 'root_start' && rawId !== 'root_end' && rawId !== 'startNode') {
         node.setAttribute('data-state-id', rawId);
@@ -237,8 +472,22 @@ function enhanceSvgWithPriorityCircles(
         node.setAttribute('data-state-label', label);
         node.classList.add('clickable-state-node');
 
+        // Preserve pristine original Mermaid transform & coordinates
+        const origTf = node.getAttribute('transform') || '';
+        if (origTf && !node.getAttribute('data-orig-transform')) {
+          node.setAttribute('data-orig-transform', origTf);
+          const { x, y } = parseTranslation(origTf);
+          node.setAttribute('data-orig-x', String(x));
+          node.setAttribute('data-orig-y', String(y));
+        }
+
         if (selectedStateId && rawId === selectedStateId) {
           node.classList.add('diagram-selected-node');
+        }
+
+        if (notes?.nodes && notes.nodes[rawId]) {
+          node.classList.add('has-diagram-note');
+          node.setAttribute('title', `Note: ${notes.nodes[rawId]}`);
         }
 
         // Apply custom styles directly to SVG elements for instant robustness across all themes
@@ -282,6 +531,19 @@ function enhanceSvgWithPriorityCircles(
         (p) => !p.closest('defs') && !p.closest('marker') && p.getAttribute('d')
       );
       const labels = Array.from(lGroup.querySelectorAll('g.edgeLabel'));
+
+      for (let pIdx = 0; pIdx < paths.length; pIdx++) {
+        const p = paths[pIdx];
+        p.classList.add('tc-edge-path', 'clickable-edge-path');
+        p.setAttribute('data-edge', 'true');
+        const pId = p.getAttribute('id') || p.getAttribute('data-id') || `path-${pIdx}`;
+        p.setAttribute('data-path-id', pId);
+      }
+      for (let lIdx = 0; lIdx < labels.length; lIdx++) {
+        const l = labels[lIdx];
+        l.classList.add('clickable-edge-label');
+        l.setAttribute('data-edge', 'true');
+      }
 
       if (paths.length === 0 || labels.length === 0) continue;
 
@@ -432,6 +694,12 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   onClearAllCustomStyles: onClearAllCustomStylesProp,
   nodeOffsets: externalNodeOffsets,
   onNodeOffsetsChange,
+  notes,
+  onSaveNote,
+  onDeleteNote,
+  onClearAllNotes,
+  onUpdateNotePosition: onUpdateNotePositionProp,
+  onOpenMermaidLive,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -444,6 +712,39 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   const mouseDownPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [copiedSvg, setCopiedSvg] = useState<boolean>(false);
+
+  // Notes & Edge Selection State
+  const [selectedEdge, setSelectedEdge] = useState<EdgeInfo | null>(null);
+  const [contextMenuState, setContextMenuState] = useState<{
+    x: number;
+    y: number;
+    target: ContextMenuTarget;
+  } | null>(null);
+  const [isNoteDialogOpen, setIsNoteDialogOpen] = useState<boolean>(false);
+  const [activeNoteTarget, setActiveNoteTarget] = useState<ContextMenuTarget | null>(null);
+  const [isNotesDrawerOpen, setIsNotesDrawerOpen] = useState<boolean>(false);
+  const [renderedSvg, setRenderedSvg] = useState<SVGSVGElement | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current || !svgContent) {
+      setRenderedSvg(null);
+      return;
+    }
+    const svg = containerRef.current.querySelector('svg');
+    setRenderedSvg(svg);
+  }, [svgContent]);
+
+  const effectiveNotes: DiagramNotes = useMemo(() => {
+    return notes || { nodes: {}, edges: {} };
+  }, [notes]);
+
+  const availableEdges = useMemo(() => {
+    return extractEdgesFromMermaid(code, effectiveNotes);
+  }, [code, effectiveNotes]);
+
+  const totalNotesCount = useMemo(() => {
+    return countTotalNotes(effectiveNotes);
+  }, [effectiveNotes]);
 
   // Manual Node Dragging & Offsets state
   const [internalNodeOffsets, setInternalNodeOffsets] = useState<NodeOffsetsMap>({});
@@ -471,6 +772,20 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   const nodeDragStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const nodeInitialOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const nodeMovedRef = useRef<boolean>(false);
+
+  // Edge Offsets & Endpoint Dragging State
+  const [edgeOffsets, setEdgeOffsets] = useState<EdgeOffsetsMap>({});
+  const currentEdgeOffsetsRef = useRef<EdgeOffsetsMap>({});
+  useEffect(() => {
+    currentEdgeOffsetsRef.current = { ...edgeOffsets };
+  }, [edgeOffsets]);
+
+  const isDraggingEdgeHandleRef = useRef<boolean>(false);
+  const draggedEdgeIdRef = useRef<string | null>(null);
+  const draggedHandleTypeRef = useRef<'start' | 'end' | 'mid' | null>(null);
+  const edgeHandleDragStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const edgeInitialOffsetRef = useRef<EdgeOffset>({ x: 0, y: 0 });
+  const edgeMovedRef = useRef<boolean>(false);
 
   // State selection and inspector
   const [internalSelectedStateId, setInternalSelectedStateId] = useState<string | null>(null);
@@ -786,7 +1101,9 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
           const enhancedSvg = enhanceSvgWithPriorityCircles(
             svg,
             effectiveSelectedStateId,
-            effectiveCustomStyles
+            effectiveCustomStyles,
+            selectedEdge?.id,
+            effectiveNotes
           );
           setSvgContent(enhancedSvg);
         }
@@ -804,7 +1121,24 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     };
   }, [code, layoutEngine, flowchartCurve, mermaidTheme, effectiveCustomStyles]);
 
-  // Synchronize selection highlight class in SVG
+  // 1. Initialize SVG metadata and active offsets whenever SVG content updates
+  useEffect(() => {
+    if (!containerRef.current || !svgContent) return;
+    const svg = containerRef.current.querySelector('svg');
+    if (!svg) return;
+    initializeSvgDragMetadata(svg, availableEdges);
+    applyDiagramOffsetsToSvg(
+      svg,
+      effectiveNodeOffsets,
+      edgeOffsets,
+      null,
+      selectedEdge?.id || null,
+      layoutEngine,
+      flowchartCurve
+    );
+  }, [svgContent, availableEdges]);
+
+  // 2. Synchronize node selection highlight class in SVG
   useEffect(() => {
     if (!containerRef.current) return;
     const svg = containerRef.current.querySelector('svg');
@@ -820,16 +1154,58 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     }
   }, [effectiveSelectedStateId, svgContent]);
 
-  // Initialize SVG metadata for draggable state nodes and apply active offsets
+  // 3. Synchronize edge selection highlight and active offsets in SVG
   useEffect(() => {
     if (!containerRef.current || !svgContent) return;
     const svg = containerRef.current.querySelector('svg');
     if (!svg) return;
-    initializeSvgDragMetadata(svg);
-    if (Object.keys(effectiveNodeOffsets).length > 0) {
-      applyNodeOffsetsToSvg(svg, effectiveNodeOffsets);
+
+    svg.querySelectorAll('.diagram-selected-edge, .selected-edge').forEach((el) => {
+      el.classList.remove('diagram-selected-edge', 'selected-edge');
+    });
+    svg.querySelectorAll('.diagram-selected-edge-label').forEach((el) => {
+      el.classList.remove('diagram-selected-edge-label');
+    });
+
+    const selId = selectedEdge && selectedEdge.id && selectedEdge.id.trim() !== '->' ? selectedEdge.id.trim() : null;
+    if (selId) {
+      let targetPath = svg.querySelector<SVGPathElement>(`path.tc-edge-path[data-path-id="${selId}"]`);
+      if (!targetPath) {
+        targetPath = svg.querySelector<SVGPathElement>(`path.tc-edge-path[data-edge-id="${selId}"]`);
+      }
+      if (!targetPath && selectedEdge?.from && selectedEdge?.to) {
+        const key = `${selectedEdge.from.trim()}->${selectedEdge.to.trim()}`;
+        targetPath = svg.querySelector<SVGPathElement>(`path.tc-edge-path[data-edge-id="${key}"]`);
+      }
+
+      if (targetPath) {
+        targetPath.classList.add('diagram-selected-edge', 'selected-edge');
+        const pId = targetPath.getAttribute('data-path-id') || targetPath.getAttribute('data-edge-id');
+        const hitbox = targetPath.parentElement?.querySelector(
+          `.tc-edge-hitbox[data-path-id="${pId}"], .tc-edge-hitbox[data-edge-id="${pId}"]`
+        );
+        hitbox?.classList.add('selected-edge');
+
+        const labels = svg.querySelectorAll<SVGGElement>('g.edgeLabel');
+        labels.forEach((l) => {
+          const lPid = l.getAttribute('data-linked-path-id');
+          if (lPid === pId || (selectedEdge?.label && l.textContent?.includes(selectedEdge.label))) {
+            l.classList.add('diagram-selected-edge-label');
+          }
+        });
+      }
     }
-  }, [svgContent, effectiveNodeOffsets]);
+
+    applyDiagramOffsetsToSvg(
+      svg,
+      effectiveNodeOffsets,
+      edgeOffsets,
+      null,
+      selId,
+      layoutEngine,
+      flowchartCurve
+    );
+  }, [selectedEdge, effectiveNodeOffsets, edgeOffsets, layoutEngine, flowchartCurve]);
 
   const handleSelectState = (stateId: string | null, label?: string) => {
     if (onSelectStateProp) {
@@ -939,12 +1315,37 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
 
     const target = e.target as Element;
-    // If clicking inside inspector or toolbar, don't initiate drag
-    if (target.closest('#state-style-inspector') || target.closest('#mermaid-toolbar')) {
+    // If clicking inside inspector, toolbar, context menu, or dialogs, don't initiate drag
+    if (
+      target.closest('#state-style-inspector') ||
+      target.closest('#mermaid-toolbar') ||
+      target.closest('#diagram-context-menu') ||
+      target.closest('#note-dialog-overlay') ||
+      target.closest('#notes-drawer-overlay')
+    ) {
       return;
     }
 
-    // Check if user clicked on a state node
+    // A. Check if user clicked on an edge handle (waypoint, start endpoint, or end endpoint)
+    const handleEl = (target.closest('g.tc-edge-handle[data-handle-type]') ||
+      target.closest('[data-handle-type]')) as SVGGElement | null;
+    if (handleEl) {
+      const eId = handleEl.getAttribute('data-edge-id');
+      const hType = handleEl.getAttribute('data-handle-type') as 'start' | 'end' | 'mid';
+      if (eId && hType) {
+        isDraggingEdgeHandleRef.current = true;
+        draggedEdgeIdRef.current = eId;
+        draggedHandleTypeRef.current = hType;
+        edgeHandleDragStartPosRef.current = { x: e.clientX, y: e.clientY };
+        edgeMovedRef.current = false;
+        const currentEdgeOffset = currentEdgeOffsetsRef.current[eId] || { x: 0, y: 0 };
+        edgeInitialOffsetRef.current = { ...currentEdgeOffset };
+        setIsNodeDragging(true);
+        return;
+      }
+    }
+
+    // B. Check if user clicked on a state node
     const nodeEl = (target.closest('g.clickable-state-node') ||
       target.closest('g.node[data-state-id]')) as SVGGElement | null;
     if (nodeEl) {
@@ -963,19 +1364,107 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
       }
     }
 
+    // C. Check if user clicked on an edge path or hitbox
+    const svg = containerRef.current?.querySelector('svg') || null;
+    let clickedEdge = resolveEdgeFromElement(target, svg, availableEdges);
+    if (!clickedEdge && svg && (target.tagName.toLowerCase() === 'svg' || target.closest('svg'))) {
+      clickedEdge = findEdgeNearPoint(svg, e.clientX, e.clientY, availableEdges, 24);
+    }
+    if (clickedEdge && clickedEdge.from && clickedEdge.to && clickedEdge.from.trim() && clickedEdge.to.trim()) {
+      setSelectedEdge(clickedEdge);
+      if (effectiveSelectedStateId) {
+        if (onSelectStateProp) {
+          onSelectStateProp(null);
+        } else {
+          setInternalSelectedStateId(null);
+        }
+      }
+      if (svg) {
+        applyDiagramOffsetsToSvg(
+          svg,
+          currentNodeOffsetsRef.current,
+          currentEdgeOffsetsRef.current,
+          null,
+          clickedEdge.id,
+          layoutEngine,
+          flowchartCurve
+        );
+      }
+      isDraggingEdgeHandleRef.current = true;
+      draggedEdgeIdRef.current = clickedEdge.id;
+      draggedHandleTypeRef.current = 'mid';
+      edgeHandleDragStartPosRef.current = { x: e.clientX, y: e.clientY };
+      edgeMovedRef.current = false;
+      const currentEdgeOffset = currentEdgeOffsetsRef.current[clickedEdge.id] || { x: 0, y: 0 };
+      edgeInitialOffsetRef.current = { ...currentEdgeOffset };
+      setIsNodeDragging(true);
+      return;
+    }
+
     // Otherwise initiate canvas panning
     setIsDragging(true);
     setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    // 1. Dragging a state node
+    // 1. Dragging edge handle (Start endpoint, End endpoint, or Midpoint)
+    if (isDraggingEdgeHandleRef.current && draggedEdgeIdRef.current && draggedHandleTypeRef.current) {
+      const edgeId = draggedEdgeIdRef.current;
+      const handleType = draggedHandleTypeRef.current;
+      const screenDx = e.clientX - edgeHandleDragStartPosRef.current.x;
+      const screenDy = e.clientY - edgeHandleDragStartPosRef.current.y;
+
+      if (Math.hypot(screenDx, screenDy) >= 3) {
+        edgeMovedRef.current = true;
+      }
+
+      if (edgeMovedRef.current) {
+        const canvasDx = screenDx / zoom;
+        const canvasDy = screenDy / zoom;
+        const initial = edgeInitialOffsetRef.current;
+
+        const nextOffset: EdgeOffset = { ...initial };
+        if (handleType === 'start') {
+          nextOffset.startDx = Math.round((initial.startDx || 0) + canvasDx);
+          nextOffset.startDy = Math.round((initial.startDy || 0) + canvasDy);
+        } else if (handleType === 'end') {
+          nextOffset.endDx = Math.round((initial.endDx || 0) + canvasDx);
+          nextOffset.endDy = Math.round((initial.endDy || 0) + canvasDy);
+        } else if (handleType === 'mid') {
+          nextOffset.x = Math.round(initial.x + canvasDx);
+          nextOffset.y = Math.round(initial.y + canvasDy);
+        }
+
+        currentEdgeOffsetsRef.current = {
+          ...currentEdgeOffsetsRef.current,
+          [edgeId]: nextOffset,
+        };
+
+        if (containerRef.current) {
+          const svg = containerRef.current.querySelector('svg');
+          if (svg) {
+            applyDiagramOffsetsToSvg(
+              svg,
+              currentNodeOffsetsRef.current,
+              currentEdgeOffsetsRef.current,
+              null,
+              selectedEdge?.id || edgeId,
+              layoutEngine,
+              flowchartCurve
+            );
+          }
+        }
+      }
+      return;
+    }
+
+    // 2. Dragging a state node (reroute all edges to match current engine and curve settings without distortion)
     if (isDraggingNodeRef.current && draggedNodeIdRef.current) {
       const stateId = draggedNodeIdRef.current;
       const screenDx = e.clientX - nodeDragStartPosRef.current.x;
       const screenDy = e.clientY - nodeDragStartPosRef.current.y;
 
-      if (Math.hypot(screenDx, screenDy) >= 4) {
+      if (Math.hypot(screenDx, screenDy) >= 3) {
         nodeMovedRef.current = true;
       }
 
@@ -995,14 +1484,22 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         if (containerRef.current) {
           const svg = containerRef.current.querySelector('svg');
           if (svg) {
-            applyNodeOffsetsToSvg(svg, currentNodeOffsetsRef.current, [stateId]);
+            applyDiagramOffsetsToSvg(
+              svg,
+              currentNodeOffsetsRef.current,
+              currentEdgeOffsetsRef.current,
+              null,
+              selectedEdge?.id,
+              layoutEngine,
+              flowchartCurve
+            );
           }
         }
       }
       return;
     }
 
-    // 2. Panning canvas
+    // 3. Panning canvas
     if (!isDragging) return;
     setPan({
       x: e.clientX - dragStart.x,
@@ -1011,7 +1508,22 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    // 1. Released while dragging a state node
+    // 1. Released edge handle
+    if (isDraggingEdgeHandleRef.current) {
+      const edgeId = draggedEdgeIdRef.current;
+      const wasMoved = edgeMovedRef.current;
+      isDraggingEdgeHandleRef.current = false;
+      draggedEdgeIdRef.current = null;
+      draggedHandleTypeRef.current = null;
+      setIsNodeDragging(false);
+
+      if (wasMoved && edgeId) {
+        setEdgeOffsets({ ...currentEdgeOffsetsRef.current });
+      }
+      return;
+    }
+
+    // 2. Released while dragging a state node
     if (isDraggingNodeRef.current) {
       const stateId = draggedNodeIdRef.current;
       const wasMoved = nodeMovedRef.current;
@@ -1024,7 +1536,11 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
       setIsNodeDragging(false);
 
       if (wasMoved && stateId) {
-        setNodeOffsets({ ...currentNodeOffsetsRef.current });
+        const nextOffsets = { ...currentNodeOffsetsRef.current };
+        setNodeOffsets(nextOffsets);
+        if (onNodeOffsetsChange) {
+          onNodeOffsetsChange(nextOffsets);
+        }
         return;
       }
 
@@ -1033,11 +1549,12 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         const targetNode = containerRef.current?.querySelector(`g.node[data-state-id="${stateId}"]`);
         const stateLabel = targetNode?.getAttribute('data-state-label') || stateId;
         handleSelectState(stateId, stateLabel);
+        setSelectedEdge(null);
         return;
       }
     }
 
-    // 2. Released canvas panning
+    // 3. Released canvas panning
     setIsDragging(false);
     const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
     const dy = Math.abs(e.clientY - mouseDownPosRef.current.y);
@@ -1045,9 +1562,34 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     // If mouse moved less than 6 pixels, treat as a click
     if (dx < 6 && dy < 6) {
       const target = e.target as Element;
-      // If clicking inside inspector or toolbar, don't change selection
-      if (target.closest('#state-style-inspector') || target.closest('#mermaid-toolbar')) {
+      // If clicking inside inspector, toolbar, context menu, dialogs, or note overlays, don't change selection
+      if (
+        target.closest('#state-style-inspector') ||
+        target.closest('#mermaid-toolbar') ||
+        target.closest('#diagram-context-menu') ||
+        target.closest('#note-dialog-overlay') ||
+        target.closest('#notes-drawer-overlay') ||
+        target.closest('#mermaid-note-overlays-layer')
+      ) {
         return;
+      }
+
+      // Check if user clicked an SVG note
+      const svgNote = target.closest('g.note');
+      if (svgNote) {
+        const text = svgNote.textContent?.trim() || '';
+        const matchingNodeId = Object.keys(effectiveNotes.nodes || {}).find(
+          (k) => (effectiveNotes.nodes[k] || '').trim() === text || text.includes((effectiveNotes.nodes[k] || '').trim())
+        );
+        if (matchingNodeId) {
+          handleOpenAddNote({
+            type: 'node',
+            id: matchingNodeId,
+            label: matchingNodeId,
+            note: effectiveNotes.nodes[matchingNodeId],
+          });
+          return;
+        }
       }
 
       // Check if user clicked on a state node
@@ -1058,13 +1600,251 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         const stateLabel = nodeEl.getAttribute('data-state-label') || stateId || '';
         if (stateId) {
           handleSelectState(stateId, stateLabel);
+          setSelectedEdge(null);
           return;
         }
       }
 
-      // Clicked on empty canvas background -> close inspector and deselect
+      // Check if user clicked on an edge path, label, or priority badge
+      const svg = containerRef.current?.querySelector('svg') || null;
+      let clickedEdge = resolveEdgeFromElement(target, svg, availableEdges);
+      if (!clickedEdge && svg && (target.tagName.toLowerCase() === 'svg' || target.closest('svg'))) {
+        clickedEdge = findEdgeNearPoint(svg, e.clientX, e.clientY, availableEdges, 24);
+      }
+      if (clickedEdge && clickedEdge.from && clickedEdge.to && clickedEdge.from.trim() && clickedEdge.to.trim()) {
+        setSelectedEdge(clickedEdge);
+        if (effectiveSelectedStateId) {
+          if (onSelectStateProp) {
+            onSelectStateProp(null);
+          } else {
+            setInternalSelectedStateId(null);
+          }
+        }
+        if (svg) {
+          applyDiagramOffsetsToSvg(
+            svg,
+            currentNodeOffsetsRef.current,
+            currentEdgeOffsetsRef.current,
+            null,
+            clickedEdge.id,
+            layoutEngine,
+            flowchartCurve
+          );
+        }
+        return;
+      }
+
+      // Clicked on empty canvas background -> deselect edge & close inspector
+      setSelectedEdge(null);
+      if (svg) {
+        applyDiagramOffsetsToSvg(
+          svg,
+          currentNodeOffsetsRef.current,
+          currentEdgeOffsetsRef.current,
+          null,
+          null,
+          layoutEngine,
+          flowchartCurve
+        );
+      }
       if (effectiveSelectedStateId || isInspectorOpen) {
         handleCloseInspector();
+      }
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const target = e.target as Element;
+
+    // 0. Clicked on a note overlay card
+    const noteCardEl = target.closest('[id^="note-overlay-"]');
+    if (noteCardEl) {
+      const noteCardId = noteCardEl.id.replace('note-overlay-', '');
+      const isNodeNote = effectiveNotes.nodes?.[noteCardId] !== undefined;
+      const isEdgeNote = effectiveNotes.edges?.[noteCardId] !== undefined;
+      if (isNodeNote) {
+        const state = availableStates.find((s) => s.id === noteCardId || cleanNodeId(s.id) === cleanNodeId(noteCardId));
+        const menuTarget: ContextMenuTarget = {
+          type: 'node',
+          id: noteCardId,
+          label: state?.label || noteCardId,
+          note: effectiveNotes.nodes[noteCardId],
+        };
+        setContextMenuState({ x: e.clientX, y: e.clientY, target: menuTarget });
+        return;
+      }
+      if (isEdgeNote) {
+        const edge = availableEdges.find((e) => e.id === noteCardId || `${e.from}->${e.to}` === noteCardId);
+        const menuTarget: ContextMenuTarget = {
+          type: 'edge',
+          id: noteCardId,
+          from: edge?.from || '',
+          to: edge?.to || '',
+          label: edge?.label,
+          note: effectiveNotes.edges[noteCardId],
+        };
+        setContextMenuState({ x: e.clientX, y: e.clientY, target: menuTarget });
+        return;
+      }
+    }
+
+    // 1. Clicked on a state node
+    const nodeEl = (target.closest('g.clickable-state-node') ||
+      target.closest('g.node[data-state-id]') ||
+      target.closest('g.node')) as SVGGElement | null;
+    if (nodeEl) {
+      const rawStateId =
+        nodeEl.getAttribute('data-state-id') ||
+        nodeEl.id.replace(/^flowchart-/, '').replace(/-\d+$/, '');
+      const stateId = cleanNodeId(rawStateId);
+      const stateLabel = nodeEl.getAttribute('data-state-label') || stateId;
+      const note = effectiveNotes.nodes[stateId] || effectiveNotes.nodes[rawStateId] || '';
+      const menuTarget: ContextMenuTarget = {
+        type: 'node',
+        id: stateId,
+        label: stateLabel,
+        note,
+      };
+      handleSelectState(stateId, stateLabel);
+      setSelectedEdge(null);
+      setContextMenuState({ x: e.clientX, y: e.clientY, target: menuTarget });
+      return;
+    }
+
+    // 2. Clicked on an edge
+    const svg = containerRef.current?.querySelector('svg') || null;
+    let edge = resolveEdgeFromElement(target, svg, availableEdges);
+    if (!edge && svg) {
+      edge = findEdgeNearPoint(svg, e.clientX, e.clientY, availableEdges, 24);
+    }
+    if (edge && edge.from && edge.to && edge.from.trim() && edge.to.trim()) {
+      const note = effectiveNotes.edges[edge.id] || '';
+      const menuTarget: ContextMenuTarget = {
+        type: 'edge',
+        id: edge.id,
+        from: edge.from,
+        to: edge.to,
+        label: edge.label,
+        note,
+      };
+      setSelectedEdge(edge);
+      if (onSelectStateProp) {
+        onSelectStateProp(null);
+      } else {
+        setInternalSelectedStateId(null);
+      }
+      setContextMenuState({ x: e.clientX, y: e.clientY, target: menuTarget });
+      return;
+    }
+
+    // 3. Fallback: canvas context menu or selected item context menu
+    if (selectedEdge && selectedEdge.id !== '->') {
+      const note = effectiveNotes.edges[selectedEdge.id] || '';
+      setContextMenuState({
+        x: e.clientX,
+        y: e.clientY,
+        target: { type: 'edge', ...selectedEdge, note },
+      });
+      return;
+    }
+    if (effectiveSelectedStateId) {
+      const note = effectiveNotes.nodes[effectiveSelectedStateId] || '';
+      setContextMenuState({
+        x: e.clientX,
+        y: e.clientY,
+        target: {
+          type: 'node',
+          id: effectiveSelectedStateId,
+          label: effectiveSelectedStateLabel || effectiveSelectedStateId,
+          note,
+        },
+      });
+      return;
+    }
+
+    setContextMenuState({
+      x: e.clientX,
+      y: e.clientY,
+      target: { type: 'canvas', x: e.clientX, y: e.clientY },
+    });
+  };
+
+  const handleOpenAddNote = (target: ContextMenuTarget) => {
+    setActiveNoteTarget(target);
+    setIsNoteDialogOpen(true);
+  };
+
+  const handleSaveActiveNote = (target: ContextMenuTarget, noteText: string) => {
+    onSaveNote?.(target, noteText);
+    setIsNoteDialogOpen(false);
+
+    // Position note immediately right next to the node or edge
+    if (target.type === 'node' && target.id) {
+      const existingPos = effectiveNotes.positions?.[target.id];
+      if (!existingPos && containerRef.current) {
+        const svg = containerRef.current.querySelector('svg');
+        const nodeEl = svg ? findNodeElement(svg, target.id) : null;
+        const wrapperEl = (svg?.closest('#mermaid-svg-wrapper') ||
+          document.getElementById('mermaid-svg-wrapper')) as HTMLElement | null;
+        if (nodeEl && wrapperEl) {
+          const wRect = wrapperEl.getBoundingClientRect();
+          const nRect = nodeEl.getBoundingClientRect();
+          if (wRect.width > 0 && nRect.width > 0) {
+            const localLeft = (nRect.left - wRect.left) / zoom;
+            const localTop = (nRect.top - wRect.top) / zoom;
+            const localW = nRect.width / zoom;
+            const targetX = Math.round(localLeft + localW + 28);
+            const targetY = Math.max(16, Math.round(localTop - 12));
+            onUpdateNotePositionProp?.(target.id, { x: targetX, y: targetY });
+          }
+        }
+      }
+    } else if (target.type === 'edge' && target.id) {
+      const existingPos = effectiveNotes.positions?.[target.id];
+      if (!existingPos && containerRef.current) {
+        const svg = containerRef.current.querySelector('svg');
+        const pathEl = svg
+          ? (svg.querySelector(`path.tc-edge-path[data-edge-id="${target.id}"]`) as SVGPathElement | null)
+          : null;
+        const wrapperEl = (svg?.closest('#mermaid-svg-wrapper') ||
+          document.getElementById('mermaid-svg-wrapper')) as HTMLElement | null;
+        if (pathEl && wrapperEl) {
+          const wRect = wrapperEl.getBoundingClientRect();
+          const pRect = pathEl.getBoundingClientRect();
+          if (wRect.width > 0 && pRect.width > 0) {
+            const localLeft = (pRect.left - wRect.left) / zoom;
+            const localTop = (pRect.top - wRect.top) / zoom;
+            const localW = pRect.width / zoom;
+            const localH = pRect.height / zoom;
+            const targetX = Math.round(localLeft + localW / 2 + 28);
+            const targetY = Math.max(16, Math.round(localTop + localH / 2 - 32));
+            onUpdateNotePositionProp?.(target.id, { x: targetX, y: targetY });
+          }
+        }
+      }
+    }
+  };
+
+  const handleDeleteActiveNote = (target: ContextMenuTarget) => {
+    onDeleteNote?.(target);
+    setIsNoteDialogOpen(false);
+  };
+
+  const panToEdge = (edgeId: string) => {
+    if (!containerRef.current) return;
+    const svg = containerRef.current.querySelector('svg');
+    if (!svg) return;
+    const parts = edgeId.split('->');
+    if (parts.length === 2) {
+      const from = parts[0];
+      const to = parts[1];
+      const pathEl = svg.querySelector(
+        `path[data-source-id="${from}"][data-target-id="${to}"], .tc-edge-path[data-source-id="${from}"][data-target-id="${to}"]`
+      );
+      if (pathEl) {
+        panToElement(pathEl);
+        return;
       }
     }
   };
@@ -1072,6 +1852,18 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   // Window-level mouseup listener to guarantee drag never gets orphaned
   useEffect(() => {
     const handleWindowMouseUp = () => {
+      if (isDraggingEdgeHandleRef.current) {
+        const edgeId = draggedEdgeIdRef.current;
+        const wasMoved = edgeMovedRef.current;
+        isDraggingEdgeHandleRef.current = false;
+        draggedEdgeIdRef.current = null;
+        draggedHandleTypeRef.current = null;
+        setIsNodeDragging(false);
+
+        if (wasMoved && edgeId) {
+          setEdgeOffsets({ ...currentEdgeOffsetsRef.current });
+        }
+      }
       if (isDraggingNodeRef.current) {
         const stateId = draggedNodeIdRef.current;
         const wasMoved = nodeMovedRef.current;
@@ -1098,18 +1890,30 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
 
   const handleResetLayout = () => {
     currentNodeOffsetsRef.current = {};
+    currentEdgeOffsetsRef.current = {};
     setNodeOffsets({});
+    setEdgeOffsets({});
     if (containerRef.current) {
       const svg = containerRef.current.querySelector('svg');
       if (svg) {
-        resetSvgNodeOffsets(svg);
+        resetSvgDiagramOffsets(svg);
       }
     }
   };
 
-  const movedNodesCount = Object.keys(effectiveNodeOffsets).filter(
-    (id) => effectiveNodeOffsets[id].x !== 0 || effectiveNodeOffsets[id].y !== 0
-  ).length;
+  const movedElementsCount =
+    Object.keys(effectiveNodeOffsets).filter(
+      (id) => effectiveNodeOffsets[id].x !== 0 || effectiveNodeOffsets[id].y !== 0
+    ).length +
+    Object.keys(edgeOffsets).filter(
+      (id) =>
+        edgeOffsets[id].x !== 0 ||
+        edgeOffsets[id].y !== 0 ||
+        (edgeOffsets[id].startDx !== undefined && edgeOffsets[id].startDx !== 0) ||
+        (edgeOffsets[id].startDy !== undefined && edgeOffsets[id].startDy !== 0) ||
+        (edgeOffsets[id].endDx !== undefined && edgeOffsets[id].endDx !== 0) ||
+        (edgeOffsets[id].endDy !== undefined && edgeOffsets[id].endDy !== 0)
+    ).length;
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -1179,7 +1983,15 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             const svg = containerRef.current.querySelector('svg');
             if (svg) {
               currentNodeOffsetsRef.current[stateId] = { ...nodeInitialOffsetRef.current };
-              applyNodeOffsetsToSvg(svg, currentNodeOffsetsRef.current, [stateId]);
+              applyDiagramOffsetsToSvg(
+                svg,
+                currentNodeOffsetsRef.current,
+                currentEdgeOffsetsRef.current,
+                null,
+                selectedEdge?.id,
+                layoutEngine,
+                flowchartCurve
+              );
             }
           }
           if (draggedNodeElRef.current) {
@@ -1229,7 +2041,15 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             if (containerRef.current) {
               const svg = containerRef.current.querySelector('svg');
               if (svg) {
-                applyNodeOffsetsToSvg(svg, nextOffsets, [effectiveSelectedStateId]);
+                applyDiagramOffsetsToSvg(
+                  svg,
+                  nextOffsets,
+                  currentEdgeOffsetsRef.current,
+                  null,
+                  selectedEdge?.id,
+                  layoutEngine,
+                  flowchartCurve
+                );
               }
             }
           }
@@ -1365,22 +2185,43 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             )}
           </button>
 
-          {/* Reset Diagram Layout Button (shown when any node has been repositioned) */}
-          {movedNodesCount > 0 && (
+          {/* Reset Diagram Layout Button (shown when any node or edge has been repositioned) */}
+          {movedElementsCount > 0 && (
             <button
               id="reset-diagram-layout-btn"
               type="button"
               onClick={handleResetLayout}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-medium transition-all shadow-sm"
-              title="Reset manual node positions back to default Mermaid layout"
+              title="Reset manual node and edge positions back to default Mermaid layout"
             >
               <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
               <span className="hidden sm:inline">Reset Layout</span>
               <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-bold text-[10px]">
-                {movedNodesCount}
+                {movedElementsCount}
               </span>
             </button>
           )}
+
+          {/* Notes Drawer Button */}
+          <button
+            id="toggle-notes-drawer-btn"
+            type="button"
+            onClick={() => setIsNotesDrawerOpen(true)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium ${
+              totalNotesCount > 0
+                ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
+            }`}
+            title="View and manage diagram notes (Right-click any node or transition to add a note)"
+          >
+            <StickyNote className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Notes</span>
+            {totalNotesCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-bold text-[10px]">
+                {totalNotesCount}
+              </span>
+            )}
+          </button>
 
           <div className="w-[1px] h-4 bg-slate-800 mx-1"></div>
 
@@ -1473,6 +2314,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
+        onContextMenu={handleContextMenu}
         className={`flex-1 relative overflow-hidden [background-size:16px_16px] cursor-grab transition-colors duration-200 ${
           mermaidTheme === 'dark'
             ? 'bg-slate-900 bg-[radial-gradient(#1e293b_1px,transparent_1px)]'
@@ -1499,9 +2341,33 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
               transformOrigin: '0 0',
               transition: isDragging || isNodeDragging ? 'none' : 'transform 0.05s ease-out',
             }}
-            className="w-full h-full p-8 select-none flex items-center justify-center [&>svg]:max-w-none [&>svg]:max-h-none"
-            dangerouslySetInnerHTML={{ __html: svgContent }}
-          />
+            className="w-full h-full p-8 select-none flex items-center justify-center [&>svg]:max-w-none [&>svg]:max-h-none relative"
+          >
+            <div
+              className="contents"
+              dangerouslySetInnerHTML={{ __html: svgContent }}
+            />
+            <NoteOverlaysLayer
+              notes={effectiveNotes}
+              availableStates={availableStates}
+              availableEdges={availableEdges}
+              svgElement={renderedSvg || containerRef.current?.querySelector('svg') || null}
+              zoom={zoom}
+              onEditNote={handleOpenAddNote}
+              onDeleteNote={handleDeleteActiveNote}
+              onUpdateNotePosition={onUpdateNotePositionProp || (() => {})}
+              onSelectTarget={(target) => {
+                if (target.type === 'node') {
+                  handleSelectState(target.id, target.label || target.id);
+                  panToState(target.id);
+                } else if (target.type === 'edge') {
+                  const edge = availableEdges.find((e) => e.id === target.id);
+                  if (edge) setSelectedEdge(edge);
+                  panToEdge(target.id);
+                }
+              }}
+            />
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full text-slate-500 text-sm">
             Diagram will appear here once generated
@@ -1525,6 +2391,64 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             onClose={handleCloseInspector}
           />
         )}
+
+        {/* Right-click Context Menu */}
+        {contextMenuState && (
+          <DiagramContextMenu
+            x={contextMenuState.x}
+            y={contextMenuState.y}
+            target={contextMenuState.target}
+            onAddOrEditNote={handleOpenAddNote}
+            onDeleteNote={handleDeleteActiveNote}
+            onOpenStyleCustomizer={(stateId: string) => {
+              const st = availableStates.find((s) => s.id === stateId);
+              handleSelectState(stateId, st?.label || stateId);
+              setIsInspectorOpen(true);
+            }}
+            onOpenMermaidLive={onOpenMermaidLive}
+            onClose={() => setContextMenuState(null)}
+          />
+        )}
+
+        {/* Note Dialog Modal */}
+        <NoteDialog
+          isOpen={isNoteDialogOpen}
+          target={activeNoteTarget}
+          currentNote={activeNoteTarget && activeNoteTarget.type !== 'canvas' ? activeNoteTarget.note : ''}
+          onSave={handleSaveActiveNote}
+          onDelete={handleDeleteActiveNote}
+          onClose={() => setIsNoteDialogOpen(false)}
+        />
+
+        {/* Notes Drawer */}
+        <NotesDrawer
+          isOpen={isNotesDrawerOpen}
+          notes={effectiveNotes}
+          onSelectTarget={(target: ContextMenuTarget) => {
+            if (target.type === 'node') {
+              handleSelectState(target.id, target.label || target.id);
+              panToState(target.id);
+            } else if (target.type === 'edge') {
+              const edge = availableEdges.find((e) => e.id === target.id);
+              if (edge) setSelectedEdge(edge);
+              panToEdge(target.id);
+            }
+          }}
+          onEditNote={(target: ContextMenuTarget) => {
+            setActiveNoteTarget(target);
+            setIsNoteDialogOpen(true);
+          }}
+          onDeleteNote={(target: ContextMenuTarget) => {
+            handleDeleteActiveNote(target);
+          }}
+          onClearAllNotes={() => {
+            onClearAllNotes?.();
+          }}
+          onOpenMermaidLive={() => {
+            onOpenMermaidLive?.();
+          }}
+          onClose={() => setIsNotesDrawerOpen(false)}
+        />
       </div>
     </div>
   );

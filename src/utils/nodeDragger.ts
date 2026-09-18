@@ -3,6 +3,8 @@
  * distortion-free edge rerouting, and manual edge selection/curve adjustments in Mermaid diagrams.
  */
 
+import { EdgeInfo } from '../types.ts';
+
 export interface Point {
   x: number;
   y: number;
@@ -16,6 +18,10 @@ export interface NodeOffset {
 export interface EdgeOffset {
   x: number;
   y: number;
+  startDx?: number;
+  startDy?: number;
+  endDx?: number;
+  endDy?: number;
 }
 
 export type NodeOffsetsMap = Record<string, NodeOffset>;
@@ -51,13 +57,36 @@ export function parseSvgPathCommands(d: string): PathCommand[] {
   const commands: PathCommand[] = [];
   const cmdRegex = /([a-df-z])([^a-df-z]*)/gi;
   let match: RegExpExecArray | null;
+  let curX = 0;
+  let curY = 0;
+
   while ((match = cmdRegex.exec(d)) !== null) {
     const type = match[1];
     const rawArgs = match[2].trim();
     const args = rawArgs
       ? (rawArgs.match(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi)?.map(Number) || [])
       : [];
-    commands.push({ type, args });
+
+    const upper = type.toUpperCase();
+    if (upper === 'H') {
+      if (args.length >= 1) {
+        const targetX = type === 'h' ? curX + args[0] : args[0];
+        commands.push({ type: 'L', args: [targetX, curY] });
+        curX = targetX;
+      }
+    } else if (upper === 'V') {
+      if (args.length >= 1) {
+        const targetY = type === 'v' ? curY + args[0] : args[0];
+        commands.push({ type: 'L', args: [curX, targetY] });
+        curY = targetY;
+      }
+    } else {
+      commands.push({ type, args });
+      if (args.length >= 2) {
+        curX = args[args.length - 2];
+        curY = args[args.length - 1];
+      }
+    }
   }
   return commands;
 }
@@ -87,12 +116,18 @@ export function extractCoordinatePoints(commands: PathCommand[]): Point[] {
  */
 export function parseTranslation(transformStr: string): { x: number; y: number } {
   if (!transformStr) return { x: 0, y: 0 };
-  const tm = transformStr.match(/translate\(\s*(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)\s*\)/);
+  const tm = transformStr.match(
+    /translate\(\s*(-?[\d.]+(?:e[+-]?\d+)?)[,\s]+(-?[\d.]+(?:e[+-]?\d+)?)\s*\)/i
+  );
   if (tm) {
     return { x: parseFloat(tm[1]), y: parseFloat(tm[2]) };
   }
+  const singleTm = transformStr.match(/translate\(\s*(-?[\d.]+(?:e[+-]?\d+)?)\s*\)/i);
+  if (singleTm) {
+    return { x: parseFloat(singleTm[1]), y: 0 };
+  }
   const mm = transformStr.match(
-    /matrix\([^,]+,[^,]+,[^,]+,[^,]+,\s*(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)\s*\)/
+    /matrix\([^,]+,[^,]+,[^,]+,[^,]+,\s*(-?[\d.]+(?:e[+-]?\d+)?)[,\s]+(-?[\d.]+(?:e[+-]?\d+)?)\s*\)/i
   );
   if (mm) {
     return { x: parseFloat(mm[1]), y: parseFloat(mm[2]) };
@@ -148,11 +183,26 @@ export function computeBoxBoundaryIntersection(
 
 /**
  * Extract node bounding geometry (center and half-dimensions in diagram coordinate space).
+ * Accumulates parent group transforms to match edgePaths coordinate space.
  */
-export function getNodeGeometry(node: SVGGElement): NodeGeometry {
+export function getNodeGeometry(node: SVGGElement, svgRoot?: SVGSVGElement | null): NodeGeometry {
   const stateId = node.getAttribute('data-state-id') || '';
-  const origTf = node.getAttribute('data-orig-transform') || node.getAttribute('transform') || '';
-  const { x: tx, y: ty } = parseTranslation(origTf);
+  
+  // Accumulate transforms from node up to the common parent or svgRoot
+  let totalTx = 0;
+  let totalTy = 0;
+  let curr: Element | null = node;
+  const stopAt = svgRoot?.querySelector('g.edgePaths')?.parentElement || svgRoot || null;
+
+  while (curr && curr !== stopAt && curr.tagName !== 'svg') {
+    const tf = (curr === node ? curr.getAttribute('data-orig-transform') : null) || curr.getAttribute('transform') || '';
+    if (tf) {
+      const { x, y } = parseTranslation(tf);
+      totalTx += x;
+      totalTy += y;
+    }
+    curr = curr.parentElement;
+  }
 
   let w = 120;
   let h = 50;
@@ -178,12 +228,21 @@ export function getNodeGeometry(node: SVGGElement): NodeGeometry {
       h = rh;
       localCx = rx + rw / 2;
       localCy = ry + rh / 2;
+    } else {
+      const circle = node.querySelector('circle');
+      if (circle) {
+        const r = parseFloat(circle.getAttribute('r') || '12');
+        w = 2 * r;
+        h = 2 * r;
+        localCx = 0;
+        localCy = 0;
+      }
     }
   }
 
-  const origCenterX = tx + localCx;
-  const origCenterY = ty + localCy;
-  const halfWidth = Math.max(16, w / 2);
+  const origCenterX = totalTx + localCx;
+  const origCenterY = totalTy + localCy;
+  const halfWidth = Math.max(14, w / 2);
   const halfHeight = Math.max(12, h / 2);
 
   return {
@@ -233,17 +292,79 @@ export function translateSvgPath(d: string, dx: number, dy: number): string {
 }
 
 /**
+ * Cleans raw Mermaid node IDs (removing diagram-id prefixes, 'flowchart-', 'state-', and trailing instance numbers like '-0').
+ * Preserves user hyphens like 'step-1' or 'node-2'.
+ */
+export function cleanNodeId(raw: string): string {
+  if (!raw) return '';
+  let id = raw.trim();
+  // Strip any diagram ID prefix before 'state-' or 'flowchart-'
+  id = id.replace(/^[A-Za-z0-9_.-]+?-(?:state|flowchart)-/, '');
+  id = id.replace(/^(?:state|flowchart)-/, '');
+  // Strip trailing instance numbers like -0, -1, _0, _1
+  id = id.replace(/[-_]\d+$/, '');
+  return id.trim();
+}
+
+/**
+ * Robustly finds an SVG node element in the diagram by stateId.
+ */
+export function findNodeElement(svg: SVGSVGElement, stateId: string): SVGGElement | null {
+  if (!stateId) return null;
+  const cleanId = cleanNodeId(stateId);
+  const isStartEnd = cleanId === '[*]' || cleanId === 'root_start' || cleanId === 'root_end' || cleanId === 'startNode';
+
+  const direct = (
+    svg.querySelector(`g.node[data-state-id="${stateId}"]`) ||
+    svg.querySelector(`g.node[data-state-id="${cleanId}"]`) ||
+    svg.querySelector(`g.node[id="${stateId}"]`) ||
+    svg.querySelector(`g.node[id="${cleanId}"]`) ||
+    svg.querySelector(`g.node[id="flowchart-${cleanId}-0"]`) ||
+    svg.querySelector(`g.node[id="state-${cleanId}-0"]`) ||
+    svg.querySelector(`g.node[id*="flowchart-${cleanId}-"]`) ||
+    svg.querySelector(`g.node[id*="state-${cleanId}-"]`) ||
+    (isStartEnd
+      ? (svg.querySelector('g.node[id*="root_start"], g.node[id*="root_end"], g.node[id*="startNode"], g.node.startNode') as SVGGElement | null)
+      : null)
+  ) as SVGGElement | null;
+  if (direct) return direct;
+
+  // Fallback: scan all nodes checking cleanNodeId(id) or data-state-label
+  const allNodes = Array.from(svg.querySelectorAll('g.node')) as SVGGElement[];
+  for (const n of allNodes) {
+    const nStateId = n.getAttribute('data-state-id') || '';
+    if (nStateId === stateId || nStateId === cleanId || cleanNodeId(nStateId) === cleanId) return n;
+
+    const nId = n.getAttribute('id') || '';
+    if (nId === stateId || cleanNodeId(nId) === cleanId || cleanNodeId(nId) === stateId) return n;
+
+    const nLabel = n.getAttribute('data-state-label') || '';
+    if (nLabel && (nLabel === stateId || nLabel === cleanId)) return n;
+  }
+  return null;
+}
+
+/**
  * Initializes SVG metadata for draggable state nodes, interactive edge paths, and edge hitboxes.
  * Should be called once whenever a new SVG is rendered.
  */
-export function initializeSvgDragMetadata(svg: SVGSVGElement): void {
+export function initializeSvgDragMetadata(
+  svg: SVGSVGElement,
+  availableEdges: EdgeInfo[] = []
+): void {
+  svg.setAttribute('data-drag-initialized', 'true');
   // 1. Gather all state nodes with initial transforms and geometry
   const nodes = Array.from(svg.querySelectorAll('g.node')) as SVGGElement[];
-  const nodeCenters: { id: string; x: number; y: number }[] = [];
+  const nodeCenters: { id: string; x: number; y: number; hw: number; hh: number }[] = [];
 
   for (const node of nodes) {
-    const stateId = node.getAttribute('data-state-id');
+    const rawStateId = node.getAttribute('data-state-id') || node.getAttribute('id') || '';
+    let stateId = cleanNodeId(rawStateId);
+    if (!stateId && (rawStateId.includes('root_start') || rawStateId.includes('startNode'))) {
+      stateId = '[*]';
+    }
     if (!stateId) continue;
+    node.setAttribute('data-state-id', stateId);
 
     if (!node.getAttribute('data-orig-transform')) {
       const origTf = node.getAttribute('transform') || '';
@@ -253,35 +374,40 @@ export function initializeSvgDragMetadata(svg: SVGSVGElement): void {
       node.setAttribute('data-orig-y', String(y));
     }
 
-    const geom = getNodeGeometry(node);
+    const geom = getNodeGeometry(node, svg);
     node.setAttribute('data-orig-cx', geom.origCenterX.toFixed(1));
     node.setAttribute('data-orig-cy', geom.origCenterY.toFixed(1));
     node.setAttribute('data-hw', geom.halfWidth.toFixed(1));
     node.setAttribute('data-hh', geom.halfHeight.toFixed(1));
 
-    nodeCenters.push({ id: stateId, x: geom.origCenterX, y: geom.origCenterY });
+    nodeCenters.push({
+      id: stateId,
+      x: geom.origCenterX,
+      y: geom.origCenterY,
+      hw: geom.halfWidth,
+      hh: geom.halfHeight,
+    });
   }
 
   // 2. Map all edge paths to their source and target nodes, and setup interactive hitboxes
   const allPaths = (Array.from(svg.querySelectorAll('g.edgePaths path')).filter(
-    (p) => !p.closest('defs') && !p.closest('marker') && p.getAttribute('d')
+    (p) => !p.closest('defs') && !p.closest('marker') && p.getAttribute('d') && !p.classList.contains('tc-edge-hitbox')
   ) as SVGPathElement[]);
 
   for (let idx = 0; idx < allPaths.length; idx++) {
     const path = allPaths[idx];
-    const pathId = path.getAttribute('id') || path.getAttribute('data-id') || `path-${idx}`;
-    if (!path.getAttribute('data-path-id')) {
-      path.setAttribute('data-path-id', pathId);
-    }
-    path.setAttribute('data-edge-id', pathId);
-    path.classList.add('tc-edge-path');
+    const rawPathId = path.getAttribute('id') || path.getAttribute('data-id') || `path-${idx}`;
+    const uniquePathId = rawPathId.startsWith('path-') ? `${rawPathId}_${idx}` : rawPathId;
 
     if (!path.getAttribute('data-orig-d')) {
       const d = path.getAttribute('d') || '';
       path.setAttribute('data-orig-d', d);
     }
 
-    // Try finding source and target from classes or id
+    const origD = path.getAttribute('data-orig-d') || '';
+    const points = extractCoordinatePoints(parseSvgPathCommands(origD));
+
+    // Try finding source and target from classes, id, geometric proximity, or availableEdges
     const parent = path.parentElement;
     const classStr = `${path.getAttribute('class') || ''} ${parent?.getAttribute('class') || ''}`;
     const idStr = `${path.getAttribute('id') || ''} ${parent?.getAttribute('id') || ''}`;
@@ -289,54 +415,71 @@ export function initializeSvgDragMetadata(svg: SVGSVGElement): void {
     let sourceId: string | null = null;
     let targetId: string | null = null;
 
-    const lsMatch = classStr.match(/\bLS-([A-Za-z0-9_]+)\b/);
-    if (lsMatch) sourceId = lsMatch[1];
-    const leMatch = classStr.match(/\bLE-([A-Za-z0-9_]+)\b/);
-    if (leMatch) targetId = leMatch[1];
+    // 1. Mermaid stateDiagram ID check: id="<diagramId>-edge<N>"
+    const edgeIndexMatch = rawPathId.match(/-edge(\d+)$/) || path.getAttribute('id')?.match(/-edge(\d+)$/);
+    if (edgeIndexMatch) {
+      const edgeIdx = parseInt(edgeIndexMatch[1], 10);
+      if (edgeIdx >= 0 && edgeIdx < availableEdges.length) {
+        sourceId = availableEdges[edgeIdx].from;
+        targetId = availableEdges[edgeIdx].to;
+        path.setAttribute('data-edge-index', String(edgeIdx));
+      }
+    }
 
+    // 2. Class check: LS-<source> LE-<target>
     if (!sourceId || !targetId) {
-      const lMatch = idStr.match(/\bL-([A-Za-z0-9_]+)-([A-Za-z0-9_]+)/);
-      if (lMatch) {
-        if (!sourceId) sourceId = lMatch[1];
-        if (!targetId) targetId = lMatch[2];
+      const lsMatch = classStr.match(/\bLS-([A-Za-z0-9_.-]+)\b/);
+      if (lsMatch) {
+        const raw = lsMatch[1];
+        sourceId = raw.includes('root_start') || raw.includes('startNode') ? '[*]' : cleanNodeId(raw);
+      }
+      const leMatch = classStr.match(/\bLE-([A-Za-z0-9_.-]+)\b/);
+      if (leMatch) {
+        const raw = leMatch[1];
+        targetId = raw.includes('root_end') || raw.includes('startNode') || raw.includes('root_start') ? '[*]' : cleanNodeId(raw);
       }
     }
 
-    // Proximity fallback using first and last coordinate
-    const origD = path.getAttribute('data-orig-d') || '';
-    const points = extractCoordinatePoints(parseSvgPathCommands(origD));
-    if (points.length > 0 && nodeCenters.length > 0) {
-      if (!sourceId) {
-        const pStart = points[0];
-        let bestDist = Infinity;
-        let bestNodeId: string | null = null;
-        for (const nc of nodeCenters) {
-          const d = Math.hypot(nc.x - pStart.x, nc.y - pStart.y);
-          if (d < bestDist) {
-            bestDist = d;
-            bestNodeId = nc.id;
-          }
+    // 3. Match against availableEdges by link name in id/classes
+    if (!sourceId || !targetId) {
+      for (let eIdx = 0; eIdx < availableEdges.length; eIdx++) {
+        const e = availableEdges[eIdx];
+        const cf = cleanNodeId(e.from);
+        const ct = cleanNodeId(e.to);
+        if (
+          (cf && ct && (idStr.includes(`L_${cf}_${ct}`) || idStr.includes(`L-${cf}-${ct}`))) ||
+          (classStr.includes(`LS-${cf}`) && classStr.includes(`LE-${ct}`)) ||
+          (classStr.includes(`LS-state-${cf}`) && classStr.includes(`LE-state-${ct}`))
+        ) {
+          sourceId = e.from;
+          targetId = e.to;
+          path.setAttribute('data-edge-index', String(eIdx));
+          break;
         }
-        if (bestNodeId) sourceId = bestNodeId;
-      }
-
-      if (!targetId) {
-        const pEnd = points[points.length - 1];
-        let bestDist = Infinity;
-        let bestNodeId: string | null = null;
-        for (const nc of nodeCenters) {
-          const d = Math.hypot(nc.x - pEnd.x, nc.y - pEnd.y);
-          if (d < bestDist) {
-            bestDist = d;
-            bestNodeId = nc.id;
-          }
-        }
-        if (bestNodeId) targetId = bestNodeId;
       }
     }
+
+    // 4. Sequential fallback if index matches
+    if (!sourceId || !targetId) {
+      if (idx < availableEdges.length) {
+        sourceId = availableEdges[idx].from;
+        targetId = availableEdges[idx].to;
+        path.setAttribute('data-edge-index', String(idx));
+      }
+    }
+
+    sourceId = sourceId ? cleanNodeId(sourceId) : '';
+    targetId = targetId ? cleanNodeId(targetId) : '';
 
     if (sourceId) path.setAttribute('data-source-id', sourceId);
     if (targetId) path.setAttribute('data-target-id', targetId);
+
+    const edgeKey = sourceId && targetId ? `${sourceId}->${targetId}` : uniquePathId;
+    path.setAttribute('data-edge-id', uniquePathId);
+    path.setAttribute('data-path-id', uniquePathId);
+    path.setAttribute('data-edge-key', edgeKey);
+    path.setAttribute('data-path-index', String(idx));
+    path.classList.add('tc-edge-path');
 
     // Compute baseline curvature/offset of the original path to preserve natural curve
     if (points.length >= 2) {
@@ -356,18 +499,44 @@ export function initializeSvgDragMetadata(svg: SVGSVGElement): void {
       }
     }
 
-    // Add transparent wider hitbox alongside path if not already added
-    if (parent && !parent.querySelector(`.tc-edge-hitbox[data-edge-id="${pathId}"]`)) {
-      const hitbox = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      hitbox.setAttribute('class', 'tc-edge-hitbox');
-      hitbox.setAttribute('data-edge-id', pathId);
-      hitbox.setAttribute('d', path.getAttribute('d') || '');
-      hitbox.setAttribute('fill', 'none');
-      hitbox.setAttribute('stroke', 'transparent');
-      hitbox.setAttribute('stroke-width', '22');
-      hitbox.setAttribute('cursor', 'pointer');
-      parent.insertBefore(hitbox, path);
+    // Add transparent wider hitbox alongside path
+    if (parent) {
+      let hitbox = parent.querySelector(`.tc-edge-hitbox[data-path-id="${uniquePathId}"]`) as SVGPathElement | null;
+      if (!hitbox) {
+        hitbox = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        hitbox.setAttribute('class', 'tc-edge-hitbox');
+        hitbox.setAttribute('data-edge-id', uniquePathId);
+        hitbox.setAttribute('data-path-id', uniquePathId);
+        hitbox.setAttribute('data-edge-key', edgeKey);
+        hitbox.setAttribute('data-path-index', String(idx));
+        if (sourceId) hitbox.setAttribute('data-source-id', sourceId);
+        if (targetId) hitbox.setAttribute('data-target-id', targetId);
+        hitbox.setAttribute('d', path.getAttribute('d') || '');
+        hitbox.setAttribute('fill', 'none');
+        hitbox.setAttribute('stroke', 'rgba(0, 0, 0, 0.001)');
+        hitbox.setAttribute('stroke-width', '28');
+        hitbox.setAttribute('stroke-linecap', 'round');
+        hitbox.setAttribute('stroke-linejoin', 'round');
+        hitbox.setAttribute('pointer-events', 'stroke');
+        hitbox.setAttribute('cursor', 'pointer');
+        // Insert AFTER path so it sits on top in SVG painter's order
+        if (path.nextSibling) {
+          parent.insertBefore(hitbox, path.nextSibling);
+        } else {
+          parent.appendChild(hitbox);
+        }
+      } else {
+        hitbox.setAttribute('d', path.getAttribute('d') || '');
+        hitbox.setAttribute('data-edge-id', uniquePathId);
+        hitbox.setAttribute('data-path-id', uniquePathId);
+        hitbox.setAttribute('data-edge-key', edgeKey);
+        hitbox.setAttribute('data-path-index', String(idx));
+        if (sourceId) hitbox.setAttribute('data-source-id', sourceId);
+        if (targetId) hitbox.setAttribute('data-target-id', targetId);
+      }
     }
+    path.setAttribute('pointer-events', 'stroke');
+    path.setAttribute('cursor', 'pointer');
   }
 
   // 3. Link edge labels to edge paths
@@ -414,32 +583,178 @@ export function initializeSvgDragMetadata(svg: SVGSVGElement): void {
 }
 
 /**
- * Calculate rerouted curve for an edge between two nodes, preventing distortion.
+ * Resolve node offset flexibly by ID, element data-state-id, raw ID, or clean ID.
+ */
+export function resolveNodeOffset(
+  id: string | null,
+  nodeEl: SVGGElement | null,
+  nodeOffsets: NodeOffsetsMap
+): NodeOffset {
+  if (!id && !nodeEl) return { x: 0, y: 0 };
+  if (id && nodeOffsets[id]) return nodeOffsets[id];
+  if (nodeEl) {
+    const stateId = nodeEl.getAttribute('data-state-id');
+    if (stateId && nodeOffsets[stateId]) return nodeOffsets[stateId];
+    const rawId = nodeEl.getAttribute('id');
+    if (rawId && nodeOffsets[rawId]) return nodeOffsets[rawId];
+    const cleanRaw = cleanNodeId(rawId || '');
+    if (cleanRaw && nodeOffsets[cleanRaw]) return nodeOffsets[cleanRaw];
+  }
+  const clean = cleanNodeId(id || '');
+  if (clean && nodeOffsets[clean]) return nodeOffsets[clean];
+  for (const [k, v] of Object.entries(nodeOffsets)) {
+    if (cleanNodeId(k) === clean || cleanNodeId(k) === id || k === clean) {
+      return v;
+    }
+  }
+  return { x: 0, y: 0 };
+}
+
+/**
+ * Deforms an existing SVG path string based on source node movement, target node movement,
+ * and edge waypoint or endpoint offsets.
+ * Preserves the pristine curvature and routing topology calculated by Mermaid while smoothly
+ * anchoring endpoints to moving nodes so edges never disconnect.
+ */
+export function deformSvgPathWithOffsets(
+  origD: string,
+  srcOffset: NodeOffset,
+  tgtOffset: NodeOffset,
+  edgeOffset: EdgeOffset
+): { d: string; midPoint: Point; startPoint: Point; endPoint: Point } {
+  const commands = parseSvgPathCommands(origD);
+  const points = extractCoordinatePoints(commands);
+  if (points.length === 0) {
+    return {
+      d: origD,
+      midPoint: { x: 0, y: 0 },
+      startPoint: { x: 0, y: 0 },
+      endPoint: { x: 0, y: 0 },
+    };
+  }
+
+  // Calculate cumulative arc-length along the points
+  const distances: number[] = [0];
+  let totalDist = 0;
+  for (let i = 1; i < points.length; i++) {
+    const seg = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+    totalDist += seg;
+    distances.push(totalDist);
+  }
+
+  const updatedPoints: Point[] = points.map((p, k) => {
+    const t = totalDist > 0 ? distances[k] / totalDist : k / Math.max(1, points.length - 1);
+
+    // 1. Interpolated node movement: start moves with srcOffset, end moves with tgtOffset
+    const nodeDx = srcOffset.x * (1 - t) + tgtOffset.x * t;
+    const nodeDy = srcOffset.y * (1 - t) + tgtOffset.y * t;
+
+    // 2. Waypoint handle offset (smooth parabolic curve, max at t=0.5, 0 at endpoints)
+    const midInfluence = 4 * t * (1 - t);
+    const wpDx = (edgeOffset.x || 0) * midInfluence;
+    const wpDy = (edgeOffset.y || 0) * midInfluence;
+
+    // 3. Endpoint handle manual dragging
+    const startDx = (edgeOffset.startDx || 0) * (1 - t);
+    const startDy = (edgeOffset.startDy || 0) * (1 - t);
+    const endDx = (edgeOffset.endDx || 0) * t;
+    const endDy = (edgeOffset.endDy || 0) * t;
+
+    return {
+      x: p.x + nodeDx + wpDx + startDx + endDx,
+      y: p.y + nodeDy + wpDy + startDy + endDy,
+    };
+  });
+
+  // Reconstruct SVG path string preserving command types
+  let ptIdx = 0;
+  let newD = '';
+  for (const cmd of commands) {
+    const type = cmd.type;
+    const upper = type.toUpperCase();
+    if (upper === 'M' || upper === 'L' || upper === 'T') {
+      const p = updatedPoints[ptIdx++];
+      if (p) newD += `${type}${p.x.toFixed(1)},${p.y.toFixed(1)} `;
+    } else if (upper === 'C') {
+      const p1 = updatedPoints[ptIdx++];
+      const p2 = updatedPoints[ptIdx++];
+      const p3 = updatedPoints[ptIdx++];
+      if (p1 && p2 && p3) {
+        newD += `${type}${p1.x.toFixed(1)},${p1.y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)} ${p3.x.toFixed(1)},${p3.y.toFixed(1)} `;
+      }
+    } else if (upper === 'Q' || upper === 'S') {
+      const p1 = updatedPoints[ptIdx++];
+      const p2 = updatedPoints[ptIdx++];
+      if (p1 && p2) {
+        newD += `${type}${p1.x.toFixed(1)},${p1.y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)} `;
+      }
+    } else if (upper === 'A') {
+      const p = updatedPoints[ptIdx++];
+      if (p) {
+        newD += `${type}${cmd.args[0]},${cmd.args[1]} ${cmd.args[2]} ${cmd.args[3]} ${cmd.args[4]} ${p.x.toFixed(1)},${p.y.toFixed(1)} `;
+      }
+    } else if (upper === 'Z') {
+      newD += `${type} `;
+    }
+  }
+
+  const startPoint = updatedPoints[0] || { x: 0, y: 0 };
+  const endPoint = updatedPoints[updatedPoints.length - 1] || startPoint;
+  const midPoint = updatedPoints[Math.floor(updatedPoints.length / 2)] || startPoint;
+
+  return {
+    d: newD.trim(),
+    midPoint,
+    startPoint,
+    endPoint,
+  };
+}
+
+/**
+ * Calculate rerouted curve for an edge between two nodes, preventing distortion and matching curve/engine settings.
  */
 export function calculateReroutedEdgePath(
   path: SVGPathElement,
   svg: SVGSVGElement,
   nodeOffsets: NodeOffsetsMap,
-  edgeOffsets: EdgeOffsetsMap
-): { d: string; midPoint: Point; startPoint: Point } {
-  const origD = path.getAttribute('data-orig-d') || '';
-  const edgeId = path.getAttribute('data-edge-id') || path.getAttribute('data-path-id') || '';
+  edgeOffsets: EdgeOffsetsMap,
+  layoutEngine: 'dagre' | 'elk' = 'elk',
+  flowchartCurve: string = 'basis'
+): { d: string; midPoint: Point; startPoint: Point; endPoint: Point } {
+  const origD = path.getAttribute('data-orig-d') || path.getAttribute('d') || '';
+  const rawPathId = path.getAttribute('data-path-id') || path.getAttribute('id') || '';
+  const edgeId = path.getAttribute('data-edge-id') || rawPathId;
   const srcId = path.getAttribute('data-source-id');
   const tgtId = path.getAttribute('data-target-id');
+  const edgeKey = srcId && tgtId ? `${srcId}->${tgtId}` : edgeId;
 
-  const srcOffset = (srcId && nodeOffsets[srcId]) || { x: 0, y: 0 };
-  const tgtOffset = (tgtId && nodeOffsets[tgtId]) || { x: 0, y: 0 };
-  const edgeOffset = (edgeId && edgeOffsets[edgeId]) || { x: 0, y: 0 };
+  const srcNodeEl = srcId ? findNodeElement(svg, srcId) : null;
+  const tgtNodeEl = tgtId ? findNodeElement(svg, tgtId) : null;
+
+  const srcOffset = resolveNodeOffset(srcId, srcNodeEl, nodeOffsets);
+  const tgtOffset = resolveNodeOffset(tgtId, tgtNodeEl, nodeOffsets);
+  const edgeOffset =
+    edgeOffsets[rawPathId] ||
+    edgeOffsets[edgeId] ||
+    (edgeKey ? edgeOffsets[edgeKey] : undefined) ||
+    { x: 0, y: 0 };
 
   const hasNodeMovement = srcOffset.x !== 0 || srcOffset.y !== 0 || tgtOffset.x !== 0 || tgtOffset.y !== 0;
-  const hasEdgeMovement = edgeOffset.x !== 0 || edgeOffset.y !== 0;
+  const hasEdgeMovement =
+    edgeOffset.x !== 0 ||
+    edgeOffset.y !== 0 ||
+    (edgeOffset.startDx !== undefined && edgeOffset.startDx !== 0) ||
+    (edgeOffset.startDy !== undefined && edgeOffset.startDy !== 0) ||
+    (edgeOffset.endDx !== undefined && edgeOffset.endDx !== 0) ||
+    (edgeOffset.endDy !== undefined && edgeOffset.endDy !== 0);
 
-  // If no node moved and edge wasn't dragged, return original path
+  // If no node moved and edge wasn't dragged, extract original endpoints and return original path
   if (!hasNodeMovement && !hasEdgeMovement) {
     const origPoints = extractCoordinatePoints(parseSvgPathCommands(origD));
     const startPoint = origPoints[0] || { x: 0, y: 0 };
+    const endPoint = origPoints[origPoints.length - 1] || startPoint;
     const midPoint = origPoints[Math.floor(origPoints.length / 2)] || startPoint;
-    return { d: origD, midPoint, startPoint };
+    return { d: origD, midPoint, startPoint, endPoint };
   }
 
   // Self-loop (srcId === tgtId): Rigidly translate loop to maintain pristine circular/oval shape
@@ -447,147 +762,114 @@ export function calculateReroutedEdgePath(
     const totalDx = srcOffset.x + edgeOffset.x;
     const totalDy = srcOffset.y + edgeOffset.y;
     const newD = translateSvgPath(origD, totalDx, totalDy);
-    const origPoints = extractCoordinatePoints(parseSvgPathCommands(newD));
-    const startPoint = origPoints[0] || { x: 0, y: 0 };
-    const midPoint = origPoints[Math.floor(origPoints.length / 2)] || startPoint;
-    return { d: newD, midPoint, startPoint };
+    const loopPoints = extractCoordinatePoints(parseSvgPathCommands(newD));
+    const startPoint = loopPoints[0] || { x: 0, y: 0 };
+    const endPoint = loopPoints[loopPoints.length - 1] || startPoint;
+    const midPoint = loopPoints[Math.floor(loopPoints.length / 2)] || startPoint;
+    return { d: newD, midPoint, startPoint, endPoint };
   }
 
-  // Distinct nodes: compute clean boundary-to-boundary Bézier routing
-  const srcNodeEl = srcId ? (svg.querySelector(`g.node[data-state-id="${srcId}"]`) as SVGGElement | null) : null;
-  const tgtNodeEl = tgtId ? (svg.querySelector(`g.node[data-state-id="${tgtId}"]`) as SVGGElement | null) : null;
-
-  if (srcNodeEl && tgtNodeEl) {
-    const sOrigCx = parseFloat(srcNodeEl.getAttribute('data-orig-cx') || '0');
-    const sOrigCy = parseFloat(srcNodeEl.getAttribute('data-orig-cy') || '0');
-    const sHw = parseFloat(srcNodeEl.getAttribute('data-hw') || '60');
-    const sHh = parseFloat(srcNodeEl.getAttribute('data-hh') || '25');
-
-    const tOrigCx = parseFloat(tgtNodeEl.getAttribute('data-orig-cx') || '0');
-    const tOrigCy = parseFloat(tgtNodeEl.getAttribute('data-orig-cy') || '0');
-    const tHw = parseFloat(tgtNodeEl.getAttribute('data-hw') || '60');
-    const tHh = parseFloat(tgtNodeEl.getAttribute('data-hh') || '25');
-
-    const sCx = sOrigCx + srcOffset.x;
-    const sCy = sOrigCy + srcOffset.y;
-    const tCx = tOrigCx + tgtOffset.x;
-    const tCy = tOrigCy + tgtOffset.y;
-
-    // Center-to-center baseline midpoint
-    const baseMidX = (sCx + tCx) / 2;
-    const baseMidY = (sCy + tCy) / 2;
-
-    // Estimated intermediate midpoint accounting for user drag
-    const midTargetX = baseMidX + edgeOffset.x;
-    const midTargetY = baseMidY + edgeOffset.y;
-
-    // Calculate boundary exit point on source node towards intermediate target
-    const startBound = computeBoxBoundaryIntersection(sCx, sCy, sHw, sHh, midTargetX, midTargetY, 2);
-    // Calculate boundary entry point on target node from intermediate target
-    const endBound = computeBoxBoundaryIntersection(tCx, tCy, tHw, tHh, midTargetX, midTargetY, 3);
-
-    const startX = startBound.x;
-    const startY = startBound.y;
-    const endX = endBound.x;
-    const endY = endBound.y;
-
-    const vX = endX - startX;
-    const vY = endY - startY;
-    const dist = Math.hypot(vX, vY);
-
-    const lineMidX = (startX + endX) / 2;
-    const lineMidY = (startY + endY) / 2;
-
-    const baseCurvature = parseFloat(path.getAttribute('data-base-curvature') || '0');
-
-    // Unit normal vector perpendicular to chord
-    const normX = dist > 1 ? -vY / dist : 0;
-    const normY = dist > 1 ? vX / dist : 1;
-
-    // Determine actual target midpoint: chord midpoint + normal * baseline + user drag offset
-    const actualMidX = lineMidX + normX * baseCurvature * 0.4 + edgeOffset.x;
-    const actualMidY = lineMidY + normY * baseCurvature * 0.4 + edgeOffset.y;
-
-    let newD: string;
-
-    if (hasEdgeMovement || Math.abs(baseCurvature) > 10) {
-      // Quadratic curve passing cleanly through actualMid
-      const cpX = 2 * actualMidX - 0.5 * (startX + endX);
-      const cpY = 2 * actualMidY - 0.5 * (startY + endY);
-      newD = `M${startX.toFixed(1)},${startY.toFixed(1)}Q${cpX.toFixed(1)},${cpY.toFixed(1)} ${endX.toFixed(1)},${endY.toFixed(1)}`;
-    } else {
-      // Smooth cubic Bézier respecting exit and entry surface normals for clean, undistorted layout
-      const bendDist = Math.min(Math.max(dist * 0.38, 20), 85);
-      const cp1X = startX + startBound.normalX * bendDist;
-      const cp1Y = startY + startBound.normalY * bendDist;
-      const cp2X = endX + endBound.normalX * bendDist;
-      const cp2Y = endY + endBound.normalY * bendDist;
-      newD = `M${startX.toFixed(1)},${startY.toFixed(1)}C${cp1X.toFixed(1)},${cp1Y.toFixed(1)} ${cp2X.toFixed(1)},${cp2Y.toFixed(1)} ${endX.toFixed(1)},${endY.toFixed(1)}`;
-    }
-
-    return {
-      d: newD,
-      midPoint: { x: actualMidX, y: actualMidY },
-      startPoint: { x: startX, y: startY },
-    };
-  }
-
-  // Fallback if node elements could not be resolved: translate using available offsets
-  const avgDx = (srcOffset.x + tgtOffset.x) / 2 + edgeOffset.x;
-  const avgDy = (srcOffset.y + tgtOffset.y) / 2 + edgeOffset.y;
-  const newD = translateSvgPath(origD, avgDx, avgDy);
-  const origPoints = extractCoordinatePoints(parseSvgPathCommands(newD));
-  const startPoint = origPoints[0] || { x: 0, y: 0 };
-  const midPoint = origPoints[Math.floor(origPoints.length / 2)] || startPoint;
-  return { d: newD, midPoint, startPoint };
+  return deformSvgPathWithOffsets(origD, srcOffset, tgtOffset, edgeOffset);
 }
 
 /**
  * Apply both node offsets and edge offsets to the SVG diagram in real-time.
+ * Manages draggable state nodes, rerouted edges, and interactive edge endpoint handles.
  */
 export function applyDiagramOffsetsToSvg(
   svg: SVGSVGElement,
   nodeOffsets: NodeOffsetsMap,
   edgeOffsets: EdgeOffsetsMap,
   targetEdgeId?: string | null,
-  selectedEdgeId?: string | null
+  selectedEdgeId?: string | null,
+  layoutEngine: 'dagre' | 'elk' = 'elk',
+  flowchartCurve: string = 'basis'
 ): void {
+  const actualSelectedEdgeId =
+    selectedEdgeId !== undefined && selectedEdgeId !== null
+      ? selectedEdgeId
+      : targetEdgeId && (targetEdgeId.includes('->') || targetEdgeId.includes('#') || targetEdgeId.startsWith('path-'))
+      ? targetEdgeId
+      : null;
+
+  // Ensure metadata is initialized first on this SVG element
+  if (!svg.getAttribute('data-drag-initialized')) {
+    initializeSvgDragMetadata(svg);
+  }
+
   // 1. Update node transforms
-  const nodesToUpdate = Array.from(svg.querySelectorAll('g.node[data-state-id]')) as SVGGElement[];
+  const nodesToUpdate = Array.from(svg.querySelectorAll('g.node')) as SVGGElement[];
   for (const node of nodesToUpdate) {
-    const stateId = node.getAttribute('data-state-id');
+    const rawStateId = node.getAttribute('data-state-id') || node.getAttribute('id') || '';
+    let stateId = cleanNodeId(rawStateId);
+    if (!stateId && (rawStateId.includes('root_start') || rawStateId.includes('startNode'))) {
+      stateId = '[*]';
+    }
     if (!stateId) continue;
-    const offset = nodeOffsets[stateId] || { x: 0, y: 0 };
-    const origX = parseFloat(node.getAttribute('data-orig-x') || '0');
-    const origY = parseFloat(node.getAttribute('data-orig-y') || '0');
-    node.setAttribute('transform', `translate(${origX + offset.x}, ${origY + offset.y})`);
+    if (!node.getAttribute('data-state-id')) {
+      node.setAttribute('data-state-id', stateId);
+    }
+
+    // Ensure original transform is captured from pristine Mermaid layout if not yet saved
+    if (!node.getAttribute('data-orig-transform')) {
+      const currentTf = node.getAttribute('transform') || '';
+      node.setAttribute('data-orig-transform', currentTf);
+      const { x, y } = parseTranslation(currentTf);
+      node.setAttribute('data-orig-x', String(x));
+      node.setAttribute('data-orig-y', String(y));
+    }
+
+    const offset = resolveNodeOffset(stateId, node, nodeOffsets);
+    if (offset.x === 0 && offset.y === 0) {
+      // Node has NOT been moved - restore pristine original transform from Mermaid!
+      const origTf = node.getAttribute('data-orig-transform');
+      if (origTf !== null && origTf !== undefined) {
+        node.setAttribute('transform', origTf);
+      }
+    } else {
+      // Node has been moved by user dragging
+      const origX = parseFloat(node.getAttribute('data-orig-x') || '0');
+      const origY = parseFloat(node.getAttribute('data-orig-y') || '0');
+      node.setAttribute('transform', `translate(${origX + offset.x}, ${origY + offset.y})`);
+    }
   }
 
   // 2. Update edge paths, hitboxes, labels, and handles
-  const allPaths = Array.from(
-    svg.querySelectorAll('g.edgePaths path[data-orig-d]')
-  ) as SVGPathElement[];
+  const allPaths = (Array.from(svg.querySelectorAll('g.edgePaths path')).filter(
+    (p) => !p.closest('defs') && !p.closest('marker') && p.getAttribute('d') && !p.classList.contains('tc-edge-hitbox')
+  ) as SVGPathElement[]);
 
-  // Ensure waypoint handle group exists
-  let handlesGroup = svg.querySelector('g.tc-edge-handles') as SVGGElement | null;
+  // Ensure waypoint handle group exists in the same coordinate space on top
+  const edgePathsGroup = svg.querySelector('g.edgePaths');
+  const parentContainer = (edgePathsGroup?.parentElement || svg) as SVGElement;
+  let handlesGroup = parentContainer.querySelector('g.tc-edge-handles') as SVGGElement | null;
   if (!handlesGroup) {
     handlesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     handlesGroup.setAttribute('class', 'tc-edge-handles');
-    svg.appendChild(handlesGroup);
+    parentContainer.appendChild(handlesGroup);
+  } else if ((handlesGroup.parentElement as Element | null) !== parentContainer) {
+    parentContainer.appendChild(handlesGroup);
   }
+  // Ensure handlesGroup is on top of edges
+  parentContainer.appendChild(handlesGroup);
+  handlesGroup.style.pointerEvents = 'all';
+
+  let selectedFound = false;
 
   for (const path of allPaths) {
-    const edgeId = path.getAttribute('data-edge-id') || path.getAttribute('data-path-id') || '';
-    if (targetEdgeId && edgeId !== targetEdgeId && !selectedEdgeId) {
-      // If updating a specific edge only
-      // continue;
-    }
+    const rawPathId = path.getAttribute('data-path-id') || path.getAttribute('id') || '';
+    const edgeId = path.getAttribute('data-edge-id') || rawPathId;
+    const srcId = path.getAttribute('data-source-id');
+    const tgtId = path.getAttribute('data-target-id');
+    const edgeKey = srcId && tgtId ? `${srcId}->${tgtId}` : edgeId;
 
-    const { d: newD, midPoint, startPoint } = calculateReroutedEdgePath(
+    const { d: newD, midPoint, startPoint, endPoint } = calculateReroutedEdgePath(
       path,
       svg,
       nodeOffsets,
-      edgeOffsets
+      edgeOffsets,
+      layoutEngine,
+      flowchartCurve
     );
 
     // Update path `d`
@@ -595,15 +877,15 @@ export function applyDiagramOffsetsToSvg(
 
     // Update hitbox `d`
     const parent = path.parentElement;
-    const hitbox = parent?.querySelector(`.tc-edge-hitbox[data-edge-id="${edgeId}"]`);
+    const hitbox = parent?.querySelector(`.tc-edge-hitbox[data-path-id="${rawPathId}"]`);
     if (hitbox) {
       hitbox.setAttribute('d', newD);
     }
 
     // Update edge label position to follow rerouted midpoint
-    if (edgeId) {
+    if (edgeKey || edgeId) {
       const labels = Array.from(
-        svg.querySelectorAll(`g.edgeLabel[data-linked-path-id="${edgeId}"]`)
+        svg.querySelectorAll(`g.edgeLabel[data-linked-path-id="${rawPathId}"], g.edgeLabel[data-linked-path-id="${edgeKey}"]`)
       ) as SVGGElement[];
       for (const label of labels) {
         const origLx = parseFloat(label.getAttribute('data-orig-x') || '0');
@@ -619,7 +901,7 @@ export function applyDiagramOffsetsToSvg(
 
       // Update priority badge position
       const badges = Array.from(
-        svg.querySelectorAll(`.tc-priority-badge[data-path-id="${edgeId}"]`)
+        svg.querySelectorAll(`.tc-priority-badge[data-path-id="${rawPathId}"], .tc-priority-badge[data-path-id="${edgeKey}"]`)
       ) as SVGGElement[];
       for (const badge of badges) {
         const origD = path.getAttribute('data-orig-d') || '';
@@ -633,22 +915,46 @@ export function applyDiagramOffsetsToSvg(
       }
     }
 
-    // Highlight selected edge and update/show its draggable waypoint handle
-    const isSelected = selectedEdgeId && edgeId === selectedEdgeId;
+    // Highlight selected edge and update/show its draggable waypoint & 2 endpoint handles
+    const pathId = rawPathId;
+    const normSelected = actualSelectedEdgeId && actualSelectedEdgeId.trim() !== '->' ? actualSelectedEdgeId.trim() : '';
+
+    let isSelected = false;
+    if (normSelected) {
+      if (pathId === normSelected || path.id === normSelected) {
+        isSelected = true;
+      } else if (
+        !selectedFound &&
+        (edgeId === normSelected ||
+          edgeKey === normSelected ||
+          (srcId && tgtId && `${srcId}->${tgtId}` === normSelected))
+      ) {
+        isSelected = true;
+        selectedFound = true;
+      }
+    }
+
     if (isSelected) {
-      path.classList.add('selected-edge');
+      path.classList.add('selected-edge', 'diagram-selected-edge');
       hitbox?.classList.add('selected-edge');
 
-      // Update or create waypoint handle
-      let handle = handlesGroup.querySelector(`.tc-edge-handle[data-edge-id="${edgeId}"]`) as SVGGElement | null;
-      if (!handle) {
-        handle = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        handle.setAttribute('class', 'tc-edge-handle');
-        handle.setAttribute('data-edge-id', edgeId);
+      const handleKey = pathId;
+
+      // 1. Midpoint / Curvature handle
+      let midHandle = handlesGroup.querySelector(
+        `.tc-edge-handle[data-edge-id="${handleKey}"][data-handle-type="mid"]`
+      ) as SVGGElement | null;
+      if (!midHandle) {
+        midHandle = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        midHandle.setAttribute('class', 'tc-edge-handle tc-edge-handle-mid cursor-grab');
+        midHandle.setAttribute('data-edge-id', handleKey);
+        midHandle.setAttribute('data-source-id', srcId || '');
+        midHandle.setAttribute('data-target-id', tgtId || '');
+        midHandle.setAttribute('data-handle-type', 'mid');
 
         const halo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         halo.setAttribute('class', 'handle-halo');
-        halo.setAttribute('r', '13');
+        halo.setAttribute('r', '14');
         halo.setAttribute('fill', 'rgba(14, 165, 233, 0.2)');
         halo.setAttribute('stroke', '#0ea5e9');
         halo.setAttribute('stroke-width', '1.5');
@@ -662,13 +968,100 @@ export function applyDiagramOffsetsToSvg(
         core.setAttribute('stroke-width', '2');
         core.setAttribute('filter', 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))');
 
-        handle.appendChild(halo);
-        handle.appendChild(core);
-        handlesGroup.appendChild(handle);
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        title.textContent = 'Curve Waypoint: Drag to adjust edge path and curve';
+
+        midHandle.appendChild(halo);
+        midHandle.appendChild(core);
+        midHandle.appendChild(title);
+        handlesGroup.appendChild(midHandle);
+      } else {
+        midHandle.setAttribute('data-source-id', srcId || '');
+        midHandle.setAttribute('data-target-id', tgtId || '');
       }
-      handle.setAttribute('transform', `translate(${midPoint.x.toFixed(1)}, ${midPoint.y.toFixed(1)})`);
+      midHandle.setAttribute('transform', `translate(${midPoint.x.toFixed(1)}, ${midPoint.y.toFixed(1)})`);
+
+      // 2. Start endpoint handle (Source anchor)
+      let startHandle = handlesGroup.querySelector(
+        `.tc-edge-handle[data-edge-id="${handleKey}"][data-handle-type="start"]`
+      ) as SVGGElement | null;
+      if (!startHandle) {
+        startHandle = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        startHandle.setAttribute('class', 'tc-edge-handle tc-edge-endpoint-start cursor-crosshair');
+        startHandle.setAttribute('data-edge-id', handleKey);
+        startHandle.setAttribute('data-source-id', srcId || '');
+        startHandle.setAttribute('data-target-id', tgtId || '');
+        startHandle.setAttribute('data-handle-type', 'start');
+
+        const halo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        halo.setAttribute('class', 'handle-halo');
+        halo.setAttribute('r', '14');
+        halo.setAttribute('fill', 'rgba(16, 185, 129, 0.25)');
+        halo.setAttribute('stroke', '#10b981');
+        halo.setAttribute('stroke-width', '1.5');
+
+        const core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        core.setAttribute('class', 'handle-core');
+        core.setAttribute('r', '6');
+        core.setAttribute('fill', '#10b981');
+        core.setAttribute('stroke', '#0f172a');
+        core.setAttribute('stroke-width', '2');
+        core.setAttribute('filter', 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))');
+
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        title.textContent = 'Start Endpoint: Drag to reposition source anchor';
+
+        startHandle.appendChild(halo);
+        startHandle.appendChild(core);
+        startHandle.appendChild(title);
+        handlesGroup.appendChild(startHandle);
+      } else {
+        startHandle.setAttribute('data-source-id', srcId || '');
+        startHandle.setAttribute('data-target-id', tgtId || '');
+      }
+      startHandle.setAttribute('transform', `translate(${startPoint.x.toFixed(1)}, ${startPoint.y.toFixed(1)})`);
+
+      // 3. End endpoint handle (Target anchor)
+      let endHandle = handlesGroup.querySelector(
+        `.tc-edge-handle[data-edge-id="${handleKey}"][data-handle-type="end"]`
+      ) as SVGGElement | null;
+      if (!endHandle) {
+        endHandle = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        endHandle.setAttribute('class', 'tc-edge-handle tc-edge-endpoint-end cursor-crosshair');
+        endHandle.setAttribute('data-edge-id', handleKey);
+        endHandle.setAttribute('data-source-id', srcId || '');
+        endHandle.setAttribute('data-target-id', tgtId || '');
+        endHandle.setAttribute('data-handle-type', 'end');
+
+        const halo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        halo.setAttribute('class', 'handle-halo');
+        halo.setAttribute('r', '14');
+        halo.setAttribute('fill', 'rgba(244, 63, 94, 0.25)');
+        halo.setAttribute('stroke', '#f43f5e');
+        halo.setAttribute('stroke-width', '1.5');
+
+        const core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        core.setAttribute('class', 'handle-core');
+        core.setAttribute('r', '6');
+        core.setAttribute('fill', '#f43f5e');
+        core.setAttribute('stroke', '#0f172a');
+        core.setAttribute('stroke-width', '2');
+        core.setAttribute('filter', 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))');
+
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        title.textContent = 'End Endpoint: Drag to reposition target anchor';
+
+        endHandle.appendChild(halo);
+        endHandle.appendChild(core);
+        endHandle.appendChild(title);
+        handlesGroup.appendChild(endHandle);
+      } else {
+        endHandle.setAttribute('data-source-id', srcId || '');
+        endHandle.setAttribute('data-target-id', tgtId || '');
+      }
+      endHandle.setAttribute('transform', `translate(${endPoint.x.toFixed(1)}, ${endPoint.y.toFixed(1)})`);
     } else {
-      path.classList.remove('selected-edge');
+      path.classList.remove('selected-edge', 'diagram-selected-edge');
       hitbox?.classList.remove('selected-edge');
     }
   }
@@ -676,9 +1069,11 @@ export function applyDiagramOffsetsToSvg(
   // Remove handles for edges that are no longer selected
   if (handlesGroup) {
     const existingHandles = Array.from(handlesGroup.querySelectorAll('.tc-edge-handle'));
+    const normSelected = actualSelectedEdgeId && actualSelectedEdgeId.trim() !== '->' ? actualSelectedEdgeId.trim() : '';
     for (const h of existingHandles) {
-      const hEdgeId = h.getAttribute('data-edge-id');
-      if (hEdgeId !== selectedEdgeId) {
+      const hEdgeId = (h.getAttribute('data-edge-id') || '').trim();
+      const isStillSelected = Boolean(normSelected && hEdgeId === normSelected);
+      if (!isStillSelected) {
         h.remove();
       }
     }

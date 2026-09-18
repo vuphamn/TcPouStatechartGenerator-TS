@@ -22,8 +22,9 @@ import { MermaidMarkdownViewer } from './components/MermaidMarkdownViewer.tsx';
 import { FileDropzone } from './components/FileDropzone.tsx';
 import { SAMPLES, SampleItem } from './samples/samplesData.ts';
 import { getMermaidLiveUrl } from './utils/mermaidLive.ts';
-import { CustomNodeStylesMap, NodeDisplayProperties } from './types.ts';
+import { CustomNodeStylesMap, NodeDisplayProperties, DiagramNotes, ContextMenuTarget, NotePosition } from './types.ts';
 import { applyCustomStylesToMermaid } from './utils/nodeStyles.ts';
+import { applyNotesToMermaid } from './utils/diagramNotes.ts';
 
 export const App: React.FC = () => {
   // Active sample or custom state
@@ -58,6 +59,12 @@ export const App: React.FC = () => {
   const [customNodeStyles, setCustomNodeStyles] = useState<CustomNodeStylesMap>({});
   const [selectedStateId, setSelectedStateId] = useState<string | null>(null);
   const [selectedStateLabel, setSelectedStateLabel] = useState<string>('');
+
+  // Diagram notes state
+  const [diagramNotes, setDiagramNotes] = useState<DiagramNotes>({
+    nodes: {},
+    edges: {},
+  });
 
   // Raw generated Mermaid Markdown
   const [rawMarkdown, setRawMarkdown] = useState<string>('');
@@ -115,10 +122,15 @@ export const App: React.FC = () => {
     priorityFormat,
   ]);
 
-  // Apply custom node styles to Mermaid markdown
-  const outputMarkdown = useMemo(() => {
+  // Apply custom node styles for live diagram canvas display
+  const styledMarkdown = useMemo(() => {
     return applyCustomStylesToMermaid(rawMarkdown, customNodeStyles);
   }, [rawMarkdown, customNodeStyles]);
+
+  // Apply diagram notes to Mermaid markdown for external exports and Markdown code view
+  const outputMarkdown = useMemo(() => {
+    return applyNotesToMermaid(styledMarkdown, diagramNotes);
+  }, [styledMarkdown, diagramNotes]);
 
   const handleStyleChange = useCallback((stateId: string, style: NodeDisplayProperties) => {
     setCustomNodeStyles((prev) => ({
@@ -137,6 +149,63 @@ export const App: React.FC = () => {
 
   const handleClearAllCustomStyles = useCallback(() => {
     setCustomNodeStyles({});
+  }, []);
+
+  const handleSaveNote = useCallback((target: ContextMenuTarget, text: string) => {
+    setDiagramNotes((prev) => {
+      const trimmed = text.trim();
+      if (target.type === 'node') {
+        const nextNodes = { ...prev.nodes };
+        if (trimmed) {
+          nextNodes[target.id] = trimmed;
+        } else {
+          delete nextNodes[target.id];
+        }
+        return { ...prev, nodes: nextNodes };
+      } else if (target.type === 'edge') {
+        const nextEdges = { ...prev.edges };
+        if (trimmed) {
+          nextEdges[target.id] = trimmed;
+        } else {
+          delete nextEdges[target.id];
+        }
+        return { ...prev, edges: nextEdges };
+      }
+      return prev;
+    });
+  }, []);
+
+  const handleDeleteNote = useCallback((target: ContextMenuTarget) => {
+    if (target.type === 'canvas') return;
+    setDiagramNotes((prev) => {
+      const nextPositions = { ...(prev.positions || {}) };
+      delete nextPositions[target.id];
+
+      if (target.type === 'node') {
+        const nextNodes = { ...prev.nodes };
+        delete nextNodes[target.id];
+        return { ...prev, nodes: nextNodes, positions: nextPositions };
+      } else if (target.type === 'edge') {
+        const nextEdges = { ...prev.edges };
+        delete nextEdges[target.id];
+        return { ...prev, edges: nextEdges, positions: nextPositions };
+      }
+      return prev;
+    });
+  }, []);
+
+  const handleUpdateNotePosition = useCallback((targetId: string, pos: NotePosition) => {
+    setDiagramNotes((prev) => ({
+      ...prev,
+      positions: {
+        ...(prev.positions || {}),
+        [targetId]: pos,
+      },
+    }));
+  }, []);
+
+  const handleClearAllNotes = useCallback(() => {
+    setDiagramNotes({ nodes: {}, edges: {}, positions: {} });
   }, []);
 
   const customizedStatesCount = useMemo(() => {
@@ -162,6 +231,7 @@ export const App: React.FC = () => {
     setFlowchartOutput(sample.defaultFlowchart);
     setIncludeStateDescriptions(sample.defaultIncludeDescriptions);
     setCustomNodeStyles({});
+    setDiagramNotes({ nodes: {}, edges: {} });
     setSelectedStateId(null);
     setSelectedStateLabel('');
   };
@@ -675,7 +745,7 @@ export const App: React.FC = () => {
           <div className="flex-1 min-h-0 relative">
             {activeTab === 'diagram' ? (
               <MermaidViewer
-                code={outputMarkdown}
+                code={styledMarkdown}
                 layoutEngine={layoutEngine}
                 flowchartCurve={flowchartCurve}
                 mermaidTheme={mermaidTheme}
@@ -691,6 +761,12 @@ export const App: React.FC = () => {
                 onStyleChange={handleStyleChange}
                 onResetStateStyle={handleResetStateStyle}
                 onClearAllCustomStyles={handleClearAllCustomStyles}
+                notes={diagramNotes}
+                onSaveNote={handleSaveNote}
+                onDeleteNote={handleDeleteNote}
+                onClearAllNotes={handleClearAllNotes}
+                onUpdateNotePosition={handleUpdateNotePosition}
+                onOpenMermaidLive={handleOpenMermaidLive}
               />
             ) : (
               <MermaidMarkdownViewer

@@ -225,10 +225,40 @@ html, body, #root {
 }
 
 /* Selected Edge State */
-.tc-edge-path.selected-edge {
-  stroke: #0ea5e9 !important;
-  stroke-width: 2.6px !important;
-  filter: drop-shadow(0 0 8px rgba(14, 165, 233, 0.95)) !important;
+.tc-edge-path.selected-edge,
+.tc-edge-path.diagram-selected-edge {
+  stroke: #38bdf8 !important;
+  stroke-width: 3.5px !important;
+  stroke-dasharray: 6 3;
+  animation: selected-edge-dash-spin 3s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.95)) !important;
+}
+
+@keyframes selected-edge-dash-spin {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+
+.clickable-edge-label {
+  cursor: pointer !important;
+}
+
+.clickable-edge-label:hover rect,
+.clickable-edge-label:hover span,
+.clickable-edge-label:hover .labelBkg {
+  outline: 1.5px solid #38bdf8 !important;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.diagram-selected-edge-label rect,
+.diagram-selected-edge-label span,
+.diagram-selected-edge-label .labelBkg {
+  outline: 2px solid #38bdf8 !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.8) !important;
+  border-radius: 4px;
 }
 
 /* Edge Dragging State */

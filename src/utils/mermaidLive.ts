@@ -15,8 +15,25 @@ export function getMermaidLiveUrl(code: string, options?: MermaidLiveOptions): s
   const curve = options?.curve ?? 'basis';
   const theme = options?.theme ?? 'dark';
 
+  // Inject theme directive into Mermaid source code so mermaid.live always renders
+  // with the user's selected theme (dark, neutral, forest, base, default).
+  let codeWithTheme = code.trim();
+  const initRegex = /%%\{init:\s*\{[\s\S]*?\}\s*\}%%/;
+  if (initRegex.test(codeWithTheme)) {
+    // If an existing init directive is found, update or insert the theme property
+    codeWithTheme = codeWithTheme.replace(initRegex, (match) => {
+      if (/['"]?theme['"]?\s*:/i.test(match)) {
+        return match.replace(/(['"]?theme['"]?\s*:\s*['"])[^'"]+(['"])/i, `$1${theme}$2`);
+      } else {
+        return match.replace(/%%\{init:\s*\{/, `%%{init: {'theme': '${theme}', `);
+      }
+    });
+  } else {
+    codeWithTheme = `%%{init: {'theme': '${theme}'}}%%\n${codeWithTheme}`;
+  }
+
   const state = {
-    code,
+    code: codeWithTheme,
     mermaid: JSON.stringify({
       theme,
       layout,
