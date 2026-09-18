@@ -187,8 +187,46 @@ export function computeBoxBoundaryIntersection(
  */
 export function getNodeGeometry(node: SVGGElement, svgRoot?: SVGSVGElement | null): NodeGeometry {
   const stateId = node.getAttribute('data-state-id') || '';
-  
-  // Accumulate transforms from node up to the common parent or svgRoot
+
+  // 1. Preferred method: Exact SVG coordinate mapping from node space to edgePaths space
+  const edgePaths = svgRoot?.querySelector('g.edgePaths');
+  if (svgRoot && edgePaths) {
+    try {
+      const nodeEl = node as SVGGraphicsElement;
+      const edgeEl = edgePaths as SVGGraphicsElement;
+      if (typeof nodeEl.getScreenCTM === 'function' && typeof edgeEl.getScreenCTM === 'function') {
+        const nodeCTM = nodeEl.getScreenCTM();
+        const edgeCTM = edgeEl.getScreenCTM();
+        const bbox = typeof nodeEl.getBBox === 'function' ? nodeEl.getBBox() : null;
+        if (nodeCTM && edgeCTM && bbox && bbox.width > 0 && bbox.height > 0) {
+          const nodeToEdge = edgeCTM.inverse().multiply(nodeCTM);
+          const centerPt = svgRoot.createSVGPoint();
+          centerPt.x = bbox.x + bbox.width / 2;
+          centerPt.y = bbox.y + bbox.height / 2;
+          const mapped = centerPt.matrixTransform(nodeToEdge);
+          const scaleX = Math.hypot(nodeToEdge.a, nodeToEdge.b) || 1;
+          const scaleY = Math.hypot(nodeToEdge.c, nodeToEdge.d) || 1;
+          const w = bbox.width * scaleX;
+          const h = bbox.height * scaleY;
+          if (!isNaN(mapped.x) && !isNaN(mapped.y) && isFinite(mapped.x) && isFinite(mapped.y)) {
+            return {
+              id: stateId,
+              origCenterX: mapped.x,
+              origCenterY: mapped.y,
+              width: w,
+              height: h,
+              halfWidth: Math.max(14, w / 2),
+              halfHeight: Math.max(12, h / 2),
+            };
+          }
+        }
+      }
+    } catch {
+      // Fall through to parent transform accumulation
+    }
+  }
+
+  // 2. Accumulate transforms from node up to the common parent or svgRoot
   let totalTx = 0;
   let totalTy = 0;
   let curr: Element | null = node;
@@ -711,6 +749,95 @@ export function deformSvgPathWithOffsets(
 }
 
 /**
+ * Generates an ELK-style orthogonal route with rounded quadratic fillet corners (Q).
+ * Matches Mermaid ELK's native orthogonal path geometry.
+ */
+export function generateElkOrthogonalRoute(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  midX: number,
+  midY: number,
+  sNormal: { normalX?: number; normalY?: number; x?: number; y?: number },
+  tNormal: { normalX?: number; normalY?: number; x?: number; y?: number },
+  radius = 8
+): string {
+  const dx = endX - startX;
+  const dy = endY - startY;
+
+  // Straight line if nearly collinear
+  if (Math.abs(dx) < 3) {
+    return `M${startX.toFixed(1)},${startY.toFixed(1)}L${endX.toFixed(1)},${endY.toFixed(1)}`;
+  }
+  if (Math.abs(dy) < 3) {
+    return `M${startX.toFixed(1)},${startY.toFixed(1)}L${endX.toFixed(1)},${endY.toFixed(1)}`;
+  }
+
+  const sNormY = sNormal.normalY !== undefined ? sNormal.normalY : (sNormal.y || 0);
+  const sNormX = sNormal.normalX !== undefined ? sNormal.normalX : (sNormal.x || 0);
+
+  // Determine primary flow direction based on surface normals or relative delta
+  const isVerticalFlow = sNormY !== 0 || (sNormX === 0 && Math.abs(dy) >= Math.abs(dx));
+
+  if (isVerticalFlow) {
+    const signX = dx >= 0 ? 1 : -1;
+    const signY1 = midY >= startY ? 1 : -1;
+    const signY2 = endY >= midY ? 1 : -1;
+
+    const r = Math.max(
+      0,
+      Math.min(radius, Math.abs(dx) / 2, Math.abs(midY - startY) / 2, Math.abs(endY - midY) / 2)
+    );
+
+    if (r < 1.5) {
+      return `M${startX.toFixed(1)},${startY.toFixed(1)}V${midY.toFixed(1)}H${endX.toFixed(1)}V${endY.toFixed(1)}`;
+    }
+
+    const c1StartY = midY - signY1 * r;
+    const c1EndX = startX + signX * r;
+    const c2StartX = endX - signX * r;
+    const c2EndY = midY + signY2 * r;
+
+    return [
+      `M${startX.toFixed(1)},${startY.toFixed(1)}`,
+      `L${startX.toFixed(1)},${c1StartY.toFixed(1)}`,
+      `Q${startX.toFixed(1)},${midY.toFixed(1)} ${c1EndX.toFixed(1)},${midY.toFixed(1)}`,
+      `L${c2StartX.toFixed(1)},${midY.toFixed(1)}`,
+      `Q${endX.toFixed(1)},${midY.toFixed(1)} ${endX.toFixed(1)},${c2EndY.toFixed(1)}`,
+      `L${endX.toFixed(1)},${endY.toFixed(1)}`,
+    ].join('');
+  } else {
+    const signY = dy >= 0 ? 1 : -1;
+    const signX1 = midX >= startX ? 1 : -1;
+    const signX2 = endX >= midX ? 1 : -1;
+
+    const r = Math.max(
+      0,
+      Math.min(radius, Math.abs(dy) / 2, Math.abs(midX - startX) / 2, Math.abs(endX - midX) / 2)
+    );
+
+    if (r < 1.5) {
+      return `M${startX.toFixed(1)},${startY.toFixed(1)}H${midX.toFixed(1)}V${endY.toFixed(1)}H${endX.toFixed(1)}`;
+    }
+
+    const c1StartX = midX - signX1 * r;
+    const c1EndY = startY + signY * r;
+    const c2StartY = endY - signY * r;
+    const c2EndX = midX + signX2 * r;
+
+    return [
+      `M${startX.toFixed(1)},${startY.toFixed(1)}`,
+      `L${c1StartX.toFixed(1)},${startY.toFixed(1)}`,
+      `Q${midX.toFixed(1)},${startY.toFixed(1)} ${midX.toFixed(1)},${c1EndY.toFixed(1)}`,
+      `L${midX.toFixed(1)},${c2StartY.toFixed(1)}`,
+      `Q${midX.toFixed(1)},${endY.toFixed(1)} ${c2EndX.toFixed(1)},${endY.toFixed(1)}`,
+      `L${endX.toFixed(1)},${endY.toFixed(1)}`,
+    ].join('');
+  }
+}
+
+/**
  * Calculate rerouted curve for an edge between two nodes, preventing distortion and matching curve/engine settings.
  */
 export function calculateReroutedEdgePath(
@@ -739,6 +866,9 @@ export function calculateReroutedEdgePath(
     (edgeKey ? edgeOffsets[edgeKey] : undefined) ||
     { x: 0, y: 0 };
 
+  const normCurve = (flowchartCurve || 'basis').toLowerCase();
+  const normEngine = (layoutEngine || 'elk').toLowerCase() as 'dagre' | 'elk';
+
   const hasNodeMovement = srcOffset.x !== 0 || srcOffset.y !== 0 || tgtOffset.x !== 0 || tgtOffset.y !== 0;
   const hasEdgeMovement =
     edgeOffset.x !== 0 ||
@@ -748,13 +878,15 @@ export function calculateReroutedEdgePath(
     (edgeOffset.endDx !== undefined && edgeOffset.endDx !== 0) ||
     (edgeOffset.endDy !== undefined && edgeOffset.endDy !== 0);
 
-  // If no node moved and edge wasn't dragged, extract original endpoints and return original path
+  // Parse original coordinate points from Mermaid's initial layout
+  const origPoints = extractCoordinatePoints(parseSvgPathCommands(origD));
+  const origStart = origPoints[0] || { x: 0, y: 0 };
+  const origEnd = origPoints[origPoints.length - 1] || origStart;
+  const origMid = origPoints[Math.floor(origPoints.length / 2)] || origStart;
+
+  // If no node moved and no edge dragged, always preserve pristine original path from Mermaid layout
   if (!hasNodeMovement && !hasEdgeMovement) {
-    const origPoints = extractCoordinatePoints(parseSvgPathCommands(origD));
-    const startPoint = origPoints[0] || { x: 0, y: 0 };
-    const endPoint = origPoints[origPoints.length - 1] || startPoint;
-    const midPoint = origPoints[Math.floor(origPoints.length / 2)] || startPoint;
-    return { d: origD, midPoint, startPoint, endPoint };
+    return { d: origD, midPoint: origMid, startPoint: origStart, endPoint: origEnd };
   }
 
   // Self-loop (srcId === tgtId): Rigidly translate loop to maintain pristine circular/oval shape
@@ -769,7 +901,154 @@ export function calculateReroutedEdgePath(
     return { d: newD, midPoint, startPoint, endPoint };
   }
 
-  return deformSvgPathWithOffsets(origD, srcOffset, tgtOffset, edgeOffset);
+  // Resolve source node moved center & boundary dimensions
+  let sCx: number, sCy: number, sHw: number, sHh: number;
+  if (srcNodeEl) {
+    let sOrigCx = parseFloat(srcNodeEl.getAttribute('data-orig-cx') || 'NaN');
+    let sOrigCy = parseFloat(srcNodeEl.getAttribute('data-orig-cy') || 'NaN');
+    if (isNaN(sOrigCx) || isNaN(sOrigCy)) {
+      const geom = getNodeGeometry(srcNodeEl, svg);
+      sOrigCx = geom.origCenterX;
+      sOrigCy = geom.origCenterY;
+      srcNodeEl.setAttribute('data-orig-cx', sOrigCx.toFixed(1));
+      srcNodeEl.setAttribute('data-orig-cy', sOrigCy.toFixed(1));
+      srcNodeEl.setAttribute('data-hw', geom.halfWidth.toFixed(1));
+      srcNodeEl.setAttribute('data-hh', geom.halfHeight.toFixed(1));
+    }
+    sHw = parseFloat(srcNodeEl.getAttribute('data-hw') || '60');
+    sHh = parseFloat(srcNodeEl.getAttribute('data-hh') || '25');
+    sCx = sOrigCx + srcOffset.x;
+    sCy = sOrigCy + srcOffset.y;
+  } else {
+    sCx = origStart.x + srcOffset.x;
+    sCy = origStart.y + srcOffset.y;
+    sHw = 14;
+    sHh = 12;
+  }
+
+  // Resolve target node moved center & boundary dimensions
+  let tCx: number, tCy: number, tHw: number, tHh: number;
+  if (tgtNodeEl) {
+    let tOrigCx = parseFloat(tgtNodeEl.getAttribute('data-orig-cx') || 'NaN');
+    let tOrigCy = parseFloat(tgtNodeEl.getAttribute('data-orig-cy') || 'NaN');
+    if (isNaN(tOrigCx) || isNaN(tOrigCy)) {
+      const geom = getNodeGeometry(tgtNodeEl, svg);
+      tOrigCx = geom.origCenterX;
+      tOrigCy = geom.origCenterY;
+      tgtNodeEl.setAttribute('data-orig-cx', tOrigCx.toFixed(1));
+      tgtNodeEl.setAttribute('data-orig-cy', tOrigCy.toFixed(1));
+      tgtNodeEl.setAttribute('data-hw', geom.halfWidth.toFixed(1));
+      tgtNodeEl.setAttribute('data-hh', geom.halfHeight.toFixed(1));
+    }
+    tHw = parseFloat(tgtNodeEl.getAttribute('data-hw') || '60');
+    tHh = parseFloat(tgtNodeEl.getAttribute('data-hh') || '25');
+    tCx = tOrigCx + tgtOffset.x;
+    tCy = tOrigCy + tgtOffset.y;
+  } else {
+    tCx = origEnd.x + tgtOffset.x;
+    tCy = origEnd.y + tgtOffset.y;
+    tHw = 14;
+    tHh = 12;
+  }
+
+  const baseMidX = (sCx + tCx) / 2;
+  const baseMidY = (sCy + tCy) / 2;
+  const actualMidX = baseMidX + (edgeOffset.x || 0);
+  const actualMidY = baseMidY + (edgeOffset.y || 0);
+
+  // Compute boundary intersections with source and target boxes
+  const startBound = srcNodeEl
+    ? computeBoxBoundaryIntersection(sCx, sCy, sHw, sHh, actualMidX, actualMidY, 0)
+    : { x: sCx, y: sCy, normalX: 0, normalY: 1 };
+  const endBound = tgtNodeEl
+    ? computeBoxBoundaryIntersection(tCx, tCy, tHw, tHh, actualMidX, actualMidY, 3)
+    : { x: tCx, y: tCy, normalX: 0, normalY: -1 };
+
+  const startX = startBound.x + (edgeOffset.startDx || 0);
+  const startY = startBound.y + (edgeOffset.startDy || 0);
+  const endX = endBound.x + (edgeOffset.endDx || 0);
+  const endY = endBound.y + (edgeOffset.endDy || 0);
+
+  const startPoint = { x: startX, y: startY };
+  const endPoint = { x: endX, y: endY };
+  const midPoint = { x: actualMidX, y: actualMidY };
+
+  const vX = endX - startX;
+  const vY = endY - startY;
+  const dist = Math.hypot(vX, vY);
+
+  let newD = '';
+
+  // 1. LINEAR CURVE: Clean straight line segments (as requested: 'linear')
+  if (normCurve === 'linear') {
+    const hasManualMid = Math.abs(edgeOffset.x || 0) >= 2 || Math.abs(edgeOffset.y || 0) >= 2;
+    if (!hasManualMid) {
+      newD = `M${startX.toFixed(1)},${startY.toFixed(1)}L${endX.toFixed(1)},${endY.toFixed(1)}`;
+      midPoint.x = (startX + endX) / 2;
+      midPoint.y = (startY + endY) / 2;
+    } else {
+      newD = `M${startX.toFixed(1)},${startY.toFixed(1)}L${actualMidX.toFixed(1)},${actualMidY.toFixed(1)}L${endX.toFixed(1)},${endY.toFixed(1)}`;
+    }
+    return { d: newD, midPoint, startPoint, endPoint };
+  }
+
+  // 2. STEPPED / ORTHOGONAL: Manhattan routing with horizontal & vertical segments
+  if (normCurve.includes('step')) {
+    if (normCurve === 'stepbefore') {
+      newD = `M${startX.toFixed(1)},${startY.toFixed(1)}V${actualMidY.toFixed(1)}H${endX.toFixed(1)}V${endY.toFixed(1)}`;
+    } else if (normCurve === 'stepafter') {
+      newD = `M${startX.toFixed(1)},${startY.toFixed(1)}H${actualMidX.toFixed(1)}V${endY.toFixed(1)}H${endX.toFixed(1)}`;
+    } else {
+      if (Math.abs(vX) >= Math.abs(vY)) {
+        newD = `M${startX.toFixed(1)},${startY.toFixed(1)}H${actualMidX.toFixed(1)}V${endY.toFixed(1)}H${endX.toFixed(1)}`;
+      } else {
+        newD = `M${startX.toFixed(1)},${startY.toFixed(1)}V${actualMidY.toFixed(1)}H${endX.toFixed(1)}V${endY.toFixed(1)}`;
+      }
+    }
+    return { d: newD, midPoint, startPoint, endPoint };
+  }
+
+  // 3. ELK ENGINE: Layered & orthogonal routing with rounded fillet corners or multi-point preservation
+  if (normEngine === 'elk') {
+    // If original path was multi-segment (e.g. channel bypass / loopback with multiple bends),
+    // deform it to keep all intermediate obstacle-avoidance waypoints while anchoring to moving nodes!
+    if (origPoints.length > 2 && !normCurve.includes('step')) {
+      return deformSvgPathWithOffsets(origD, srcOffset, tgtOffset, edgeOffset);
+    }
+
+    // Otherwise, generate ELK orthogonal routing with rounded fillet corners (Q corners)
+    newD = generateElkOrthogonalRoute(
+      startX,
+      startY,
+      endX,
+      endY,
+      actualMidX,
+      actualMidY,
+      startBound,
+      endBound,
+      8
+    );
+    return { d: newD, midPoint, startPoint, endPoint };
+  }
+
+  // 4. DAGRE ENGINE (or default):
+  // If user manually dragged the midpoint waypoint handle (Smooth Quadratic Bézier passing through waypoint)
+  const hasManualWaypoint = Math.abs(edgeOffset.x || 0) >= 2 || Math.abs(edgeOffset.y || 0) >= 2;
+  if (hasManualWaypoint) {
+    const cpX = 2 * actualMidX - 0.5 * (startX + endX);
+    const cpY = 2 * actualMidY - 0.5 * (startY + endY);
+    newD = `M${startX.toFixed(1)},${startY.toFixed(1)}Q${cpX.toFixed(1)},${cpY.toFixed(1)} ${endX.toFixed(1)},${endY.toFixed(1)}`;
+    return { d: newD, midPoint, startPoint, endPoint };
+  }
+
+  // 5. DAGRE DEFAULT: Cubic Bézier guided by node surface normals
+  const bendDist = Math.min(Math.max(dist * 0.38, 20), 85);
+  const cp1X = startX + startBound.normalX * bendDist;
+  const cp1Y = startY + startBound.normalY * bendDist;
+  const cp2X = endX + endBound.normalX * bendDist;
+  const cp2Y = endY + endBound.normalY * bendDist;
+  newD = `M${startX.toFixed(1)},${startY.toFixed(1)}C${cp1X.toFixed(1)},${cp1Y.toFixed(1)} ${cp2X.toFixed(1)},${cp2Y.toFixed(1)} ${endX.toFixed(1)},${endY.toFixed(1)}`;
+  return { d: newD, midPoint, startPoint, endPoint };
 }
 
 /**
