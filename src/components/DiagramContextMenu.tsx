@@ -9,8 +9,11 @@ import {
   Layers,
   ArrowRight,
   Sparkles,
+  FileImage,
+  FileCode,
 } from 'lucide-react';
 import { ContextMenuTarget } from '../types.ts';
+import { copyTextToClipboard } from '../utils/diagramExport.ts';
 
 interface DiagramContextMenuProps {
   x: number;
@@ -21,6 +24,7 @@ interface DiagramContextMenuProps {
   onDeleteNote?: (target: ContextMenuTarget) => void;
   onOpenStyleCustomizer?: (nodeId: string) => void;
   onOpenMermaidLive?: () => void;
+  onExportImage?: (format: 'png' | 'svg') => void;
 }
 
 export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
@@ -32,6 +36,7 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
   onDeleteNote,
   onOpenStyleCustomizer,
   onOpenMermaidLive,
+  onExportImage,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [copySuccess, setCopySuccess] = React.useState(false);
@@ -73,12 +78,13 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
       textToCopy = `${target.from} --> ${target.to}${target.label ? `: ${target.label}` : ''}`;
     }
     if (textToCopy) {
-      navigator.clipboard.writeText(textToCopy);
-      setCopySuccess(true);
-      setTimeout(() => {
-        setCopySuccess(false);
-        onClose();
-      }, 700);
+      copyTextToClipboard(textToCopy).then(() => {
+        setCopySuccess(true);
+        setTimeout(() => {
+          setCopySuccess(false);
+          onClose();
+        }, 700);
+      });
     }
   };
 
@@ -196,6 +202,34 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
             >
               <Copy className="w-3.5 h-3.5 text-slate-400" />
               <span>{copySuccess ? 'Copied!' : target.type === 'node' ? 'Copy state name' : 'Copy transition'}</span>
+            </button>
+          </>
+        )}
+
+        {onExportImage && (
+          <>
+            <button
+              id="context-menu-export-png-btn"
+              onClick={() => {
+                onExportImage('png');
+                onClose();
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-slate-800 text-slate-300 hover:text-slate-100 transition-colors"
+            >
+              <FileImage className="w-3.5 h-3.5 text-sky-400" />
+              <span>Export High-Res PNG...</span>
+            </button>
+
+            <button
+              id="context-menu-export-svg-btn"
+              onClick={() => {
+                onExportImage('svg');
+                onClose();
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-slate-800 text-slate-300 hover:text-slate-100 transition-colors"
+            >
+              <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Export High-Res SVG...</span>
             </button>
           </>
         )}

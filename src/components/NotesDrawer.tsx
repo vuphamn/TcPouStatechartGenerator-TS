@@ -136,9 +136,21 @@ export const NotesDrawer: React.FC<NotesDrawerProps> = ({
                     <ArrowRight className="w-3 h-3" /> Transition Notes ({edgeEntries.length})
                   </span>
                   {edgeEntries.map(([edgeKey, text]) => {
-                    const parts = edgeKey.split('->');
-                    const from = parts[0] || '';
-                    const to = parts[1] || '';
+                    let from = '';
+                    let to = '';
+                    if (edgeKey.includes('->')) {
+                      const parts = edgeKey.split('->');
+                      from = parts[0] || '';
+                      to = (parts[1] || '').split('#')[0] || '';
+                    } else {
+                      const m = edgeKey.match(/^(?:flowchart-|edge-|L-)?([A-Za-z0-9_.-]+)-([A-Za-z0-9_.-]+?)(?:-\d+)?$/);
+                      if (m) {
+                        from = m[1];
+                        to = m[2];
+                      } else {
+                        from = edgeKey;
+                      }
+                    }
                     const target: ContextMenuTarget = { type: 'edge', id: edgeKey, from, to, note: text };
                     return (
                       <div

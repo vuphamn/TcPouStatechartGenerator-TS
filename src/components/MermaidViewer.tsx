@@ -18,12 +18,25 @@ import {
   Palette,
   Move,
   StickyNote,
+  FileImage,
+  FileCode,
+  Sparkles,
+  Sliders,
 } from 'lucide-react';
 import { StateNodeStyleInspector } from './StateNodeStyleInspector.tsx';
 import { DiagramContextMenu } from './DiagramContextMenu.tsx';
 import { NoteDialog } from './NoteDialog.tsx';
 import { NotesDrawer } from './NotesDrawer.tsx';
 import { NoteOverlaysLayer } from './NoteOverlaysLayer.tsx';
+import { ExportModal } from './ExportModal.tsx';
+import {
+  exportHighResSvg,
+  exportHighResPng,
+  copyToClipboard,
+  triggerDownload,
+  ExportFormat,
+  ExportScale,
+} from '../utils/diagramExport.ts';
 import {
   CustomNodeStylesMap,
   NodeDisplayProperties,
@@ -46,8 +59,14 @@ import {
   resetSvgDiagramOffsets,
   cleanNodeId,
   findNodeElement,
+  findEdgePathElement,
+  getEdgeAnchorPoint,
   parseTranslation,
 } from '../utils/nodeDragger.ts';
+import {
+  CanvasNodePositionsMap,
+  extractCanvasNodePositions,
+} from '../utils/canvasPositions.ts';
 
 export type LayoutEngine = 'dagre' | 'elk';
 export type FlowchartCurve = 'basis' | 'linear' | 'cardinal' | 'stepAfter' | 'monotoneX' | 'natural';
@@ -86,7 +105,10 @@ export interface MermaidViewerProps {
   onDeleteNote?: (target: ContextMenuTarget) => void;
   onClearAllNotes?: () => void;
   onUpdateNotePosition?: (targetId: string, pos: NotePosition) => void;
+  onUpdateNoteStyle?: (targetId: string, style: NodeDisplayProperties | null) => void;
+  onCanvasPositionsChange?: (positions: CanvasNodePositionsMap) => void;
   onOpenMermaidLive?: () => void;
+  fileName?: string;
 }
 
 interface SearchMatchItem {
@@ -299,7 +321,9 @@ function resolveEdgeFromElement(
     }
 
     // Try finding matching edge in availableEdges
-    let matchedEdge = pathId ? availableEdges.find((e) => e.id === pathId) : null;
+    let matchedEdge = pathId
+      ? availableEdges.find((e) => e.id === pathId || (e.pathId && e.pathId === pathId))
+      : null;
     if (!matchedEdge && sourceId && targetId) {
       matchedEdge = availableEdges.find((e) => e.from === sourceId && e.to === targetId);
     }
@@ -307,7 +331,8 @@ function resolveEdgeFromElement(
     if (matchedEdge) {
       return {
         ...matchedEdge,
-        id: pathId || matchedEdge.id,
+        id: matchedEdge.id,
+        pathId: pathId || matchedEdge.pathId,
         from: sourceId || matchedEdge.from,
         to: targetId || matchedEdge.to,
       };
@@ -315,7 +340,8 @@ function resolveEdgeFromElement(
 
     if (sourceId && targetId) {
       return {
-        id: pathId || `${sourceId}->${targetId}`,
+        id: `${sourceId}->${targetId}`,
+        pathId: pathId || undefined,
         from: sourceId,
         to: targetId,
       };
@@ -324,6 +350,7 @@ function resolveEdgeFromElement(
     if (pathId) {
       return {
         id: pathId,
+        pathId,
         from: '',
         to: '',
       };
@@ -699,10 +726,14 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   onDeleteNote,
   onClearAllNotes,
   onUpdateNotePosition: onUpdateNotePositionProp,
+  onUpdateNoteStyle,
+  onCanvasPositionsChange,
   onOpenMermaidLive,
+  fileName = 'statechart',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState<number>(1);
@@ -712,6 +743,22 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   const mouseDownPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [copiedSvg, setCopiedSvg] = useState<boolean>(false);
+
+  // High-Resolution Export States
+  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [exportModalDefaultFormat, setExportModalDefaultFormat] = useState<ExportFormat>('png');
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
+  const [exportingNotification, setExportingNotification] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Notes & Edge Selection State
   const [selectedEdge, setSelectedEdge] = useState<EdgeInfo | null>(null);
@@ -1136,6 +1183,10 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
       layoutEngine,
       flowchartCurve
     );
+    if (onCanvasPositionsChange) {
+      const positions = extractCanvasNodePositions(svg, effectiveNodeOffsets);
+      onCanvasPositionsChange(positions);
+    }
   }, [svgContent, availableEdges]);
 
   // 2. Synchronize node selection highlight class in SVG
@@ -1205,6 +1256,11 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
       layoutEngine,
       flowchartCurve
     );
+
+    if (onCanvasPositionsChange) {
+      const positions = extractCanvasNodePositions(svg, effectiveNodeOffsets);
+      onCanvasPositionsChange(positions);
+    }
   }, [selectedEdge, effectiveNodeOffsets, edgeOffsets, layoutEngine, flowchartCurve]);
 
   const handleSelectState = (stateId: string | null, label?: string) => {
@@ -1541,6 +1597,12 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         if (onNodeOffsetsChange) {
           onNodeOffsetsChange(nextOffsets);
         }
+        if (onCanvasPositionsChange && containerRef.current) {
+          const svg = containerRef.current.querySelector('svg');
+          if (svg) {
+            onCanvasPositionsChange(extractCanvasNodePositions(svg, nextOffsets));
+          }
+        }
         return;
       }
 
@@ -1675,14 +1737,20 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         return;
       }
       if (isEdgeNote) {
-        const edge = availableEdges.find((e) => e.id === noteCardId || `${e.from}->${e.to}` === noteCardId);
+        const edge = availableEdges.find(
+          (e) =>
+            e.id === noteCardId ||
+            `${e.from}->${e.to}` === noteCardId ||
+            (e.pathId && e.pathId === noteCardId)
+        );
         const menuTarget: ContextMenuTarget = {
           type: 'edge',
-          id: noteCardId,
+          id: edge?.id || noteCardId,
+          pathId: edge?.pathId,
           from: edge?.from || '',
           to: edge?.to || '',
           label: edge?.label,
-          note: effectiveNotes.edges[noteCardId],
+          note: effectiveNotes.edges[noteCardId] || (edge ? effectiveNotes.edges[edge.id] : ''),
         };
         setContextMenuState({ x: e.clientX, y: e.clientY, target: menuTarget });
         return;
@@ -1719,10 +1787,15 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
       edge = findEdgeNearPoint(svg, e.clientX, e.clientY, availableEdges, 24);
     }
     if (edge && edge.from && edge.to && edge.from.trim() && edge.to.trim()) {
-      const note = effectiveNotes.edges[edge.id] || '';
+      const note =
+        effectiveNotes.edges[edge.id] ||
+        effectiveNotes.edges[`${edge.from}->${edge.to}`] ||
+        (edge.pathId ? effectiveNotes.edges[edge.pathId] : '') ||
+        '';
       const menuTarget: ContextMenuTarget = {
         type: 'edge',
         id: edge.id,
+        pathId: edge.pathId,
         from: edge.from,
         to: edge.to,
         label: edge.label,
@@ -1778,52 +1851,6 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   const handleSaveActiveNote = (target: ContextMenuTarget, noteText: string) => {
     onSaveNote?.(target, noteText);
     setIsNoteDialogOpen(false);
-
-    // Position note immediately right next to the node or edge
-    if (target.type === 'node' && target.id) {
-      const existingPos = effectiveNotes.positions?.[target.id];
-      if (!existingPos && containerRef.current) {
-        const svg = containerRef.current.querySelector('svg');
-        const nodeEl = svg ? findNodeElement(svg, target.id) : null;
-        const wrapperEl = (svg?.closest('#mermaid-svg-wrapper') ||
-          document.getElementById('mermaid-svg-wrapper')) as HTMLElement | null;
-        if (nodeEl && wrapperEl) {
-          const wRect = wrapperEl.getBoundingClientRect();
-          const nRect = nodeEl.getBoundingClientRect();
-          if (wRect.width > 0 && nRect.width > 0) {
-            const localLeft = (nRect.left - wRect.left) / zoom;
-            const localTop = (nRect.top - wRect.top) / zoom;
-            const localW = nRect.width / zoom;
-            const targetX = Math.round(localLeft + localW + 28);
-            const targetY = Math.max(16, Math.round(localTop - 12));
-            onUpdateNotePositionProp?.(target.id, { x: targetX, y: targetY });
-          }
-        }
-      }
-    } else if (target.type === 'edge' && target.id) {
-      const existingPos = effectiveNotes.positions?.[target.id];
-      if (!existingPos && containerRef.current) {
-        const svg = containerRef.current.querySelector('svg');
-        const pathEl = svg
-          ? (svg.querySelector(`path.tc-edge-path[data-edge-id="${target.id}"]`) as SVGPathElement | null)
-          : null;
-        const wrapperEl = (svg?.closest('#mermaid-svg-wrapper') ||
-          document.getElementById('mermaid-svg-wrapper')) as HTMLElement | null;
-        if (pathEl && wrapperEl) {
-          const wRect = wrapperEl.getBoundingClientRect();
-          const pRect = pathEl.getBoundingClientRect();
-          if (wRect.width > 0 && pRect.width > 0) {
-            const localLeft = (pRect.left - wRect.left) / zoom;
-            const localTop = (pRect.top - wRect.top) / zoom;
-            const localW = pRect.width / zoom;
-            const localH = pRect.height / zoom;
-            const targetX = Math.round(localLeft + localW / 2 + 28);
-            const targetY = Math.max(16, Math.round(localTop + localH / 2 - 32));
-            onUpdateNotePositionProp?.(target.id, { x: targetX, y: targetY });
-          }
-        }
-      }
-    }
   };
 
   const handleDeleteActiveNote = (target: ContextMenuTarget) => {
@@ -1835,17 +1862,9 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     if (!containerRef.current) return;
     const svg = containerRef.current.querySelector('svg');
     if (!svg) return;
-    const parts = edgeId.split('->');
-    if (parts.length === 2) {
-      const from = parts[0];
-      const to = parts[1];
-      const pathEl = svg.querySelector(
-        `path[data-source-id="${from}"][data-target-id="${to}"], .tc-edge-path[data-source-id="${from}"][data-target-id="${to}"]`
-      );
-      if (pathEl) {
-        panToElement(pathEl);
-        return;
-      }
+    const pathEl = findEdgePathElement(svg, edgeId, availableEdges);
+    if (pathEl) {
+      panToElement(pathEl);
     }
   };
 
@@ -1926,31 +1945,116 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     setPan({ x: 0, y: 0 });
   };
 
-  const handleCopySvg = () => {
-    if (!containerRef.current) return;
-    const svg = containerRef.current.querySelector('svg');
-    const svgToExport = svg ? new XMLSerializer().serializeToString(svg) : svgContent;
-    if (!svgToExport) return;
-    navigator.clipboard.writeText(svgToExport);
-    setCopiedSvg(true);
-    setTimeout(() => setCopiedSvg(false), 2000);
+  const getActiveSvgElement = (): SVGSVGElement | null => {
+    return renderedSvg || containerRef.current?.querySelector('svg') || null;
   };
 
-  const handleDownloadSvg = () => {
-    if (!containerRef.current) return;
-    const svg = containerRef.current.querySelector('svg');
-    const svgToExport = svg ? new XMLSerializer().serializeToString(svg) : svgContent;
-    if (!svgToExport) return;
-    const blob = new Blob([svgToExport], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'statechart.svg';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const handleOpenExportModal = (format: ExportFormat = 'png') => {
+    setExportModalDefaultFormat(format);
+    setIsExportModalOpen(true);
+    setIsExportMenuOpen(false);
   };
+
+  const handleQuickDownloadPng = async (scale: ExportScale = 2) => {
+    const svgEl = getActiveSvgElement();
+    if (!svgEl) return;
+    setIsExportMenuOpen(false);
+    setExportingNotification(`Exporting ${scale}x PNG...`);
+    try {
+      const result = await exportHighResPng(svgEl, {
+        scale,
+        background: mermaidTheme === 'dark' || !mermaidTheme ? 'dark' : 'white',
+        fileName: (fileName || 'statechart').replace(/\.statechart|\.TcPOU/gi, ''),
+        notes: effectiveNotes,
+        customStyles: effectiveCustomStyles,
+        theme: mermaidTheme,
+      });
+      triggerDownload(result.blob, result.fileName);
+      setExportingNotification(`Downloaded ${result.fileName}`);
+      setTimeout(() => setExportingNotification(null), 2500);
+    } catch (e) {
+      console.error('PNG export failed:', e);
+      const msg = e instanceof Error ? e.message : 'PNG export failed';
+      setExportingNotification(`PNG export failed: ${msg}`);
+      setTimeout(() => setExportingNotification(null), 3500);
+    }
+  };
+
+  const handleQuickDownloadSvg = async (scale: ExportScale = 1) => {
+    const svgEl = getActiveSvgElement();
+    if (!svgEl) return;
+    setIsExportMenuOpen(false);
+    setExportingNotification('Exporting vector SVG...');
+    try {
+      const result = await exportHighResSvg(svgEl, {
+        scale,
+        background: mermaidTheme === 'dark' || !mermaidTheme ? 'dark' : 'white',
+        fileName: (fileName || 'statechart').replace(/\.statechart|\.TcPOU/gi, ''),
+        notes: effectiveNotes,
+        customStyles: effectiveCustomStyles,
+        theme: mermaidTheme,
+      });
+      triggerDownload(result.blob, result.fileName);
+      setExportingNotification(`Downloaded ${result.fileName}`);
+      setTimeout(() => setExportingNotification(null), 2500);
+    } catch (e) {
+      console.error('SVG export failed:', e);
+      const msg = e instanceof Error ? e.message : 'SVG export failed';
+      setExportingNotification(`SVG export failed: ${msg}`);
+      setTimeout(() => setExportingNotification(null), 3500);
+    }
+  };
+
+  const handleQuickCopyPng = async (scale: ExportScale = 2) => {
+    const svgEl = getActiveSvgElement();
+    if (!svgEl) return;
+    setIsExportMenuOpen(false);
+    setExportingNotification('Copying 2x PNG to clipboard...');
+    try {
+      const res = await copyToClipboard(svgEl, {
+        format: 'png',
+        scale,
+        background: mermaidTheme === 'dark' || !mermaidTheme ? 'dark' : 'white',
+        notes: effectiveNotes,
+        customStyles: effectiveCustomStyles,
+        theme: mermaidTheme,
+      });
+      setExportingNotification(res.message || 'Copied 2x PNG to clipboard!');
+      setTimeout(() => setExportingNotification(null), 2500);
+    } catch (e) {
+      console.error('Copy PNG failed:', e);
+      const msg = e instanceof Error ? e.message : 'Clipboard copy failed';
+      setExportingNotification(`Copy failed: ${msg}`);
+      setTimeout(() => setExportingNotification(null), 3500);
+    }
+  };
+
+  const handleQuickCopySvg = async () => {
+    const svgEl = getActiveSvgElement();
+    if (!svgEl) return;
+    setIsExportMenuOpen(false);
+    setExportingNotification('Copying SVG to clipboard...');
+    try {
+      const res = await copyToClipboard(svgEl, {
+        format: 'svg',
+        notes: effectiveNotes,
+        customStyles: effectiveCustomStyles,
+        theme: mermaidTheme,
+      });
+      setCopiedSvg(true);
+      setTimeout(() => setCopiedSvg(false), 2000);
+      setExportingNotification(res.message || 'Copied SVG vector to clipboard!');
+      setTimeout(() => setExportingNotification(null), 2500);
+    } catch (e) {
+      console.error('Copy SVG failed:', e);
+      const msg = e instanceof Error ? e.message : 'Clipboard copy failed';
+      setExportingNotification(`Copy failed: ${msg}`);
+      setTimeout(() => setExportingNotification(null), 3500);
+    }
+  };
+
+  const handleCopySvg = handleQuickCopySvg;
+  const handleDownloadSvg = () => handleQuickDownloadSvg(1);
 
   const toggleFullscreen = async () => {
     if (!isFullscreen) {
@@ -2256,28 +2360,134 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             <RotateCcw className="w-4 h-4" />
           </button>
           <div className="w-[1px] h-4 bg-slate-800 mx-1"></div>
+
+          {/* Quick High-Res PNG Button */}
           <button
-            id="copy-svg-button"
+            id="quick-download-png-button"
             type="button"
-            onClick={handleCopySvg}
+            onClick={() => handleQuickDownloadPng(2)}
             disabled={!svgContent}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
-            title="Copy SVG (includes TwinCAT-style endpoint priority badges)"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors disabled:opacity-40 text-xs font-medium border border-slate-700/50 bg-slate-800/40"
+            title="Download High-Resolution 2x PNG (Retina Quality)"
           >
-            {copiedSvg ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{copiedSvg ? 'Copied SVG' : 'Copy SVG'}</span>
+            <FileImage className="w-3.5 h-3.5 text-sky-400" />
+            <span>PNG</span>
+            <span className="text-[10px] px-1 py-0.2 rounded bg-sky-950 text-sky-400 font-mono border border-sky-800/60 leading-none">2x</span>
           </button>
+
+          {/* Quick SVG Vector Button */}
           <button
-            id="download-svg-button"
+            id="quick-download-svg-button"
             type="button"
-            onClick={handleDownloadSvg}
+            onClick={() => handleQuickDownloadSvg(1)}
             disabled={!svgContent}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
-            title="Download SVG vector diagram"
+            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40 text-xs font-medium"
+            title="Download Standalone Vector SVG diagram"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">SVG</span>
+            <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+            <span>SVG</span>
           </button>
+
+          {/* High-Resolution Export Dropdown Menu */}
+          <div className="relative" ref={exportMenuRef}>
+            <button
+              id="export-dropdown-button"
+              type="button"
+              onClick={() => setIsExportMenuOpen((prev) => !prev)}
+              disabled={!svgContent}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-600/90 hover:bg-sky-500 text-white font-medium text-xs shadow-sm transition-all disabled:opacity-40"
+              title="Export high-resolution PNG/SVG with custom scale and options"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isExportMenuOpen && (
+              <div
+                id="export-options-dropdown"
+                className="absolute right-0 top-full mt-1.5 w-60 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 z-40 text-xs text-slate-200 divide-y divide-slate-800/70"
+              >
+                <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  High-Resolution Export
+                </div>
+                <div className="py-1">
+                  <button
+                    id="dropdown-open-modal-btn"
+                    type="button"
+                    onClick={() => handleOpenExportModal('png')}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-800 text-sky-400 font-medium transition-colors"
+                  >
+                    <Sparkles className="w-4 h-4 text-sky-400 shrink-0" />
+                    <div>
+                      <div className="text-white text-xs">High-Res Export Dialog...</div>
+                      <div className="text-[10px] text-slate-400">Custom scale (1x-4x), background & DPI</div>
+                    </div>
+                  </button>
+                </div>
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] text-slate-500 font-medium">Quick Downloads</div>
+                  <button
+                    id="dropdown-png-2x-btn"
+                    type="button"
+                    onClick={() => handleQuickDownloadPng(2)}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileImage className="w-3.5 h-3.5 text-sky-400" />
+                      Download PNG
+                    </span>
+                    <span className="text-[10px] font-mono text-sky-400 bg-sky-950/80 px-1 rounded border border-sky-800/50">2x Retina</span>
+                  </button>
+                  <button
+                    id="dropdown-png-4x-btn"
+                    type="button"
+                    onClick={() => handleQuickDownloadPng(4)}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileImage className="w-3.5 h-3.5 text-emerald-400" />
+                      Download PNG
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-1 rounded border border-emerald-800/50">4x UHD 4K</span>
+                  </button>
+                  <button
+                    id="dropdown-svg-btn"
+                    type="button"
+                    onClick={() => handleQuickDownloadSvg(1)}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+                      Download SVG
+                    </span>
+                    <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/80 px-1 rounded border border-indigo-800/50">Vector</span>
+                  </button>
+                </div>
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] text-slate-500 font-medium">Copy to System Clipboard</div>
+                  <button
+                    id="dropdown-copy-png-btn"
+                    type="button"
+                    onClick={() => handleQuickCopyPng(2)}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Copy PNG (2x Retina)</span>
+                  </button>
+                  <button
+                    id="dropdown-copy-svg-btn"
+                    type="button"
+                    onClick={handleQuickCopySvg}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+                  >
+                    {copiedSvg ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+                    <span>{copiedSvg ? 'Copied SVG!' : 'Copy SVG Vector'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <div className="w-[1px] h-4 bg-slate-800 mx-1"></div>
           <button
             id="fullscreen-button"
@@ -2339,7 +2549,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transformOrigin: '0 0',
-              transition: isDragging || isNodeDragging ? 'none' : 'transform 0.05s ease-out',
+              transition: 'none',
             }}
             className="w-full h-full p-8 select-none flex items-center justify-center [&>svg]:max-w-none [&>svg]:max-h-none relative"
           >
@@ -2356,6 +2566,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
               onEditNote={handleOpenAddNote}
               onDeleteNote={handleDeleteActiveNote}
               onUpdateNotePosition={onUpdateNotePositionProp || (() => {})}
+              onUpdateNoteStyle={onUpdateNoteStyle}
               onSelectTarget={(target) => {
                 if (target.type === 'node') {
                   handleSelectState(target.id, target.label || target.id);
@@ -2406,8 +2617,32 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
               setIsInspectorOpen(true);
             }}
             onOpenMermaidLive={onOpenMermaidLive}
+            onExportImage={(fmt) => handleOpenExportModal(fmt)}
             onClose={() => setContextMenuState(null)}
           />
+        )}
+
+        {/* High-Resolution Export Modal */}
+        <ExportModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          svgElement={getActiveSvgElement()}
+          baseFileName={fileName}
+          notes={effectiveNotes}
+          customStyles={effectiveCustomStyles}
+          theme={mermaidTheme}
+          defaultFormat={exportModalDefaultFormat}
+        />
+
+        {/* Export Notification Toast */}
+        {exportingNotification && (
+          <div
+            id="export-toast-notification"
+            className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900/95 border border-sky-500/50 shadow-2xl text-xs text-white backdrop-blur animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none"
+          >
+            <Sparkles className="w-4 h-4 text-sky-400 shrink-0" />
+            <span>{exportingNotification}</span>
+          </div>
         )}
 
         {/* Note Dialog Modal */}

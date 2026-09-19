@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StickyNote, Pencil, Trash2, Move, X } from 'lucide-react';
-import { DiagramNotes, ContextMenuTarget, StateNodeInfo, EdgeInfo, NotePosition } from '../types.ts';
-import { cleanNodeId, findNodeElement } from '../utils/nodeDragger.ts';
+import { StickyNote, Pencil, Trash2, Move, X, Palette } from 'lucide-react';
+import { DiagramNotes, ContextMenuTarget, StateNodeInfo, EdgeInfo, NotePosition, NodeDisplayProperties } from '../types.ts';
+import { cleanNodeId, findNodeElement, findEdgePathElement, getEdgeAnchorPoint } from '../utils/nodeDragger.ts';
+import { parseEdgeKey } from '../utils/diagramNotes.ts';
+import { NoteStylePopover } from './NoteStylePopover.tsx';
 
 export interface NoteOverlaysLayerProps {
   notes: DiagramNotes;
@@ -12,6 +14,7 @@ export interface NoteOverlaysLayerProps {
   onEditNote: (target: ContextMenuTarget) => void;
   onDeleteNote: (target: ContextMenuTarget) => void;
   onUpdateNotePosition: (targetId: string, pos: NotePosition) => void;
+  onUpdateNoteStyle?: (targetId: string, style: NodeDisplayProperties | null) => void;
   onSelectTarget?: (target: ContextMenuTarget) => void;
 }
 
@@ -35,12 +38,47 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
   onEditNote,
   onDeleteNote,
   onUpdateNotePosition,
+  onUpdateNoteStyle,
   onSelectTarget,
 }) => {
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   const [selectedNoteCardId, setSelectedNoteCardId] = useState<string | null>(null);
+  const [isStylingNoteId, setIsStylingNoteId] = useState<string | null>(null);
   const [activeDragOffset, setActiveDragOffset] = useState<{ id: string; x: number; y: number } | null>(null);
   const dragStartRef = useRef<{ clientX: number; clientY: number; origX: number; origY: number } | null>(null);
+
+  // Close selection & styling when clicking outside or pressing Escape
+  useEffect(() => {
+    const handleDocumentMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      // If clicked inside any note card, popover, dialog, or context menu, keep selection
+      if (
+        target.closest('[id^="note-overlay-"]') ||
+        target.closest('[id^="note-style-popover-"]') ||
+        target.closest('#diagram-context-menu') ||
+        target.closest('#note-dialog')
+      ) {
+        return;
+      }
+      setSelectedNoteCardId(null);
+      setIsStylingNoteId(null);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedNoteCardId(null);
+        setIsStylingNoteId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentMouseDown, true);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentMouseDown, true);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Compute positions for all node and edge notes
   const noteItems: NoteItemWithPos[] = [];
@@ -73,10 +111,16 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
           const wRect = wrapperEl.getBoundingClientRect();
           const nRect = nodeEl.getBoundingClientRect();
           if (wRect.width > 0 && nRect.width > 0) {
-            const localLeft = (nRect.left - wRect.left) / zoom;
-            const localTop = (nRect.top - wRect.top) / zoom;
-            const localW = nRect.width / zoom;
-            const localH = nRect.height / zoom;
+            const actualScale =
+              wrapperEl.offsetWidth > 0 && wRect.width > 0
+                ? wRect.width / wrapperEl.offsetWidth
+                : zoom > 0
+                ? zoom
+                : 1;
+            const localLeft = (nRect.left - wRect.left) / actualScale;
+            const localTop = (nRect.top - wRect.top) / actualScale;
+            const localW = nRect.width / actualScale;
+            const localH = nRect.height / actualScale;
             targetX = Math.round(localLeft + localW / 2);
             targetY = Math.round(localTop + localH / 2);
             defaultNoteX = Math.round(localLeft + localW + 28);
@@ -96,12 +140,30 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
       }
     }
 
-    const savedPos = notes.positions?.[rawNodeId] || notes.positions?.[nodeId];
-    let noteX = savedPos ? savedPos.x : defaultNoteX;
-    let noteY = savedPos ? savedPos.y : defaultNoteY;
+    const savedPos =
+      notes.positions?.[rawNodeId] ||
+      notes.positions?.[nodeId] ||
+      (state ? notes.positions?.[state.id] : null);
+    let noteX = defaultNoteX;
+    let noteY = defaultNoteY;
+
+    if (savedPos) {
+      if (typeof savedPos.deltaX === 'number' && typeof savedPos.deltaY === 'number') {
+        noteX = targetX + savedPos.deltaX;
+        noteY = targetY + savedPos.deltaY;
+      } else {
+        noteX = savedPos.x;
+        noteY = savedPos.y;
+      }
+    }
 
     // Apply active drag override if currently dragging
-    if (activeDragOffset && (activeDragOffset.id === rawNodeId || activeDragOffset.id === nodeId)) {
+    if (
+      activeDragOffset &&
+      (activeDragOffset.id === rawNodeId ||
+        activeDragOffset.id === nodeId ||
+        (state && activeDragOffset.id === state.id))
+    ) {
       noteX = activeDragOffset.x;
       noteY = activeDragOffset.y;
     }
@@ -122,8 +184,21 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
   for (const [edgeId, text] of Object.entries(notes.edges || {})) {
     if (!text || !text.trim()) continue;
 
-    const edge = availableEdges.find((e) => e.id === edgeId || `${e.from}->${e.to}` === edgeId);
-    const label = edge?.label ? `${edge.from} → ${edge.to} (${edge.label})` : edge ? `${edge.from} → ${edge.to}` : edgeId;
+    const parsed = parseEdgeKey(edgeId, availableEdges);
+    const edge =
+      availableEdges.find(
+        (e) =>
+          e.id === edgeId ||
+          `${e.from}->${e.to}` === edgeId ||
+          (e.pathId && e.pathId === edgeId)
+      ) || parsed?.edge;
+    const label = edge?.label
+      ? `${edge.from} → ${edge.to} (${edge.label})`
+      : edge
+      ? `${edge.from} → ${edge.to}`
+      : parsed
+      ? `${parsed.from} → ${parsed.to}`
+      : edgeId;
 
     let targetX = 250;
     let targetY = 250;
@@ -131,51 +206,51 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
     let defaultNoteY = 200;
 
     if (svgElement) {
-      const pathEl = (svgElement.querySelector(
-        `path.tc-edge-path[data-edge-id="${edgeId}"], g.edgePaths path[data-edge-id="${edgeId}"], g.edgePaths path[data-path-id="${edgeId}"]`
-      ) ||
-        (edge
-          ? svgElement.querySelector(
-              `path.tc-edge-path[data-source-id="${edge.from}"][data-target-id="${edge.to}"]`
-            )
-          : null)) as SVGPathElement | null;
+      const pathEl =
+        findEdgePathElement(svgElement, edgeId, availableEdges) ||
+        (edge ? findEdgePathElement(svgElement, edge.id, availableEdges) : null) ||
+        (edge && edge.pathId ? findEdgePathElement(svgElement, edge.pathId, availableEdges) : null) ||
+        (edge ? findEdgePathElement(svgElement, `${edge.from}->${edge.to}`, availableEdges) : null);
 
       if (pathEl) {
         const wrapperEl = (svgElement.closest('#mermaid-svg-wrapper') ||
           document.getElementById('mermaid-svg-wrapper')) as HTMLElement | null;
-        if (wrapperEl) {
-          const wRect = wrapperEl.getBoundingClientRect();
-          const pRect = pathEl.getBoundingClientRect();
-          if (wRect.width > 0 && pRect.width > 0) {
-            const localLeft = (pRect.left - wRect.left) / zoom;
-            const localTop = (pRect.top - wRect.top) / zoom;
-            const localW = pRect.width / zoom;
-            const localH = pRect.height / zoom;
-            targetX = Math.round(localLeft + localW / 2);
-            targetY = Math.round(localTop + localH / 2);
-            defaultNoteX = Math.round(targetX + 28);
-            defaultNoteY = Math.max(16, Math.round(targetY - 32));
-          }
-        } else {
-          try {
-            const pathLen = pathEl.getTotalLength();
-            const pt = pathEl.getPointAtLength(pathLen / 2);
-            targetX = Math.round(pt.x);
-            targetY = Math.round(pt.y);
-            defaultNoteX = Math.round(targetX + 28);
-            defaultNoteY = Math.max(16, Math.round(targetY - 32));
-          } catch {
-            // fallback
-          }
-        }
+        const pt = getEdgeAnchorPoint(svgElement, pathEl, wrapperEl, zoom);
+        targetX = pt.x;
+        targetY = pt.y;
+        defaultNoteX = Math.round(targetX + 28);
+        defaultNoteY = Math.max(16, Math.round(targetY - 24));
       }
     }
 
-    const savedPos = notes.positions?.[edgeId];
-    let noteX = savedPos ? savedPos.x : defaultNoteX;
-    let noteY = savedPos ? savedPos.y : defaultNoteY;
+    const savedPos =
+      notes.positions?.[edgeId] ||
+      (edge
+        ? notes.positions?.[edge.id] ||
+          notes.positions?.[`${edge.from}->${edge.to}`] ||
+          (edge.pathId ? notes.positions?.[edge.pathId] : null)
+        : null);
+    let noteX = defaultNoteX;
+    let noteY = defaultNoteY;
 
-    if (activeDragOffset && activeDragOffset.id === edgeId) {
+    if (savedPos) {
+      if (typeof savedPos.deltaX === 'number' && typeof savedPos.deltaY === 'number') {
+        noteX = targetX + savedPos.deltaX;
+        noteY = targetY + savedPos.deltaY;
+      } else {
+        noteX = savedPos.x;
+        noteY = savedPos.y;
+      }
+    }
+
+    if (
+      activeDragOffset &&
+      (activeDragOffset.id === edgeId ||
+        (edge &&
+          (activeDragOffset.id === edge.id ||
+            activeDragOffset.id === `${edge.from}->${edge.to}` ||
+            (edge.pathId && activeDragOffset.id === edge.pathId))))
+    ) {
       noteX = activeDragOffset.x;
       noteY = activeDragOffset.y;
     }
@@ -234,9 +309,16 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
 
     const handleWindowMouseUp = () => {
       if (activeDragOffset) {
+        const matchingNote = noteItems.find((n) => n.id === activeDragOffset.id);
+        const targetAnchor = matchingNote?.targetAnchor || { x: 0, y: 0 };
+        const deltaX = Math.round(activeDragOffset.x - targetAnchor.x);
+        const deltaY = Math.round(activeDragOffset.y - targetAnchor.y);
+
         onUpdateNotePosition(activeDragOffset.id, {
           x: activeDragOffset.x,
           y: activeDragOffset.y,
+          deltaX,
+          deltaY,
         });
       }
       dragStartRef.current = null;
@@ -251,7 +333,7 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
       window.removeEventListener('mousemove', handleWindowMouseMove);
       window.removeEventListener('mouseup', handleWindowMouseUp);
     };
-  }, [draggingNoteId, activeDragOffset, onUpdateNotePosition, zoom]);
+  }, [draggingNoteId, activeDragOffset, onUpdateNotePosition, zoom, noteItems]);
 
   if (noteItems.length === 0) {
     return null;
@@ -280,6 +362,9 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
           const targetX = note.targetAnchor.x;
           const targetY = note.targetAnchor.y;
 
+          const noteStyle = notes.styles?.[note.id] || notes.styles?.[cleanNodeId(note.id)];
+          const connectorColor = noteStyle?.stroke || '#f59e0b';
+
           // Compute smooth curved or straight connector line
           const midX = (cardCenterX + targetX) / 2;
           const midY = (cardCenterY + targetY) / 2;
@@ -291,13 +376,14 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
                 cx={targetX}
                 cy={targetY}
                 r="7"
-                fill="url(#note-anchor-glow)"
+                fill={connectorColor}
+                opacity="0.25"
               />
               <circle
                 cx={targetX}
                 cy={targetY}
                 r="3.5"
-                fill="#f59e0b"
+                fill={connectorColor}
                 stroke="#1e293b"
                 strokeWidth="1.5"
               />
@@ -305,7 +391,7 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
               <path
                 d={`M ${targetX} ${targetY} Q ${midX} ${targetY} ${cardCenterX} ${cardCenterY}`}
                 fill="none"
-                stroke="#f59e0b"
+                stroke={connectorColor}
                 strokeWidth="1.8"
                 strokeDasharray="4 3"
               />
@@ -317,6 +403,14 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
       {/* Note Overlay Cards */}
       {noteItems.map((note) => {
         const isDragging = draggingNoteId === note.id;
+        const isSelected = selectedNoteCardId === note.id;
+        const isStyling = isStylingNoteId === note.id;
+
+        const noteStyle = notes.styles?.[note.id] || notes.styles?.[cleanNodeId(note.id)];
+        const cardBg = noteStyle?.fill || '#fffbeb';
+        const cardColor = noteStyle?.color || '#78350f';
+        const cardBorder = noteStyle?.stroke || '#f59e0b';
+        const cardBorderWidth = noteStyle?.strokeWidth || '1.5px';
 
         return (
           <div
@@ -327,76 +421,143 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
               position: 'absolute',
               top: 0,
               left: 0,
+              backgroundColor: cardBg,
+              color: cardColor,
+              borderColor: cardBorder,
+              borderWidth: cardBorderWidth,
             }}
-            className={`pointer-events-auto w-64 rounded-xl border shadow-xl backdrop-blur-md transition-all select-none ${
+            className={`pointer-events-auto w-64 rounded-xl shadow-xl transition-all select-none ${
               isDragging
-                ? 'shadow-2xl shadow-amber-500/20 border-amber-400 ring-2 ring-amber-400 scale-[1.02] cursor-grabbing z-30'
-                : selectedNoteCardId === note.id
-                ? 'bg-amber-50/95 dark:bg-slate-900/95 border-amber-400 ring-2 ring-amber-400/80 shadow-2xl z-25'
-                : 'bg-amber-50/95 dark:bg-slate-900/95 border-amber-300 dark:border-amber-500/40 hover:border-amber-400 hover:shadow-2xl'
+                ? 'shadow-2xl ring-2 scale-[1.02] cursor-grabbing z-30'
+                : isSelected
+                ? 'ring-2 shadow-2xl z-25'
+                : 'hover:shadow-2xl cursor-grab active:cursor-grabbing'
             }`}
             onClick={(e) => {
               e.stopPropagation();
               setSelectedNoteCardId(note.id);
               onSelectTarget?.(note.targetObject);
             }}
+            onMouseDown={(e) => {
+              // When not selected or clicking background of card, allow direct dragging
+              if (!isSelected) {
+                handleNoteMouseDown(e, note);
+              }
+            }}
             onDoubleClick={(e) => {
               e.stopPropagation();
               onEditNote(note.targetObject);
             }}
           >
-            {/* Active Selected Note Floating Action Bar / Title Bar */}
-            {selectedNoteCardId === note.id && (
+            {/* Note Style Popover */}
+            {isStyling && isSelected && (
+              <NoteStylePopover
+                noteId={note.id}
+                noteLabel={note.label}
+                currentStyle={noteStyle}
+                onUpdateStyle={(updatedStyle) => {
+                  onUpdateNoteStyle?.(note.id, updatedStyle);
+                }}
+                onClose={() => setIsStylingNoteId(null)}
+              />
+            )}
+
+            {/* Note Title Bar - ONLY rendered when note is selected / focused */}
+            {isSelected && (
               <div
-                id={`selected-note-toolbar-${note.id}`}
-                className="absolute -top-11 left-0 right-0 flex items-center justify-between px-2.5 py-1.5 bg-slate-900/95 dark:bg-slate-900/95 border border-amber-500 rounded-lg shadow-2xl shadow-amber-500/20 backdrop-blur-md z-40"
-                onClick={(e) => e.stopPropagation()}
+                id={`note-title-bar-${note.id}`}
+                onMouseDown={(e) => handleNoteMouseDown(e, note)}
+                className="flex items-center justify-between px-3 py-1.5 rounded-t-[10px] border-b cursor-grab active:cursor-grabbing select-none transition-colors"
+                style={{
+                  backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                  borderColor: cardBorder,
+                  color: cardColor,
+                }}
+                title="Click & drag to reposition this note"
               >
-                <div className="flex items-center space-x-1.5 min-w-0 pr-2">
-                  <StickyNote className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span className="text-[11px] font-semibold text-amber-200 truncate">
+                <div className="flex items-center space-x-1.5 min-w-0 pr-1.5">
+                  <StickyNote className="w-3.5 h-3.5 shrink-0" style={{ color: cardBorder }} />
+                  <span className="text-[11px] font-bold truncate">
                     {note.label}
                   </span>
                 </div>
-                <div className="flex items-center space-x-1 shrink-0">
+                <div
+                  className="flex items-center space-x-0.5 shrink-0"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  {/* Style Note Button */}
                   <button
-                    id={`floating-edit-note-${note.id}`}
+                    id={`style-note-${note.id}`}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsStylingNoteId(isStyling ? null : note.id);
+                    }}
+                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors text-[11px] font-medium ${
+                      isStyling
+                        ? 'bg-amber-500/30 text-white font-bold'
+                        : 'hover:bg-black/10 dark:hover:bg-white/10'
+                    }`}
+                    title="Customize Note Colors (Background, Text & Border)"
+                    aria-label="Customize Note Style"
+                  >
+                    <Palette className="w-3 h-3" />
+                    <span>Style</span>
+                  </button>
+
+                  {/* Edit Note Button */}
+                  <button
+                    id={`edit-note-${note.id}`}
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       e.preventDefault();
                       onEditNote(note.targetObject);
                     }}
-                    className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-amber-200 hover:text-white bg-amber-500/20 hover:bg-amber-500/30 rounded border border-amber-500/40 transition-colors"
-                    title="Edit Note"
+                    className="flex items-center gap-1 px-1.5 py-0.5 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-colors text-[11px] font-medium"
+                    title="Edit Note Text"
                     aria-label="Edit Note"
                   >
                     <Pencil className="w-3 h-3" />
                     <span>Edit</span>
                   </button>
+
+                  {/* Delete Note Button */}
                   <button
-                    id={`floating-delete-note-${note.id}`}
+                    id={`delete-note-${note.id}`}
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       e.preventDefault();
                       onDeleteNote(note.targetObject);
                     }}
-                    className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-rose-300 hover:text-white bg-rose-500/20 hover:bg-rose-500/30 rounded border border-rose-500/40 transition-colors"
+                    className="flex items-center gap-1 px-1.5 py-0.5 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 rounded transition-colors text-[11px] font-medium"
                     title="Delete Note"
                     aria-label="Delete Note"
                   >
                     <Trash2 className="w-3 h-3" />
                     <span>Delete</span>
                   </button>
+
+                  {/* Drag Move Handle */}
+                  <span
+                    className="p-1 cursor-grab opacity-70 hover:opacity-100"
+                    title="Drag to move note"
+                  >
+                    <Move className="w-3 h-3" />
+                  </span>
+
+                  {/* Close / Deselect Button */}
                   <button
+                    id={`close-note-${note.id}`}
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedNoteCardId(null);
+                      setIsStylingNoteId(null);
                     }}
-                    className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors"
-                    title="Deselect Note"
+                    className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-colors opacity-70 hover:opacity-100"
+                    title="Deselect Note (Esc)"
                     aria-label="Deselect Note"
                   >
                     <X className="w-3 h-3" />
@@ -405,66 +566,12 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
               </div>
             )}
 
-            {/* Card Header (Title Bar & Drag Handle) */}
-            <div
-              onMouseDown={(e) => handleNoteMouseDown(e, note)}
-              className={`flex items-center justify-between px-3 py-2 rounded-t-xl border-b cursor-grab active:cursor-grabbing select-none transition-colors ${
-                selectedNoteCardId === note.id
-                  ? 'bg-amber-200 dark:bg-amber-950 border-amber-400 dark:border-amber-700/80 text-amber-950 dark:text-amber-100'
-                  : 'bg-amber-200/90 dark:bg-amber-950/80 border-amber-300/80 dark:border-amber-800/80 text-amber-950 dark:text-amber-100'
-              }`}
-              title="Click & drag to reposition this note"
-            >
-              <div className="flex items-center space-x-1.5 min-w-0 pr-2">
-                <StickyNote className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
-                <span className="text-[11px] font-bold text-amber-950 dark:text-amber-100 truncate">
-                  {note.label}
-                </span>
-              </div>
-              <div
-                className="flex items-center space-x-1 shrink-0"
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <button
-                  id={`edit-note-${note.id}`}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    onEditNote(note.targetObject);
-                  }}
-                  className="flex items-center gap-1 px-1.5 py-1 text-amber-950 dark:text-amber-100 hover:text-black dark:hover:text-white rounded hover:bg-amber-300/70 dark:hover:bg-amber-900/70 transition-colors text-[11px] font-medium"
-                  title="Edit Note"
-                  aria-label="Edit Note"
-                >
-                  <Pencil className="w-3 h-3" />
-                  <span className="inline">Edit</span>
-                </button>
-                <button
-                  id={`delete-note-${note.id}`}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    onDeleteNote(note.targetObject);
-                  }}
-                  className="flex items-center gap-1 px-1.5 py-1 text-rose-800 dark:text-rose-300 hover:text-rose-950 dark:hover:text-rose-100 rounded hover:bg-rose-500/20 transition-colors text-[11px] font-medium"
-                  title="Remove Note"
-                  aria-label="Remove Note"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  <span className="inline">Delete</span>
-                </button>
-                <span className="text-amber-800/70 dark:text-amber-300/70 p-1 cursor-grab" title="Drag to move note">
-                  <Move className="w-3.5 h-3.5" />
-                </span>
-              </div>
-            </div>
-
             {/* Note Content */}
             <div
-              className="p-3 text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words leading-relaxed max-h-48 overflow-y-auto cursor-pointer"
-              title="Double-click to edit note text"
+              className={`p-3 text-xs whitespace-pre-wrap break-words leading-relaxed max-h-48 overflow-y-auto ${
+                isSelected ? '' : 'rounded-xl'
+              }`}
+              title="Click to select, double-click to edit note text"
             >
               {note.text}
             </div>

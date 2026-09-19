@@ -336,11 +336,14 @@ export function translateSvgPath(d: string, dx: number, dy: number): string {
 export function cleanNodeId(raw: string): string {
   if (!raw) return '';
   let id = raw.trim();
+  const hadPrefix = /^(?:[A-Za-z0-9_.-]+?-)?(?:state|flowchart)-/.test(id);
   // Strip any diagram ID prefix before 'state-' or 'flowchart-'
   id = id.replace(/^[A-Za-z0-9_.-]+?-(?:state|flowchart)-/, '');
   id = id.replace(/^(?:state|flowchart)-/, '');
-  // Strip trailing instance numbers like -0, -1, _0, _1
-  id = id.replace(/[-_]\d+$/, '');
+  // Strip trailing instance numbers like -0, -1, _0, _1 only if it had a Mermaid generated prefix
+  if (hadPrefix) {
+    id = id.replace(/[-_]\d+$/, '');
+  }
   return id.trim();
 }
 
@@ -380,6 +383,217 @@ export function findNodeElement(svg: SVGSVGElement, stateId: string): SVGGElemen
     if (nLabel && (nLabel === stateId || nLabel === cleanId)) return n;
   }
   return null;
+}
+
+/**
+ * Robustly finds an SVG edge path element in the diagram by edgeId, canonical keys, or source/target.
+ */
+export function findEdgePathElement(
+  svg: SVGElement,
+  edgeId: string,
+  availableEdges: EdgeInfo[] = []
+): SVGPathElement | null {
+  if (!svg || !edgeId) return null;
+
+  const cleanId = cleanNodeId(edgeId);
+
+  // 1. Identify source and target states from availableEdges or the edgeId string
+  const edge = availableEdges.find(
+    (e) => e.id === edgeId || `${e.from}->${e.to}` === edgeId || cleanNodeId(e.id) === cleanId
+  );
+
+  let from = edge?.from || '';
+  let to = edge?.to || '';
+
+  if (!from || !to) {
+    if (edgeId.includes('->')) {
+      const parts = edgeId.split('->');
+      from = parts[0].trim().replace(/#\d+$/, '');
+      to = parts[1].trim().replace(/#\d+$/, '');
+    } else {
+      const lMatch = edgeId.match(/\bL-([A-Za-z0-9_.-]+)-([A-Za-z0-9_.-]+)(?:-\d+)?\b/);
+      if (lMatch) {
+        from = lMatch[1];
+        to = lMatch[2];
+      }
+    }
+  }
+
+  const cFrom = from ? cleanNodeId(from) : '';
+  const cTo = to ? cleanNodeId(to) : '';
+
+  // 2. Direct selector searches on path and parent g
+  const selectors: string[] = [
+    `path[data-edge-id="${edgeId}"]`,
+    `path[data-edge-key="${edgeId}"]`,
+    `path[data-path-id="${edgeId}"]`,
+    `path#${edgeId}`,
+    `path[data-edge-id="${cleanId}"]`,
+    `g.edgePath#${edgeId} path`,
+    `g.edgePath[id="${edgeId}"] path`,
+    `g#${edgeId} path`,
+    `g.edgePath[id="${cleanId}"] path`,
+  ];
+
+  if (from && to) {
+    selectors.push(
+      `path[data-edge-key="${from}->${to}"]`,
+      `path[data-edge-key="${cFrom}->${cTo}"]`,
+      `path[data-source-id="${from}"][data-target-id="${to}"]`,
+      `path[data-source-id="${cFrom}"][data-target-id="${cTo}"]`,
+      `g.edgePath.LS-${from}.LE-${to} path`,
+      `g.edgePath.LS-${cFrom}.LE-${cTo} path`,
+      `g.edgePath[class*="LS-${from}"][class*="LE-${to}"] path`,
+      `g.edgePath[class*="LS-${cFrom}"][class*="LE-${cTo}"] path`,
+      `g.edgePath[id^="L-${from}-${to}"] path`,
+      `g.edgePath[id^="L-${cFrom}-${cTo}"] path`,
+      `g.edgePath[id*="${from}"][id*="${to}"] path`,
+      `g.edgePath[id*="${cFrom}"][id*="${cTo}"] path`
+    );
+    if (from === '[*]' || cFrom === '[*]') {
+      selectors.push(
+        `g.edgePath[class*="LS-root_start"] path`,
+        `g.edgePath[class*="LS-startNode"] path`,
+        `g.edgePath[id*="root_start"] path`
+      );
+    }
+    if (to === '[*]' || cTo === '[*]') {
+      selectors.push(
+        `g.edgePath[class*="LE-root_end"] path`,
+        `g.edgePath[class*="LE-root_start"] path`,
+        `g.edgePath[id*="root_end"] path`
+      );
+    }
+  }
+
+  for (const sel of selectors) {
+    try {
+      const el = svg.querySelector(sel);
+      if (el && el.tagName.toLowerCase() === 'path' && !el.closest('defs, marker')) {
+        return el as SVGPathElement;
+      }
+    } catch {
+      // ignore selector syntax errors
+    }
+  }
+
+  // 3. Fallback: inspect all edge paths in svg (filtering out defs/marker arrowheads)
+  const allEdgePaths = (Array.from(
+    svg.querySelectorAll('g.edgePaths path.path, g.edgePath path.path, path.tc-edge-path, g.edgePaths path, g.edgePath path')
+  ) as SVGPathElement[]).filter((p) => !p.closest('defs, marker'));
+
+  for (const p of allEdgePaths) {
+    const pEdgeId = p.getAttribute('data-edge-id');
+    const pEdgeKey = p.getAttribute('data-edge-key');
+    const pId = p.getAttribute('id');
+    const gParent = p.closest('g.edgePath') || p.parentElement;
+    const gId = gParent?.getAttribute('id') || '';
+    const gClass = `${gParent?.getAttribute('class') || ''} ${p.getAttribute('class') || ''}`;
+
+    if (
+      pEdgeId === edgeId ||
+      pEdgeKey === edgeId ||
+      pId === edgeId ||
+      gId === edgeId ||
+      pEdgeId === cleanId ||
+      gId === cleanId
+    ) {
+      return p;
+    }
+
+    if (from && to) {
+      const hasFrom =
+        gClass.includes(`LS-${from}`) ||
+        gClass.includes(`LS-${cFrom}`) ||
+        gId.includes(from) ||
+        gId.includes(cFrom) ||
+        (from === '[*]' && (gClass.includes('root_start') || gId.includes('root_start')));
+      const hasTo =
+        gClass.includes(`LE-${to}`) ||
+        gClass.includes(`LE-${cTo}`) ||
+        gId.includes(to) ||
+        gId.includes(cTo) ||
+        (to === '[*]' && (gClass.includes('root_end') || gId.includes('root_end')));
+
+      if (hasFrom && hasTo) {
+        return p;
+      }
+    }
+  }
+
+  // 4. Index-based matching if edge order matches
+  if (edge) {
+    const edgeIndex = availableEdges.indexOf(edge);
+    if (edgeIndex >= 0 && edgeIndex < allEdgePaths.length) {
+      return allEdgePaths[edgeIndex];
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Calculates the exact anchor coordinate along an edge path.
+ * If containerEl and zoom are provided, returns coordinates relative to containerEl.
+ * Otherwise returns coordinates in SVG coordinate space.
+ */
+export function getEdgeAnchorPoint(
+  svg: SVGElement,
+  pathEl: SVGPathElement,
+  containerEl?: HTMLElement | null,
+  zoom = 1
+): { x: number; y: number } {
+  if (containerEl) {
+    const cRect = containerEl.getBoundingClientRect();
+    const pRect = pathEl.getBoundingClientRect();
+    if (cRect.width > 0 && pRect.width > 0) {
+      const actualScale =
+        containerEl.offsetWidth > 0 && cRect.width > 0
+          ? cRect.width / containerEl.offsetWidth
+          : zoom > 0
+          ? zoom
+          : 1;
+
+      try {
+        const pathLen = pathEl.getTotalLength();
+        if (pathLen > 0) {
+          const midPt = pathEl.getPointAtLength(pathLen / 2);
+          const ctm = pathEl.getScreenCTM();
+          if (ctm) {
+            const screenX = midPt.x * ctm.a + midPt.y * ctm.c + ctm.e;
+            const screenY = midPt.x * ctm.b + midPt.y * ctm.d + ctm.f;
+            return {
+              x: Math.round((screenX - cRect.left) / actualScale),
+              y: Math.round((screenY - cRect.top) / actualScale),
+            };
+          }
+        }
+      } catch {
+        // fallback
+      }
+      return {
+        x: Math.round((pRect.left + pRect.width / 2 - cRect.left) / actualScale),
+        y: Math.round((pRect.top + pRect.height / 2 - cRect.top) / actualScale),
+      };
+    }
+  }
+
+  // SVG coordinate space
+  try {
+    const pathLen = pathEl.getTotalLength();
+    if (pathLen > 0) {
+      const midPt = pathEl.getPointAtLength(pathLen / 2);
+      return { x: Math.round(midPt.x), y: Math.round(midPt.y) };
+    }
+  } catch {
+    // fallback
+  }
+
+  const bbox = (pathEl as any).getBBox?.() || { x: 0, y: 0, width: 0, height: 0 };
+  return {
+    x: Math.round(bbox.x + bbox.width / 2),
+    y: Math.round(bbox.y + bbox.height / 2),
+  };
 }
 
 /**

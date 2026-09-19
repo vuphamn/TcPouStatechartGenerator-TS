@@ -15,21 +15,28 @@ export function getMermaidLiveUrl(code: string, options?: MermaidLiveOptions): s
   const curve = options?.curve ?? 'basis';
   const theme = options?.theme ?? 'dark';
 
-  // Inject theme directive into Mermaid source code so mermaid.live always renders
-  // with the user's selected theme (dark, neutral, forest, base, default).
+  // Inject theme and layout directives into Mermaid source code so mermaid.live always renders
+  // with the user's selected theme (dark, neutral, forest, base, default) and layout engine (elk, dagre).
   let codeWithTheme = code.trim();
   const initRegex = /%%\{init:\s*\{[\s\S]*?\}\s*\}%%/;
   if (initRegex.test(codeWithTheme)) {
-    // If an existing init directive is found, update or insert the theme property
+    // If an existing init directive is found, update or insert the theme & layout properties
     codeWithTheme = codeWithTheme.replace(initRegex, (match) => {
-      if (/['"]?theme['"]?\s*:/i.test(match)) {
-        return match.replace(/(['"]?theme['"]?\s*:\s*['"])[^'"]+(['"])/i, `$1${theme}$2`);
+      let updated = match;
+      if (/['"]?theme['"]?\s*:/i.test(updated)) {
+        updated = updated.replace(/(['"]?theme['"]?\s*:\s*['"])[^'"]+(['"])/i, `$1${theme}$2`);
       } else {
-        return match.replace(/%%\{init:\s*\{/, `%%{init: {'theme': '${theme}', `);
+        updated = updated.replace(/%%\{init:\s*\{/, `%%{init: {'theme': '${theme}', `);
       }
+      if (/['"]?layout['"]?\s*:/i.test(updated)) {
+        updated = updated.replace(/(['"]?layout['"]?\s*:\s*['"])[^'"]+(['"])/i, `$1${layout}$2`);
+      } else {
+        updated = updated.replace(/%%\{init:\s*\{/, `%%{init: {'layout': '${layout}', `);
+      }
+      return updated;
     });
   } else {
-    codeWithTheme = `%%{init: {'theme': '${theme}'}}%%\n${codeWithTheme}`;
+    codeWithTheme = `%%{init: {'theme': '${theme}', 'layout': '${layout}', 'flowchart': {'defaultRenderer': '${layout}', 'curve': '${curve}'}}}%%\n${codeWithTheme}`;
   }
 
   const state = {

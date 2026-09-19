@@ -31,20 +31,24 @@ export interface EdgeInfo {
   label?: string;
   hasNote?: boolean;
   note?: string;
+  pathId?: string;
 }
 
 export interface NotePosition {
   x: number;
   y: number;
+  deltaX?: number;
+  deltaY?: number;
 }
 
 export interface DiagramNotes {
   nodes: Record<string, string>; // nodeId -> note text
   edges: Record<string, string>; // edgeId ("from->to") -> note text
   positions?: Record<string, NotePosition>; // targetId -> { x, y } in diagram canvas coordinates
+  styles?: Record<string, NodeDisplayProperties>; // targetId -> { fill, color, stroke, strokeWidth }
 }
 
 export type ContextMenuTarget =
-  | { type: 'node'; id: string; label: string; note?: string }
-  | { type: 'edge'; id: string; from: string; to: string; label?: string; note?: string }
+  | { type: 'node'; id: string; label: string; note?: string; style?: NodeDisplayProperties }
+  | { type: 'edge'; id: string; from: string; to: string; label?: string; note?: string; style?: NodeDisplayProperties; pathId?: string }
   | { type: 'canvas'; x: number; y: number };

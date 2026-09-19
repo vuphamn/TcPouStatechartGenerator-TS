@@ -25,6 +25,13 @@ import { getMermaidLiveUrl } from './utils/mermaidLive.ts';
 import { CustomNodeStylesMap, NodeDisplayProperties, DiagramNotes, ContextMenuTarget, NotePosition } from './types.ts';
 import { applyCustomStylesToMermaid } from './utils/nodeStyles.ts';
 import { applyNotesToMermaid } from './utils/diagramNotes.ts';
+import { NodeOffsetsMap } from './utils/nodeDragger.ts';
+import {
+  CanvasNodePositionsMap,
+  extractCanvasNodePositions,
+  appendCanvasPositionsToMermaid,
+} from './utils/canvasPositions.ts';
+import { copyTextToClipboard } from './utils/diagramExport.ts';
 
 export const App: React.FC = () => {
   // Active sample or custom state
@@ -65,6 +72,10 @@ export const App: React.FC = () => {
     nodes: {},
     edges: {},
   });
+
+  // Node drag offsets and canvas extracted positions
+  const [nodeOffsets, setNodeOffsets] = useState<NodeOffsetsMap>({});
+  const [canvasPositions, setCanvasPositions] = useState<CanvasNodePositionsMap>({});
 
   // Raw generated Mermaid Markdown
   const [rawMarkdown, setRawMarkdown] = useState<string>('');
@@ -127,10 +138,15 @@ export const App: React.FC = () => {
     return applyCustomStylesToMermaid(rawMarkdown, customNodeStyles);
   }, [rawMarkdown, customNodeStyles]);
 
-  // Apply diagram notes to Mermaid markdown for external exports and Markdown code view
+  // Apply diagram notes and canvas positions metadata to Mermaid markdown
   const outputMarkdown = useMemo(() => {
-    return applyNotesToMermaid(styledMarkdown, diagramNotes);
-  }, [styledMarkdown, diagramNotes]);
+    const withNotes = applyNotesToMermaid(styledMarkdown, diagramNotes);
+    return appendCanvasPositionsToMermaid(withNotes, canvasPositions, {
+      layoutEngine,
+      flowchartCurve,
+      theme: mermaidTheme,
+    });
+  }, [styledMarkdown, diagramNotes, canvasPositions, layoutEngine, flowchartCurve, mermaidTheme]);
 
   const handleStyleChange = useCallback((stateId: string, style: NodeDisplayProperties) => {
     setCustomNodeStyles((prev) => ({
@@ -163,11 +179,25 @@ export const App: React.FC = () => {
         }
         return { ...prev, nodes: nextNodes };
       } else if (target.type === 'edge') {
+        const canonicalKey =
+          target.from && target.to
+            ? target.id.includes('#')
+              ? target.id
+              : `${target.from}->${target.to}`
+            : target.id;
         const nextEdges = { ...prev.edges };
         if (trimmed) {
-          nextEdges[target.id] = trimmed;
+          nextEdges[canonicalKey] = trimmed;
+          if (target.id !== canonicalKey) {
+            delete nextEdges[target.id];
+          }
+          if (target.pathId && target.pathId !== canonicalKey) {
+            delete nextEdges[target.pathId];
+          }
         } else {
+          delete nextEdges[canonicalKey];
           delete nextEdges[target.id];
+          if (target.pathId) delete nextEdges[target.pathId];
         }
         return { ...prev, edges: nextEdges };
       }
@@ -180,15 +210,34 @@ export const App: React.FC = () => {
     setDiagramNotes((prev) => {
       const nextPositions = { ...(prev.positions || {}) };
       delete nextPositions[target.id];
+      if (target.type === 'edge' && target.pathId) {
+        delete nextPositions[target.pathId];
+      }
+
+      const nextStyles = { ...(prev.styles || {}) };
+      delete nextStyles[target.id];
+      if (target.type === 'edge' && target.pathId) {
+        delete nextStyles[target.pathId];
+      }
 
       if (target.type === 'node') {
         const nextNodes = { ...prev.nodes };
         delete nextNodes[target.id];
-        return { ...prev, nodes: nextNodes, positions: nextPositions };
+        return { ...prev, nodes: nextNodes, positions: nextPositions, styles: nextStyles };
       } else if (target.type === 'edge') {
+        const canonicalKey =
+          target.from && target.to
+            ? target.id.includes('#')
+              ? target.id
+              : `${target.from}->${target.to}`
+            : target.id;
+        delete nextPositions[canonicalKey];
+        delete nextStyles[canonicalKey];
         const nextEdges = { ...prev.edges };
+        delete nextEdges[canonicalKey];
         delete nextEdges[target.id];
-        return { ...prev, edges: nextEdges, positions: nextPositions };
+        if (target.pathId) delete nextEdges[target.pathId];
+        return { ...prev, edges: nextEdges, positions: nextPositions, styles: nextStyles };
       }
       return prev;
     });
@@ -204,8 +253,23 @@ export const App: React.FC = () => {
     }));
   }, []);
 
+  const handleUpdateNoteStyle = useCallback((targetId: string, style: NodeDisplayProperties | null) => {
+    setDiagramNotes((prev) => {
+      const nextStyles = { ...(prev.styles || {}) };
+      if (style === null) {
+        delete nextStyles[targetId];
+      } else {
+        nextStyles[targetId] = style;
+      }
+      return {
+        ...prev,
+        styles: nextStyles,
+      };
+    });
+  }, []);
+
   const handleClearAllNotes = useCallback(() => {
-    setDiagramNotes({ nodes: {}, edges: {}, positions: {} });
+    setDiagramNotes({ nodes: {}, edges: {}, positions: {}, styles: {} });
   }, []);
 
   const customizedStatesCount = useMemo(() => {
@@ -232,21 +296,43 @@ export const App: React.FC = () => {
     setIncludeStateDescriptions(sample.defaultIncludeDescriptions);
     setCustomNodeStyles({});
     setDiagramNotes({ nodes: {}, edges: {} });
+    setNodeOffsets({});
+    setCanvasPositions({});
     setSelectedStateId(null);
     setSelectedStateLabel('');
   };
 
+  // Helper to extract the most up-to-date canvas positions and generate the full exported markdown
+  const getLatestFullMarkdown = useCallback(() => {
+    const livePositions = extractCanvasNodePositions(
+      document.getElementById('mermaid-canvas-area')?.querySelector('svg'),
+      nodeOffsets
+    );
+    const effectivePositions = Object.keys(livePositions).length > 0 ? livePositions : canvasPositions;
+    const withNotes = applyNotesToMermaid(styledMarkdown, diagramNotes);
+    return appendCanvasPositionsToMermaid(withNotes, effectivePositions, {
+      layoutEngine,
+      flowchartCurve,
+      theme: mermaidTheme,
+    });
+  }, [nodeOffsets, canvasPositions, styledMarkdown, diagramNotes, layoutEngine, flowchartCurve, mermaidTheme]);
+
   // Actions
   const handleCopyMarkdown = () => {
-    if (!outputMarkdown) return;
-    navigator.clipboard.writeText(outputMarkdown);
-    setCopiedMarkdown(true);
-    setTimeout(() => setCopiedMarkdown(false), 2000);
+    const md = getLatestFullMarkdown() || outputMarkdown;
+    if (!md) return;
+    copyTextToClipboard(md).then((ok) => {
+      if (ok) {
+        setCopiedMarkdown(true);
+        setTimeout(() => setCopiedMarkdown(false), 2000);
+      }
+    });
   };
 
   const handleDownload = () => {
-    if (!outputMarkdown) return;
-    const blob = new Blob([outputMarkdown], { type: 'text/markdown;charset=utf-8' });
+    const md = getLatestFullMarkdown() || outputMarkdown;
+    if (!md) return;
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     const baseName = pouFileName.replace(/\.TcPOU$/i, '') || 'statechart';
@@ -259,8 +345,9 @@ export const App: React.FC = () => {
   };
 
   const handleOpenMermaidLive = () => {
-    if (!outputMarkdown) return;
-    const liveUrl = getMermaidLiveUrl(outputMarkdown, {
+    const md = getLatestFullMarkdown() || outputMarkdown;
+    if (!md) return;
+    const liveUrl = getMermaidLiveUrl(md, {
       layout: layoutEngine,
       curve: flowchartCurve,
       theme: mermaidTheme,
@@ -761,12 +848,17 @@ export const App: React.FC = () => {
                 onStyleChange={handleStyleChange}
                 onResetStateStyle={handleResetStateStyle}
                 onClearAllCustomStyles={handleClearAllCustomStyles}
+                nodeOffsets={nodeOffsets}
+                onNodeOffsetsChange={setNodeOffsets}
+                onCanvasPositionsChange={setCanvasPositions}
                 notes={diagramNotes}
                 onSaveNote={handleSaveNote}
                 onDeleteNote={handleDeleteNote}
                 onClearAllNotes={handleClearAllNotes}
                 onUpdateNotePosition={handleUpdateNotePosition}
+                onUpdateNoteStyle={handleUpdateNoteStyle}
                 onOpenMermaidLive={handleOpenMermaidLive}
+                fileName={pouFileName.replace(/\.TcPOU$/i, '') || 'statechart'}
               />
             ) : (
               <MermaidMarkdownViewer
