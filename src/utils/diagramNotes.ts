@@ -22,7 +22,7 @@ export function getEdgeKey(from: string, to: string): string {
 
 /**
  * Robustly parses any edge key (canonical "from->to", with index "from->to#1",
- * or DOM id "L-from-to-0", "flowchart-from-to-0", "edge-from-to") into from, to, and optional index.
+ * or DOM id "L-from-to-0", "mermaid-123-L_from_to_0", "flowchart-from-to-0", "edge-from-to") into from, to, and optional index.
  */
 export function parseEdgeKey(
   edgeKey: string,
@@ -30,10 +30,13 @@ export function parseEdgeKey(
 ): { from: string; to: string; index?: number; edge?: EdgeInfo } | null {
   if (!edgeKey) return null;
 
-  // 1. Direct match with availableEdges by id or pathId
+  // 1. Direct match with availableEdges by id, pathId, or canonical key
   if (availableEdges && availableEdges.length > 0) {
     const direct = availableEdges.find(
-      (e) => e.id === edgeKey || (e.pathId && e.pathId === edgeKey)
+      (e) =>
+        e.id === edgeKey ||
+        (e.pathId && e.pathId === edgeKey) ||
+        `${e.from}->${e.to}` === edgeKey
     );
     if (direct) {
       return { from: direct.from, to: direct.to, edge: direct };
@@ -62,33 +65,117 @@ export function parseEdgeKey(
     }
   }
 
-  // 3. SVG DOM id formats: "L-From-To-0", "flowchart-From-To-0", "edge-From-To"
-  const cleanKey = edgeKey.replace(/^(flowchart-|edge-|L-)/, '');
+  // 3. Match against availableEdges by checking if edgeKey contains from & to patterns
+  if (availableEdges && availableEdges.length > 0) {
+    for (const e of availableEdges) {
+      const cf = cleanNodeId(e.from);
+      const ct = cleanNodeId(e.to);
+      const patterns = [
+        `L_${e.from}_${e.to}`,
+        `L-${e.from}-${e.to}`,
+        `_${e.from}_${e.to}_`,
+        `-${e.from}-${e.to}-`,
+        `_${cf}_${ct}_`,
+        `-${cf}-${ct}-`,
+        `L_${cf}_${ct}`,
+        `L-${cf}-${ct}`,
+      ];
+      if (patterns.some((p) => edgeKey.includes(p))) {
+        return { from: e.from, to: e.to, edge: e };
+      }
+    }
+  }
+
+  // 4. Strip SVG container and renderer prefixes (e.g., "mermaid-123-L_", "testelk-L_", "flowchart-", "L-", "L_")
+  const stripped = edgeKey
+    .replace(/^.*?[_-]L[_-]/, '')
+    .replace(/^(?:flowchart|edge)[_-]/, '')
+    .replace(/^L[_-]/, '');
+
+  // Try matching stripped string against availableEdges
   if (availableEdges && availableEdges.length > 0) {
     for (const e of availableEdges) {
       const cf = cleanNodeId(e.from);
       const ct = cleanNodeId(e.to);
       if (
-        (cleanKey.startsWith(e.from) || cleanKey.startsWith(cf)) &&
-        (cleanKey.includes(e.to) || cleanKey.includes(ct))
+        (stripped.startsWith(e.from) || stripped.startsWith(cf)) &&
+        (stripped.includes(e.to) || stripped.includes(ct))
       ) {
         return { from: e.from, to: e.to, edge: e };
       }
     }
   }
 
-  // 4. Fallback regex on cleanKey: "From-To" or "From-To-0"
-  const m = cleanKey.match(/^([A-Za-z0-9_.]+)-([A-Za-z0-9_.]+?)(?:-(\d+))?$/);
+  // 5. Fallback regex: "From_To_0" or "From-To-0" or "From_To" or "From-To"
+  const m = stripped.match(/^([A-Za-z0-9_.]+?)[_-]([A-Za-z0-9_.]+?)(?:[_-](\d+))?$/);
   if (m) {
     const from = m[1].trim();
     const to = m[2].trim();
     const idx = m[3] ? parseInt(m[3], 10) : undefined;
-    if (from && to) {
-      return { from, to, index: isNaN(idx!) ? undefined : idx };
-    }
+    const match = availableEdges?.find(
+      (e) =>
+        (e.from === from || cleanNodeId(e.from) === cleanNodeId(from)) &&
+        (e.to === to || cleanNodeId(e.to) === cleanNodeId(to))
+    );
+    return {
+      from: match?.from || from,
+      to: match?.to || to,
+      index: isNaN(idx!) ? undefined : idx,
+      edge: match,
+    };
   }
 
   return null;
+}
+
+export function extractPriorityFromText(text: string): { priority: number; symbol: string } | null {
+  if (!text) return null;
+  // Check (1) or (2)...
+  const mParen = text.match(/(?:^|\s)\((\d+)\)/);
+  if (mParen) {
+    return { priority: parseInt(mParen[1], 10), symbol: `(${mParen[1]})` };
+  }
+  // Check [1] or [2]...
+  const mBracket = text.match(/(?:^|\s)\[(\d+)\]/);
+  if (mBracket) {
+    return { priority: parseInt(mBracket[1], 10), symbol: `[${mBracket[1]}]` };
+  }
+  // Check Unicode circled numbers ①..⑳ (0x2460..0x2473)
+  for (let i = 1; i <= 20; i++) {
+    const sym = String.fromCodePoint(0x2460 + i - 1);
+    if (text.includes(sym)) return { priority: i, symbol: sym };
+  }
+  // Check ㉑..㉟ (0x3251..0x325f)
+  for (let i = 21; i <= 35; i++) {
+    const sym = String.fromCodePoint(0x3251 + i - 21);
+    if (text.includes(sym)) return { priority: i, symbol: sym };
+  }
+  // Check ㊱..㊿ (0x32b1..0x32bf)
+  for (let i = 36; i <= 50; i++) {
+    const sym = String.fromCodePoint(0x32b1 + i - 36);
+    if (text.includes(sym)) return { priority: i, symbol: sym };
+  }
+  const m = text.match(/\[priority:\s*(\d+)\]/i);
+  if (m) {
+    return { priority: parseInt(m[1], 10), symbol: m[0] };
+  }
+  return null;
+}
+
+export function extractCleanCondition(rawLabel?: string): string {
+  if (!rawLabel) return '';
+  const prio = extractPriorityFromText(rawLabel);
+  let clean = rawLabel
+    .replace(/(?:<br\s*\/?>\s*📝?.*|\[📝[^\]]*\])/, '')
+    .trim();
+  if (prio) {
+    clean = clean.replace(prio.symbol, '').trim();
+  }
+  // Remove wrapping quotes if any
+  if (clean.startsWith('"') && clean.endsWith('"')) {
+    clean = clean.slice(1, -1).trim();
+  }
+  return clean;
 }
 
 /**
@@ -125,7 +212,18 @@ export function extractEdgesFromMermaid(code: string, notes?: DiagramNotes): Edg
                 (k.includes(cleanNodeId(from)) && k.includes(cleanNodeId(to)))
             )?.[1]
           : undefined);
-      edges.push({ id, from, to, label, hasNote: Boolean(note), note });
+      const prio = label ? extractPriorityFromText(label) : null;
+      const condition = label ? extractCleanCondition(label) : undefined;
+      edges.push({
+        id,
+        from,
+        to,
+        label,
+        hasNote: Boolean(note),
+        note,
+        priority: prio ? prio.priority : undefined,
+        condition,
+      });
     }
   } else {
     // stateDiagram-v2 transitions:
@@ -154,7 +252,18 @@ export function extractEdgesFromMermaid(code: string, notes?: DiagramNotes): Edg
                 (k.includes(cleanNodeId(from)) && k.includes(cleanNodeId(to)))
             )?.[1]
           : undefined);
-      edges.push({ id, from, to, label, hasNote: Boolean(note), note });
+      const prio = label ? extractPriorityFromText(label) : null;
+      const condition = label ? extractCleanCondition(label) : undefined;
+      edges.push({
+        id,
+        from,
+        to,
+        label,
+        hasNote: Boolean(note),
+        note,
+        priority: prio ? prio.priority : undefined,
+        condition,
+      });
     }
   }
 
@@ -190,58 +299,109 @@ export function applyNotesToMermaid(
       if (!parsed) continue;
 
       const { from, to, index } = parsed;
-      // Multi-line note formatting for Mermaid edge label HTML (<br/>)
+      // Multi-line note formatting for Mermaid note card (<br/>)
+      // Note card MUST ONLY show the user's typed text (no icons, no transition edge descriptions)
       const cleanNote = sanitizeNoteForMermaid(rawNote)
         .replace(/\r\n/g, '<br/>')
         .replace(/[\r\n]/g, '<br/>')
         .trim();
       if (!cleanNote) continue;
 
+      const plainNote = cleanNote.replace(/<br\s*\/?>/gi, ' ');
       const targetIndex = index !== undefined && !isNaN(index) ? index : 0;
+      const cleanFrom = cleanNodeId(from) || from;
+      const cleanTo = cleanNodeId(to) || to;
+
+      // Resolve targetFrom from existing identifiers in result
+      let targetFrom = cleanFrom;
+      if (new RegExp(`\\b${escapeRegex(cleanFrom)}\\b`).test(result)) {
+        targetFrom = cleanFrom;
+      } else if (new RegExp(`\\b${escapeRegex(from)}\\b`).test(result)) {
+        targetFrom = from;
+      }
+
+      // Resolve targetTo from existing identifiers in result
+      let targetTo = cleanTo;
+      if (new RegExp(`\\b${escapeRegex(cleanTo)}\\b`).test(result)) {
+        targetTo = cleanTo;
+      } else if (new RegExp(`\\b${escapeRegex(to)}\\b`).test(result)) {
+        targetTo = to;
+      }
 
       if (isFlowchart) {
-        const fromCandidates = Array.from(new Set([from, cleanNodeId(from)])).filter(Boolean);
-        const toCandidates = Array.from(new Set([to, cleanNodeId(to)])).filter(Boolean);
+        const fromCandidates = Array.from(new Set([from, cleanFrom])).filter(Boolean);
+        const toCandidates = Array.from(new Set([to, cleanTo])).filter(Boolean);
         const escFrom = fromCandidates.map(escapeRegex).join('|');
         const escTo = toCandidates.map(escapeRegex).join('|');
         const shapePattern = '(?:\\[[^\\]]*\\]|\\({1,2}[^)]*\\){1,2}|\\{[^}]*\\})*';
 
+        // Clean out any legacy [📝 ...] note strings from the transition edge labels
+        // The transition edge description must ONLY show the original condition, untouched
         const rxFlowchartEdge = new RegExp(
           `^([ \\t]*(?:${escFrom})${shapePattern}[ \\t]*(?:-->|-.->|==>|---|--)[ \\t]*)(?:\\|"?([\\s\\S]*?)"?\\|[ \\t]*)?((?:${escTo})${shapePattern}[ \\t]*)\\r?$`,
           'gm'
         );
 
-        let matchCount = 0;
-        let didReplace = false;
-
         result = result.replace(rxFlowchartEdge, (full, prefix, existingLabel, suffix) => {
-          if (matchCount === targetIndex || (!didReplace && matchCount >= targetIndex)) {
-            didReplace = true;
-            matchCount++;
-            const cleanLabel = (existingLabel || '').replace(/<br\s*\/?>\s*📝?.*$/, '').trim();
-            const combined = cleanLabel ? `${cleanLabel}<br/>${cleanNote}` : cleanNote;
-            return `${prefix}|"${combined}"| ${suffix}`;
-          }
-          matchCount++;
-          return full;
+          if (!existingLabel) return full;
+          const cleanLabel = existingLabel.replace(/(?:<br\s*\/?>\s*📝?.*|\[📝[^\]]*\])/, '').trim();
+          return cleanLabel ? `${prefix}|"${cleanLabel}"| ${suffix}` : `${prefix}${suffix}`;
         });
 
-        // Fallback: if not replaced yet (e.g. index didn't match), replace first match
-        if (!didReplace) {
-          result = result.replace(rxFlowchartEdge, (full, prefix, existingLabel, suffix) => {
-            if (!didReplace) {
-              didReplace = true;
-              const cleanLabel = (existingLabel || '').replace(/<br\s*\/?>\s*📝?.*$/, '').trim();
-              const combined = cleanLabel ? `${cleanLabel}<br/>${cleanNote}` : cleanNote;
-              return `${prefix}|"${combined}"| ${suffix}`;
-            }
-            return full;
-          });
+        // Add note card node for edge in flowchart
+        // Content contains ONLY the typed text (no icons, no transition edge descriptions)
+        const safeEdgeId = `${targetFrom}_${cleanTo}_${targetIndex}`.replace(/[^A-Za-z0-9_]/g, '_');
+        const noteNodeId = `note_edge_${safeEdgeId}`;
+
+        if (!result.includes(noteNodeId)) {
+          const noteStyle =
+            notes.styles?.[edgeKey] ||
+            notes.styles?.[`${from}->${to}`] ||
+            notes.styles?.[`${cleanFrom}->${cleanTo}`] ||
+            notes.styles?.[`edge-${edgeKey}`];
+          const fill = noteStyle?.fill || '#fffbeb';
+          const color = noteStyle?.color || '#78350f';
+          const stroke = noteStyle?.stroke || '#f59e0b';
+          const strokeWidth = noteStyle?.strokeWidth || '1.5px';
+
+          // Note card with ONLY typed text, connected between targetFrom and targetTo
+          // Connecting to both nodes keeps the note directly along the transition in Mermaid
+          const noteSnippet = [
+            `    ${noteNodeId}["<span style='font-size:11px;font-weight:500;line-height:1.35;'>${cleanNote}</span>"]`,
+            `    ${targetFrom} -.- ${noteNodeId} -.- ${targetTo}`,
+            `    style ${noteNodeId} fill:${fill},color:${color},stroke:${stroke},stroke-width:${strokeWidth}`,
+          ].join('\n');
+
+          // To ensure the note stays close to the nodes (and inside the same subgraph if applicable):
+          // Check if targetFrom is declared inside a subgraph/block
+          const rxFromDecl = new RegExp(
+            `^([ \\t]*${escapeRegex(targetFrom)}(?:\\[|\\(|\\{|\\>|:::|\\s*$).*)$`,
+            'm'
+          );
+          const rxToDecl = new RegExp(
+            `^([ \\t]*${escapeRegex(targetTo)}(?:\\[|\\(|\\{|\\>|:::|\\s*$).*)$`,
+            'm'
+          );
+          const rxTransitionLine = new RegExp(
+            `^([ \\t]*(?:${escFrom})${shapePattern}[ \\t]*(?:-->|-.->|==>|---|--)[^\\n]*(?:${escTo})[^\\n]*)$`,
+            'm'
+          );
+
+          if (rxFromDecl.test(result)) {
+            // Inject directly after targetFrom declaration line so it remains inside the same subgraph
+            result = result.replace(rxFromDecl, `$1\n${noteSnippet}`);
+          } else if (rxToDecl.test(result)) {
+            result = result.replace(rxToDecl, `$1\n${noteSnippet}`);
+          } else if (rxTransitionLine.test(result)) {
+            result = result.replace(rxTransitionLine, `$1\n${noteSnippet}`);
+          } else {
+            result = `${result.trimEnd()}\n\n${noteSnippet}\n`;
+          }
         }
       } else {
         // stateDiagram-v2:
-        const fromCandidates = Array.from(new Set([from, cleanNodeId(from)])).filter(Boolean);
-        const toCandidates = Array.from(new Set([to, cleanNodeId(to)])).filter(Boolean);
+        const fromCandidates = Array.from(new Set([from, cleanFrom])).filter(Boolean);
+        const toCandidates = Array.from(new Set([to, cleanTo])).filter(Boolean);
         const escFrom = fromCandidates.map(escapeRegex).join('|');
         const escTo = toCandidates.map(escapeRegex).join('|');
 
@@ -250,31 +410,30 @@ export function applyNotesToMermaid(
           'gm'
         );
 
-        let matchCount = 0;
-        let didReplace = false;
-
+        // Clean any legacy [📝...] from transition lines
         result = result.replace(rxStateEdge, (full, prefix, existingLabel) => {
-          if (matchCount === targetIndex || (!didReplace && matchCount >= targetIndex)) {
-            didReplace = true;
-            matchCount++;
-            const cleanLabel = (existingLabel || '').replace(/<br\s*\/?>\s*📝?.*$/, '').trim();
-            const combined = cleanLabel ? `${cleanLabel}<br/>${cleanNote}` : cleanNote;
-            return `${prefix}: ${combined}`;
-          }
-          matchCount++;
-          return full;
+          if (!existingLabel) return full;
+          const cleanLabel = existingLabel.replace(/\[📝[^\]]*\]/, '').trim();
+          return cleanLabel ? `${prefix}: ${cleanLabel}` : full;
         });
 
-        if (!didReplace) {
-          result = result.replace(rxStateEdge, (full, prefix, existingLabel) => {
-            if (!didReplace) {
-              didReplace = true;
-              const cleanLabel = (existingLabel || '').replace(/<br\s*\/?>\s*📝?.*$/, '').trim();
-              const combined = cleanLabel ? `${cleanLabel}<br/>${cleanNote}` : cleanNote;
-              return `${prefix}: ${combined}`;
-            }
-            return full;
-          });
+        // stateDiagram-v2 note right of targetFrom: ONLY typed text (no icons, no [from ➔ to])
+        const noteSnippet = `    note right of ${targetFrom}: ${plainNote}`;
+        const rxStateDef = new RegExp(
+          `^([ \\t]*(?:state\\s+"[^"]+"\\s+as\\s+${escapeRegex(targetFrom)}|state\\s+${escapeRegex(targetFrom)}|${escapeRegex(targetFrom)})[ \\t]*)$`,
+          'm'
+        );
+        const rxTransition = new RegExp(
+          `^([ \\t]*(?:${escFrom})[ \\t]*-->[ \\t]*(?:${escTo})[^\\n]*)$`,
+          'm'
+        );
+
+        if (rxStateDef.test(result)) {
+          result = result.replace(rxStateDef, `$1\n${noteSnippet}`);
+        } else if (rxTransition.test(result)) {
+          result = result.replace(rxTransition, `$1\n${noteSnippet}`);
+        } else {
+          result = `${result.trimEnd()}\n${noteSnippet}\n`;
         }
       }
     }
@@ -284,8 +443,6 @@ export function applyNotesToMermaid(
   const nodeEntries = Object.entries(notes.nodes).filter(([, note]) => Boolean(note && note.trim()));
   if (nodeEntries.length > 0) {
     if (isFlowchart) {
-      const pendingStyles: string[] = [];
-
       for (const [rawNodeId, rawNote] of nodeEntries) {
         const cleanId = cleanNodeId(rawNodeId) || rawNodeId;
         let targetNodeId = cleanId;
@@ -295,6 +452,7 @@ export function applyNotesToMermaid(
           targetNodeId = rawNodeId;
         }
 
+        // ONLY typed text (no icons)
         const cleanNote = sanitizeNoteForMermaid(rawNote)
           .split('\n')
           .map((l) => l.trim())
@@ -310,14 +468,14 @@ export function applyNotesToMermaid(
         const strokeWidth = noteStyle?.strokeWidth || '1.5px';
 
         const noteSnippet = [
-          `    ${noteNodeId}["${cleanNote}"]`,
+          `    ${noteNodeId}["<span style='font-size:11px;font-weight:500;line-height:1.35;'>${cleanNote}</span>"]`,
           `    ${targetNodeId} -.- ${noteNodeId}`,
           `    style ${noteNodeId} fill:${fill},color:${color},stroke:${stroke},stroke-width:${strokeWidth}`,
         ].join('\n');
 
         // Check if node declaration exists in the code so we can inject INSIDE the same subgraph
         const rxDecl = new RegExp(
-          `^([ \\t]*${escapeRegex(targetNodeId)}(?:\\[[^\\]]*\\]|\\([^\\)]*\\)|\\{[^\\}]*\\})[ \\t]*)$`,
+          `^([ \\t]*${escapeRegex(targetNodeId)}(?:\\[|\\(|\\{|\\>|:::|\\s*$).*)$`,
           'm'
         );
         const rxTransition = new RegExp(
@@ -330,13 +488,8 @@ export function applyNotesToMermaid(
         } else if (rxTransition.test(result)) {
           result = result.replace(rxTransition, `$1\n${noteSnippet}`);
         } else {
-          // Fallback: append at end of flowchart
-          pendingStyles.push(noteSnippet);
+          result = `${result.trimEnd()}\n\n${noteSnippet}\n`;
         }
-      }
-
-      if (pendingStyles.length > 0) {
-        result = `${result.trimEnd()}\n\n    %% Custom Node Notes\n${pendingStyles.join('\n')}\n`;
       }
     } else {
       // stateDiagram-v2 supports native notes:

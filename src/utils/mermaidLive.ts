@@ -33,10 +33,15 @@ export function getMermaidLiveUrl(code: string, options?: MermaidLiveOptions): s
       } else {
         updated = updated.replace(/%%\{init:\s*\{/, `%%{init: {'layout': '${layout}', `);
       }
+      if (/['"]?securityLevel['"]?\s*:/i.test(updated)) {
+        updated = updated.replace(/(['"]?securityLevel['"]?\s*:\s*['"])[^'"]+(['"])/i, `$1loose$2`);
+      } else {
+        updated = updated.replace(/%%\{init:\s*\{/, `%%{init: {'securityLevel': 'loose', `);
+      }
       return updated;
     });
   } else {
-    codeWithTheme = `%%{init: {'theme': '${theme}', 'layout': '${layout}', 'flowchart': {'defaultRenderer': '${layout}', 'curve': '${curve}'}}}%%\n${codeWithTheme}`;
+    codeWithTheme = `%%{init: {'theme': '${theme}', 'layout': '${layout}', 'securityLevel': 'loose', 'flowchart': {'defaultRenderer': '${layout}', 'curve': '${curve}', 'htmlLabels': true}}}%%\n${codeWithTheme}`;
   }
 
   const state = {
@@ -44,6 +49,7 @@ export function getMermaidLiveUrl(code: string, options?: MermaidLiveOptions): s
     mermaid: JSON.stringify({
       theme,
       layout,
+      securityLevel: 'loose',
       flowchart: { curve, htmlLabels: true },
       state: { useMaxWidth: false },
     }),

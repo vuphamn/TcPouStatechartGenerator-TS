@@ -441,6 +441,12 @@ export function findEdgePathElement(
       `path[data-edge-key="${cFrom}->${cTo}"]`,
       `path[data-source-id="${from}"][data-target-id="${to}"]`,
       `path[data-source-id="${cFrom}"][data-target-id="${cTo}"]`,
+      `path[id*="L_${from}_${to}"]`,
+      `path[id*="L_${cFrom}_${cTo}"]`,
+      `path[id*="L-${from}-${to}"]`,
+      `path[id*="L-${cFrom}-${cTo}"]`,
+      `path[id*="${from}"][id*="${to}"]`,
+      `path[id*="${cFrom}"][id*="${cTo}"]`,
       `g.edgePath.LS-${from}.LE-${to} path`,
       `g.edgePath.LS-${cFrom}.LE-${cTo} path`,
       `g.edgePath[class*="LS-${from}"][class*="LE-${to}"] path`,
@@ -502,18 +508,27 @@ export function findEdgePathElement(
     }
 
     if (from && to) {
+      const pIdStr = pId || '';
       const hasFrom =
         gClass.includes(`LS-${from}`) ||
         gClass.includes(`LS-${cFrom}`) ||
         gId.includes(from) ||
         gId.includes(cFrom) ||
-        (from === '[*]' && (gClass.includes('root_start') || gId.includes('root_start')));
+        pIdStr.includes(`L_${from}_`) ||
+        pIdStr.includes(`L_${cFrom}_`) ||
+        pIdStr.includes(`L-${from}-`) ||
+        pIdStr.includes(`L-${cFrom}-`) ||
+        (from === '[*]' && (gClass.includes('root_start') || gId.includes('root_start') || pIdStr.includes('root_start')));
       const hasTo =
         gClass.includes(`LE-${to}`) ||
         gClass.includes(`LE-${cTo}`) ||
         gId.includes(to) ||
         gId.includes(cTo) ||
-        (to === '[*]' && (gClass.includes('root_end') || gId.includes('root_end')));
+        pIdStr.includes(`_${to}`) ||
+        pIdStr.includes(`_${cTo}`) ||
+        pIdStr.includes(`-${to}`) ||
+        pIdStr.includes(`-${cTo}`) ||
+        (to === '[*]' && (gClass.includes('root_end') || gId.includes('root_end') || pIdStr.includes('root_end')));
 
       if (hasFrom && hasTo) {
         return p;

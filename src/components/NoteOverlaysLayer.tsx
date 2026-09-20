@@ -357,8 +357,8 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
           </radialGradient>
         </defs>
         {noteItems.map((note) => {
-          const cardCenterX = note.x + 100;
-          const cardCenterY = note.y + 35;
+          const cardCenterX = note.x + 88;
+          const cardCenterY = note.y + 24;
           const targetX = note.targetAnchor.x;
           const targetY = note.targetAnchor.y;
 
@@ -367,7 +367,6 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
 
           // Compute smooth curved or straight connector line
           const midX = (cardCenterX + targetX) / 2;
-          const midY = (cardCenterY + targetY) / 2;
 
           return (
             <g key={`conn-${note.id}`} className="note-connector-group opacity-70 hover:opacity-100 transition-opacity">
@@ -375,25 +374,25 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
               <circle
                 cx={targetX}
                 cy={targetY}
-                r="7"
+                r="6"
                 fill={connectorColor}
                 opacity="0.25"
               />
               <circle
                 cx={targetX}
                 cy={targetY}
-                r="3.5"
+                r="3"
                 fill={connectorColor}
                 stroke="#1e293b"
-                strokeWidth="1.5"
+                strokeWidth="1.2"
               />
               {/* Connector path */}
               <path
                 d={`M ${targetX} ${targetY} Q ${midX} ${targetY} ${cardCenterX} ${cardCenterY}`}
                 fill="none"
                 stroke={connectorColor}
-                strokeWidth="1.8"
-                strokeDasharray="4 3"
+                strokeWidth="1.4"
+                strokeDasharray="3 2"
               />
             </g>
           );
@@ -426,12 +425,12 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
               borderColor: cardBorder,
               borderWidth: cardBorderWidth,
             }}
-            className={`pointer-events-auto w-64 rounded-xl shadow-xl transition-all select-none ${
+            className={`pointer-events-auto w-44 rounded-lg shadow-md transition-all select-none ${
               isDragging
-                ? 'shadow-2xl ring-2 scale-[1.02] cursor-grabbing z-30'
+                ? 'shadow-xl ring-2 scale-[1.02] cursor-grabbing z-30'
                 : isSelected
-                ? 'ring-2 shadow-2xl z-25'
-                : 'hover:shadow-2xl cursor-grab active:cursor-grabbing'
+                ? 'ring-2 shadow-lg z-25'
+                : 'hover:shadow-lg cursor-grab active:cursor-grabbing'
             }`}
             onClick={(e) => {
               e.stopPropagation();
@@ -467,7 +466,7 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
               <div
                 id={`note-title-bar-${note.id}`}
                 onMouseDown={(e) => handleNoteMouseDown(e, note)}
-                className="flex items-center justify-between px-3 py-1.5 rounded-t-[10px] border-b cursor-grab active:cursor-grabbing select-none transition-colors"
+                className="flex items-center justify-between px-2 py-1 rounded-t-[7px] border-b cursor-grab active:cursor-grabbing select-none transition-colors"
                 style={{
                   backgroundColor: 'rgba(0, 0, 0, 0.08)',
                   borderColor: cardBorder,
@@ -475,9 +474,9 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
                 }}
                 title="Click & drag to reposition this note"
               >
-                <div className="flex items-center space-x-1.5 min-w-0 pr-1.5">
-                  <StickyNote className="w-3.5 h-3.5 shrink-0" style={{ color: cardBorder }} />
-                  <span className="text-[11px] font-bold truncate">
+                <div className="flex items-center space-x-1 min-w-0 pr-1">
+                  <StickyNote className="w-3 h-3 shrink-0" style={{ color: cardBorder }} />
+                  <span className="text-[10px] font-bold truncate">
                     {note.label}
                   </span>
                 </div>
@@ -493,7 +492,7 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
                       e.stopPropagation();
                       setIsStylingNoteId(isStyling ? null : note.id);
                     }}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors text-[11px] font-medium ${
+                    className={`flex items-center gap-0.5 px-1 py-0.5 rounded transition-colors text-[10px] font-medium ${
                       isStyling
                         ? 'bg-amber-500/30 text-white font-bold'
                         : 'hover:bg-black/10 dark:hover:bg-white/10'
@@ -501,7 +500,7 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
                     title="Customize Note Colors (Background, Text & Border)"
                     aria-label="Customize Note Style"
                   >
-                    <Palette className="w-3 h-3" />
+                    <Palette className="w-2.5 h-2.5" />
                     <span>Style</span>
                   </button>
 
@@ -514,11 +513,11 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
                       e.preventDefault();
                       onEditNote(note.targetObject);
                     }}
-                    className="flex items-center gap-1 px-1.5 py-0.5 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-colors text-[11px] font-medium"
+                    className="flex items-center gap-0.5 px-1 py-0.5 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-colors text-[10px] font-medium"
                     title="Edit Note Text"
                     aria-label="Edit Note"
                   >
-                    <Pencil className="w-3 h-3" />
+                    <Pencil className="w-2.5 h-2.5" />
                     <span>Edit</span>
                   </button>
 
@@ -531,21 +530,13 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
                       e.preventDefault();
                       onDeleteNote(note.targetObject);
                     }}
-                    className="flex items-center gap-1 px-1.5 py-0.5 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 rounded transition-colors text-[11px] font-medium"
+                    className="flex items-center gap-0.5 px-1 py-0.5 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 rounded transition-colors text-[10px] font-medium"
                     title="Delete Note"
                     aria-label="Delete Note"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash2 className="w-2.5 h-2.5" />
                     <span>Delete</span>
                   </button>
-
-                  {/* Drag Move Handle */}
-                  <span
-                    className="p-1 cursor-grab opacity-70 hover:opacity-100"
-                    title="Drag to move note"
-                  >
-                    <Move className="w-3 h-3" />
-                  </span>
 
                   {/* Close / Deselect Button */}
                   <button
@@ -556,20 +547,20 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
                       setSelectedNoteCardId(null);
                       setIsStylingNoteId(null);
                     }}
-                    className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-colors opacity-70 hover:opacity-100"
+                    className="p-0.5 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-colors opacity-70 hover:opacity-100"
                     title="Deselect Note (Esc)"
                     aria-label="Deselect Note"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-2.5 h-2.5" />
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Note Content */}
+            {/* Note Content - Proportional 11px font size, clean line-height */}
             <div
-              className={`p-3 text-xs whitespace-pre-wrap break-words leading-relaxed max-h-48 overflow-y-auto ${
-                isSelected ? '' : 'rounded-xl'
+              className={`px-2.5 py-2 text-[11px] font-medium whitespace-pre-wrap break-words leading-snug max-h-36 overflow-y-auto ${
+                isSelected ? '' : 'rounded-lg'
               }`}
               title="Click to select, double-click to edit note text"
             >

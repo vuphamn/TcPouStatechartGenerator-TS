@@ -944,11 +944,36 @@ function flowLabel(l: string): string {
   return l.replace(/\r/g, ' ').replace(/\n/g, ' ').replace(/"/g, "'").replace(/#/g, '#35;');
 }
 
+function wrapDescription(desc: string, maxCharsPerLine: number = 26): string {
+  if (!desc) return '';
+  const parts = desc.split(/<br\s*\/?>/i);
+  const allWrapped: string[] = [];
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const words = trimmed.split(/\s+/);
+    let cur = '';
+    for (const w of words) {
+      if (!cur) {
+        cur = w;
+      } else if ((cur + ' ' + w).length <= maxCharsPerLine) {
+        cur += ' ' + w;
+      } else {
+        allWrapped.push(cur);
+        cur = w;
+      }
+    }
+    if (cur) allWrapped.push(cur);
+  }
+  return allWrapped.join('<br/>');
+}
+
 function flowNodeLabel(state: string, stateDescriptions?: Map<string, string>): string {
   if (stateDescriptions && stateDescriptions.has(state)) {
     const desc = stateDescriptions.get(state);
     if (desc) {
-      return `${state}<br/>${desc.replace(/"/g, "'")}`;
+      const formattedDesc = wrapDescription(desc.replace(/"/g, "'"), 32);
+      return `${state}<br/><span class='node-desc'>${formattedDesc}</span>`;
     }
   }
   return state;
@@ -1014,7 +1039,8 @@ function emitComposite(
     for (const s of members) {
       const desc = stateDescriptions?.get(s);
       if (desc) {
-        lines.push(`${bodyIndent}state "${s}<br/>${desc.replace(/"/g, "'")}" as ${san(s)}`);
+        const formattedDesc = wrapDescription(desc.replace(/"/g, "'"), 32);
+        lines.push(`${bodyIndent}state "${s}<br/><span class='node-desc'>${formattedDesc}</span>" as ${san(s)}`);
       } else {
         lines.push(`${bodyIndent}${san(s)}`);
       }
@@ -1276,7 +1302,8 @@ function buildMermaid(
         if (groups.stateToGroup.has(s)) continue;
         const desc = stateDescriptions.get(s);
         if (desc) {
-          lines.push(`    state "${s}<br/>${desc.replace(/"/g, "'")}" as ${san(s)}`);
+          const formattedDesc = wrapDescription(desc.replace(/"/g, "'"), 32);
+          lines.push(`    state "${s}<br/><span class='node-desc'>${formattedDesc}</span>" as ${san(s)}`);
         }
       }
     }

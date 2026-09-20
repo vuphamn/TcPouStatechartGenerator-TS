@@ -22,6 +22,8 @@ import {
   FileCode,
   Sparkles,
   Sliders,
+  MousePointerClick,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { StateNodeStyleInspector } from './StateNodeStyleInspector.tsx';
 import { DiagramContextMenu } from './DiagramContextMenu.tsx';
@@ -29,6 +31,8 @@ import { NoteDialog } from './NoteDialog.tsx';
 import { NotesDrawer } from './NotesDrawer.tsx';
 import { NoteOverlaysLayer } from './NoteOverlaysLayer.tsx';
 import { ExportModal } from './ExportModal.tsx';
+import { EdgeConditionDetailOverlay } from './EdgeConditionDetailOverlay.tsx';
+import { createInteractiveMermaidCode } from '../utils/interactiveDiagram.ts';
 import {
   exportHighResSvg,
   exportHighResPng,
@@ -109,6 +113,8 @@ export interface MermaidViewerProps {
   onCanvasPositionsChange?: (positions: CanvasNodePositionsMap) => void;
   onOpenMermaidLive?: () => void;
   fileName?: string;
+  interactiveMode?: boolean;
+  onInteractiveModeChange?: (enabled: boolean) => void;
 }
 
 interface SearchMatchItem {
@@ -303,6 +309,8 @@ function resolveEdgeFromElement(
       pathEl.getAttribute('data-target-id') ||
       '';
 
+    const idStr = `${realPath.getAttribute('id') || pathEl.getAttribute('id') || ''}`;
+
     if (!sourceId || !targetId) {
       const classStr = `${pathEl.getAttribute('class') || ''} ${realPath.getAttribute('class') || ''} ${pathEl.parentElement?.getAttribute('class') || ''}`;
       const ls = classStr.match(/\bLS-([A-Za-z0-9_]+)\b/);
@@ -311,11 +319,38 @@ function resolveEdgeFromElement(
       if (le) targetId = le[1];
 
       if (!sourceId || !targetId) {
-        const idStr = `${realPath.getAttribute('id') || pathEl.getAttribute('id') || ''}`;
-        const lMatch = idStr.match(/\bL-([A-Za-z0-9_]+)-([A-Za-z0-9_]+)/);
-        if (lMatch) {
-          sourceId = lMatch[1];
-          targetId = lMatch[2];
+        // Direct search across availableEdges against idStr
+        for (const e of availableEdges) {
+          const cf = cleanNodeId(e.from);
+          const ct = cleanNodeId(e.to);
+          const patterns = [
+            `L_${e.from}_${e.to}`,
+            `L-${e.from}-${e.to}`,
+            `_${e.from}_${e.to}_`,
+            `-${e.from}-${e.to}-`,
+            `_${cf}_${ct}_`,
+            `-${cf}-${ct}-`,
+            `L_${cf}_${ct}`,
+            `L-${cf}-${ct}`,
+          ];
+          if (patterns.some((p) => idStr.includes(p))) {
+            sourceId = e.from;
+            targetId = e.to;
+            break;
+          }
+        }
+      }
+
+      if (!sourceId || !targetId) {
+        // Strip renderer prefixes like mermaid-123-L_ or testelk-L_
+        const stripped = idStr
+          .replace(/^.*?[_-]L[_-]/, '')
+          .replace(/^(?:flowchart|edge)[_-]/, '')
+          .replace(/^L[_-]/, '');
+        const m = stripped.match(/^([A-Za-z0-9_.]+?)[_-]([A-Za-z0-9_.]+?)(?:[_-](\d+))?$/);
+        if (m) {
+          sourceId = m[1];
+          targetId = m[2];
         }
       }
     }
@@ -325,7 +360,11 @@ function resolveEdgeFromElement(
       ? availableEdges.find((e) => e.id === pathId || (e.pathId && e.pathId === pathId))
       : null;
     if (!matchedEdge && sourceId && targetId) {
-      matchedEdge = availableEdges.find((e) => e.from === sourceId && e.to === targetId);
+      matchedEdge = availableEdges.find(
+        (e) =>
+          (e.from === sourceId || cleanNodeId(e.from) === cleanNodeId(sourceId)) &&
+          (e.to === targetId || cleanNodeId(e.to) === cleanNodeId(targetId))
+      );
     }
 
     if (matchedEdge) {
@@ -333,8 +372,8 @@ function resolveEdgeFromElement(
         ...matchedEdge,
         id: matchedEdge.id,
         pathId: pathId || matchedEdge.pathId,
-        from: sourceId || matchedEdge.from,
-        to: targetId || matchedEdge.to,
+        from: matchedEdge.from,
+        to: matchedEdge.to,
       };
     }
 
@@ -359,8 +398,17 @@ function resolveEdgeFromElement(
 
   // 2. Edge label element
   const labelEl = (targetEl.closest('g.edgeLabel') ||
-    targetEl.closest('.clickable-edge-label')) as SVGGElement | null;
+    targetEl.closest('.clickable-edge-label') ||
+    targetEl.closest('.tc-interactive-edge-label')) as SVGGElement | null;
   if (labelEl) {
+    const directEdgeId = labelEl.getAttribute('data-edge-id');
+    if (directEdgeId) {
+      const match = availableEdges.find(
+        (e) => e.id === directEdgeId || `${e.from}->${e.to}` === directEdgeId || e.pathId === directEdgeId
+      );
+      if (match) return match;
+    }
+
     const linkedPathId = labelEl.getAttribute('data-linked-path-id');
     if (linkedPathId && svg) {
       const p = svg.querySelector(
@@ -373,17 +421,31 @@ function resolveEdgeFromElement(
     if (text) {
       const cleanLabelText = text
         .replace(/📝.*$/, '')
+        .replace(/▾/g, '')
+        .replace(/\.\.\./g, '')
+        .replace(/\(\+\d+\)/g, '')
+        .replace(/^[①-⑳㉑-㉟㊱-㊿]\s*/, '')
         .replace(/^\(\d+\)\s*/, '')
         .replace(/^\[\d+\]\s*/, '')
         .trim();
       const match = availableEdges.find((e) => {
-        if (!e.label) return false;
-        const eClean = e.label
+        const fullCandidate = (e.condition || e.label || '').trim();
+        if (!fullCandidate) return false;
+        const eClean = fullCandidate
           .replace(/📝.*$/, '')
+          .replace(/^[①-⑳㉑-㉟㊱-㊿]\s*/, '')
           .replace(/^\(\d+\)\s*/, '')
           .replace(/^\[\d+\]\s*/, '')
           .trim();
-        return eClean && (cleanLabelText.includes(eClean) || eClean.includes(cleanLabelText));
+        return (
+          eClean &&
+          (cleanLabelText.includes(eClean) ||
+            eClean.includes(cleanLabelText) ||
+            (cleanLabelText.length >= 4 &&
+              eClean.toLowerCase().startsWith(cleanLabelText.slice(0, Math.min(cleanLabelText.length, 12)).toLowerCase())) ||
+            (eClean.length >= 4 &&
+              cleanLabelText.toLowerCase().startsWith(eClean.slice(0, Math.min(eClean.length, 12)).toLowerCase())))
+        );
       });
       if (match) return match;
     }
@@ -468,7 +530,9 @@ function enhanceSvgWithPriorityCircles(
   selectedStateId?: string | null,
   customStyles?: CustomNodeStylesMap,
   selectedEdgeId?: string | null,
-  notes?: DiagramNotes
+  notes?: DiagramNotes,
+  isInteractiveMode?: boolean,
+  activeEdgeId?: string | null
 ): string {
   if (typeof window === 'undefined' || !svgString) return svgString;
   try {
@@ -570,6 +634,10 @@ function enhanceSvgWithPriorityCircles(
         const l = labels[lIdx];
         l.classList.add('clickable-edge-label');
         l.setAttribute('data-edge', 'true');
+        if (isInteractiveMode) {
+          l.classList.add('tc-interactive-edge-label');
+          l.setAttribute('title', 'Click to toggle full transition condition details');
+        }
       }
 
       if (paths.length === 0 || labels.length === 0) continue;
@@ -584,7 +652,6 @@ function enhanceSvgWithPriorityCircles(
         const labelEl = labels[i];
         const text = labelEl.textContent || '';
         const prioInfo = extractPriorityFromText(text);
-        if (!prioInfo) continue;
 
         // In Mermaid, edges and labels can be linked via data-id (ELK / Flowchart-v2) or 1-to-1 index (Dagre)
         let pathEl: Element | null = null;
@@ -643,7 +710,15 @@ function enhanceSvgWithPriorityCircles(
           }
         }
 
-        if (!pathEl) continue;
+        if (pathEl) {
+          const pId = pathEl.getAttribute('id') || pathEl.getAttribute('data-id') || `path-${paths.indexOf(pathEl as SVGPathElement)}`;
+          labelEl.setAttribute('data-linked-path-id', pId);
+          if (isInteractiveMode && activeEdgeId && (pId === activeEdgeId || labelEl.getAttribute('data-edge-id') === activeEdgeId)) {
+            labelEl.classList.add('tc-interactive-edge-label-active');
+          }
+        }
+
+        if (!prioInfo || !pathEl) continue;
 
         const parsed = parsePathData(pathEl);
         if (!parsed) continue;
@@ -730,6 +805,8 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   onCanvasPositionsChange,
   onOpenMermaidLive,
   fileName = 'statechart',
+  interactiveMode: externalInteractiveMode,
+  onInteractiveModeChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -743,6 +820,24 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   const mouseDownPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [copiedSvg, setCopiedSvg] = useState<boolean>(false);
+
+  // Interactive Mode & Transition Condition Detail Overlay
+  const [internalInteractiveMode, setInternalInteractiveMode] = useState<boolean>(true);
+  const isInteractiveMode = externalInteractiveMode !== undefined ? externalInteractiveMode : internalInteractiveMode;
+  const setIsInteractiveMode = (valOrFn: boolean | ((prev: boolean) => boolean)) => {
+    const nextVal = typeof valOrFn === 'function' ? valOrFn(isInteractiveMode) : valOrFn;
+    if (onInteractiveModeChange) {
+      onInteractiveModeChange(nextVal);
+    } else {
+      setInternalInteractiveMode(nextVal);
+    }
+  };
+
+  const [isCompactLabels, setIsCompactLabels] = useState<boolean>(true);
+  const [activeConditionOverlay, setActiveConditionOverlay] = useState<{
+    edge: EdgeInfo;
+    anchorPos: { x: number; y: number };
+  } | null>(null);
 
   // High-Resolution Export States
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
@@ -1137,20 +1232,27 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             useMaxWidth: false,
             htmlLabels: true,
             curve: flowchartCurve,
+            wrappingWidth: 360,
           },
           state: {
             useMaxWidth: false,
           },
         });
         const uniqueId = `mermaid-render-${Math.random().toString(36).substring(2, 9)}`;
-        const { svg } = await mermaid.render(uniqueId, code);
+        const codeForRendering =
+          isInteractiveMode && isCompactLabels
+            ? createInteractiveMermaidCode(code, true)
+            : code;
+        const { svg } = await mermaid.render(uniqueId, codeForRendering);
         if (isMounted) {
           const enhancedSvg = enhanceSvgWithPriorityCircles(
             svg,
             effectiveSelectedStateId,
             effectiveCustomStyles,
             selectedEdge?.id,
-            effectiveNotes
+            effectiveNotes,
+            isInteractiveMode,
+            activeConditionOverlay?.edge?.id
           );
           setSvgContent(enhancedSvg);
         }
@@ -1166,7 +1268,33 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [code, layoutEngine, flowchartCurve, mermaidTheme, effectiveCustomStyles]);
+  }, [code, layoutEngine, flowchartCurve, mermaidTheme, effectiveCustomStyles, isInteractiveMode, isCompactLabels, effectiveNotes]);
+
+  // Synchronize active transition detail overlay label highlighting in SVG
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const svg = containerRef.current.querySelector('svg');
+    if (!svg) return;
+    svg.querySelectorAll('.tc-interactive-edge-label-active').forEach((el) => {
+      el.classList.remove('tc-interactive-edge-label-active');
+    });
+    if (activeConditionOverlay) {
+      const activeId = activeConditionOverlay.edge.id;
+      const labels = Array.from(svg.querySelectorAll('g.edgeLabel, .clickable-edge-label, .tc-interactive-edge-label'));
+      for (const l of labels) {
+        const lEdgeId = l.getAttribute('data-edge-id');
+        const lPathId = l.getAttribute('data-linked-path-id');
+        if (
+          (lEdgeId && lEdgeId === activeId) ||
+          (lPathId && lPathId === activeId) ||
+          (activeConditionOverlay.edge.label && l.textContent?.includes(activeConditionOverlay.edge.label))
+        ) {
+          l.classList.add('tc-interactive-edge-label-active');
+          break;
+        }
+      }
+    }
+  }, [activeConditionOverlay]);
 
   // 1. Initialize SVG metadata and active offsets whenever SVG content updates
   useEffect(() => {
@@ -1631,7 +1759,8 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         target.closest('#diagram-context-menu') ||
         target.closest('#note-dialog-overlay') ||
         target.closest('#notes-drawer-overlay') ||
-        target.closest('#mermaid-note-overlays-layer')
+        target.closest('#mermaid-note-overlays-layer') ||
+        target.closest('#edge-condition-detail-overlay')
       ) {
         return;
       }
@@ -1663,6 +1792,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         if (stateId) {
           handleSelectState(stateId, stateLabel);
           setSelectedEdge(null);
+          setActiveConditionOverlay(null);
           return;
         }
       }
@@ -1675,6 +1805,38 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
       }
       if (clickedEdge && clickedEdge.from && clickedEdge.to && clickedEdge.from.trim() && clickedEdge.to.trim()) {
         setSelectedEdge(clickedEdge);
+
+        // Check if user clicked an edge label or priority badge to toggle transition condition detail overlay
+        const labelOrBadgeEl = (target.closest('g.edgeLabel') ||
+          target.closest('.clickable-edge-label') ||
+          target.closest('.tc-interactive-edge-label') ||
+          target.closest('.tc-priority-badge')) as HTMLElement | SVGElement | null;
+
+        if (labelOrBadgeEl || isInteractiveMode) {
+          const rect = labelOrBadgeEl?.getBoundingClientRect() || {
+            left: e.clientX - 10,
+            width: 20,
+            top: e.clientY - 10,
+          };
+          // Toggle detail view overlay
+          if (
+            activeConditionOverlay &&
+            (activeConditionOverlay.edge.id === clickedEdge.id ||
+              (activeConditionOverlay.edge.from === clickedEdge.from &&
+                activeConditionOverlay.edge.to === clickedEdge.to))
+          ) {
+            setActiveConditionOverlay(null);
+          } else {
+            setActiveConditionOverlay({
+              edge: clickedEdge,
+              anchorPos: {
+                x: rect.left + rect.width / 2,
+                y: rect.top,
+              },
+            });
+          }
+        }
+
         if (effectiveSelectedStateId) {
           if (onSelectStateProp) {
             onSelectStateProp(null);
@@ -1696,8 +1858,9 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         return;
       }
 
-      // Clicked on empty canvas background -> deselect edge & close inspector
+      // Clicked on empty canvas background -> deselect edge, close inspector, and close condition overlay
       setSelectedEdge(null);
+      setActiveConditionOverlay(null);
       if (svg) {
         applyDiagramOffsetsToSvg(
           svg,
@@ -2268,6 +2431,52 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Interactive Mode Toggle */}
+          <button
+            id="toggle-interactive-mode-btn"
+            type="button"
+            onClick={() => setIsInteractiveMode((prev) => !prev)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium ${
+              isInteractiveMode
+                ? 'bg-emerald-600/90 hover:bg-emerald-500 text-white shadow-sm ring-1 ring-emerald-400/40'
+                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
+            }`}
+            title="Toggle Interactive Mode: Clean compact transition labels with click-to-expand condition details overlay"
+          >
+            <MousePointerClick className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">Interactive</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full font-bold text-[10px] ${
+                isInteractiveMode
+                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60'
+                  : 'bg-slate-900 text-slate-400'
+              }`}
+            >
+              {isInteractiveMode ? 'ON' : 'OFF'}
+            </span>
+          </button>
+
+          {isInteractiveMode && (
+            <button
+              id="toggle-compact-labels-btn"
+              type="button"
+              onClick={() => setIsCompactLabels((prev) => !prev)}
+              className={`hidden md:flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+                isCompactLabels
+                  ? 'bg-slate-800/90 text-sky-300 border border-sky-500/30'
+                  : 'bg-slate-900/60 text-slate-400 hover:text-slate-300 border border-slate-800'
+              }`}
+              title={
+                isCompactLabels
+                  ? 'Compact labels enabled: long transition guards are shortened for a cleaner diagram layout'
+                  : 'Full labels enabled: showing full condition text on transitions'
+              }
+            >
+              <SlidersHorizontal className="w-3 h-3 text-sky-400" />
+              <span>{isCompactLabels ? 'Clean Layout' : 'Full Labels'}</span>
+            </button>
+          )}
+
           {/* Node Styles Inspector Toggle */}
           <button
             id="toggle-node-styles-btn"
@@ -2600,6 +2809,32 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
               if (id) panToState(id);
             }}
             onClose={handleCloseInspector}
+          />
+        )}
+
+        {/* Floating Transition Condition Detail Overlay */}
+        {activeConditionOverlay && (
+          <EdgeConditionDetailOverlay
+            edge={activeConditionOverlay.edge}
+            anchorPos={activeConditionOverlay.anchorPos}
+            containerRef={containerRef}
+            notes={effectiveNotes}
+            onClose={() => setActiveConditionOverlay(null)}
+            onSelectState={(id, label) => {
+              handleSelectState(id, label);
+              panToState(id);
+            }}
+            onOpenNoteEditor={(edge) => {
+              handleOpenAddNote({
+                type: 'edge',
+                id: edge.id,
+                from: edge.from,
+                to: edge.to,
+                label: edge.label,
+                note: edge.note,
+                pathId: edge.pathId,
+              });
+            }}
           />
         )}
 

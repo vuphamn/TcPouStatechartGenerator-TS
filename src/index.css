@@ -261,6 +261,33 @@ html, body, #root {
   border-radius: 4px;
 }
 
+/* Interactive Edge Labels & Transition Guard Details */
+.tc-interactive-edge-label {
+  cursor: pointer !important;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.tc-interactive-edge-label:hover {
+  filter: drop-shadow(0 2px 6px rgba(16, 185, 129, 0.45));
+}
+
+.tc-interactive-edge-label:hover rect,
+.tc-interactive-edge-label:hover span,
+.tc-interactive-edge-label:hover .labelBkg {
+  outline: 2px solid #10b981 !important;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.tc-interactive-edge-label-active rect,
+.tc-interactive-edge-label-active span,
+.tc-interactive-edge-label-active .labelBkg {
+  outline: 2.5px solid #10b981 !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.8) !important;
+  border-radius: 4px;
+}
+
 /* Edge Dragging State */
 .tc-edge-hitbox.dragging-edge,
 .tc-edge-path.dragging-edge {
@@ -300,4 +327,76 @@ html, body, #root {
     opacity: 0.3;
   }
 }
+
+/* State name in node is ALWAYS a single line (never wrapped) and never clipped */
+.node:not([id*="note"]):not([id*="Note"]):not([id*="sticky"]) foreignObject div {
+  max-width: 440px !important;
+  width: max-content !important;
+  display: table-cell !important;
+  text-align: center !important;
+  overflow: visible !important;
+  white-space: nowrap !important;
+}
+
+.node:not([id*="note"]):not([id*="Note"]):not([id*="sticky"]) foreignObject {
+  overflow: visible !important;
+}
+
+.node:not([id*="note"]):not([id*="Note"]):not([id*="sticky"]) foreignObject p,
+.node:not([id*="note"]):not([id*="Note"]):not([id*="sticky"]) .nodeLabel {
+  white-space: nowrap !important;
+  text-align: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+}
+
+/* Node description CAN be wrapped across multiple lines and is clearly readable */
+.node .node-desc,
+.node foreignObject .node-desc {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  display: block !important;
+  max-width: 320px !important;
+  margin: 4px auto 0 auto !important;
+  text-align: center !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  opacity: 0.95 !important;
+}
+
+/* Note nodes (in-diagram notes) are proportional (11px) to node title (14px) and description (13px) */
+.node[id*="note"],
+.node[id*="Note"],
+.node[id*="sticky"],
+g.note,
+.node[id*="note"] foreignObject div,
+.node[id*="Note"] foreignObject div,
+.node[id*="sticky"] foreignObject div {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 1.35 !important;
+  max-width: 170px !important;
+  text-align: left !important;
+  padding: 2px !important;
+}
+
+/* Edge labels can be wrapped */
+.edgeLabel foreignObject div,
+.edgeLabel foreignObject p,
+.edgeLabel foreignObject span,
+.edgeLabel .edgeLabel {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  text-align: center !important;
+}
+
 

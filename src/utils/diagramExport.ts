@@ -31,8 +31,65 @@ const BG_COLORS: Record<ExportBackground, string> = {
 };
 
 /**
+ * Extracts individual lines from HTML or text containing <br>, <BR>, <p>, <div>,
+ * escaped entities, and newlines.
+ */
+function extractLinesFromHtmlOrText(html: string): string[] {
+  let s = html
+    // Replace all variations of br tags (case-insensitive)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/&lt;br\s*\/?&gt;/gi, '\n')
+    // Replace closing block tags with newlines
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    // Strip opening block tags
+    .replace(/<(p|div|li|h[1-6])[^>]*>/gi, '')
+    // Strip any remaining HTML tags
+    .replace(/<[^>]+>/g, '');
+
+  // Decode common HTML entities
+  s = s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+
+  return s
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Splits a single long string into multiple lines at word boundaries
+ * if it exceeds maxChars per line.
+ */
+function wrapLine(line: string, maxChars: number = 30): string[] {
+  if (line.length <= maxChars) return [line];
+  const words = line.split(/\s+/);
+  const result: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    if (!cur) {
+      cur = w;
+    } else if ((cur + ' ' + w).length <= maxChars) {
+      cur += ' ' + w;
+    } else {
+      result.push(cur);
+      cur = w;
+    }
+  }
+  if (cur) result.push(cur);
+  return result;
+}
+
+/**
  * Converts any <foreignObject> elements (which Mermaid emits with htmlLabels: true)
- * into standard SVG <text> elements. This prevents canvas taint and SecurityError on toBlob/toDataURL.
+ * into standard SVG <text> elements with <tspan> children.
+ * Ensures state names are strictly single-line, descriptions wrap properly,
+ * text is mathematically centered inside node borders, and node rect boundaries
+ * remain untouched so edge connections are never broken.
  */
 function sanitizeForeignObjects(
   svg: SVGSVGElement,
@@ -42,88 +99,231 @@ function sanitizeForeignObjects(
   const foreignObjects = Array.from(svg.querySelectorAll('foreignObject'));
   for (const fo of foreignObjects) {
     try {
-      const x = parseFloat(fo.getAttribute('x') || '0') || 0;
-      const y = parseFloat(fo.getAttribute('y') || '0') || 0;
-      const width = parseFloat(fo.getAttribute('width') || '0') || 0;
-      const height = parseFloat(fo.getAttribute('height') || '0') || 0;
-
-      // Extract multi-line text preserving HTML <br>, <br/>, <p>, <div>, <li>, and escaped entities
-      const clone = fo.cloneNode(true) as HTMLElement;
-      clone.querySelectorAll('br').forEach((br) => br.replaceWith(document.createTextNode('\n')));
-      clone.querySelectorAll('p, div, li').forEach((el) => el.appendChild(document.createTextNode('\n')));
-      const rawText = (clone.textContent || '')
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/&lt;br\s*\/?&gt;/gi, '\n');
-      const lines = rawText
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter(Boolean);
-
-      if (lines.length === 0) {
-        fo.remove();
-        continue;
-      }
-
       const isEdgeLabel = Boolean(
         fo.closest('.edgeLabel') ||
         fo.querySelector('.edgeLabel') ||
         fo.classList.contains('edgeLabel')
       );
 
+      const innerHtml = fo.innerHTML || fo.textContent || '';
+      const rawLines = extractLinesFromHtmlOrText(innerHtml);
+      if (rawLines.length === 0) {
+        fo.remove();
+        continue;
+      }
+
+      const nodeGroup = fo.closest('g.node') as SVGGElement | null;
+      const edgeGroup = fo.closest('g.edgeLabel') as SVGGElement | null;
+      const labelG = fo.closest('g.label') as SVGGElement | null;
+
+      const rect = (nodeGroup?.querySelector('rect.label-container, rect.basic, rect') ||
+        edgeGroup?.querySelector('rect.labelBkg, rect.background, rect')) as SVGRectElement | null;
+
+      // Extract node or edge shape center
+      let cx = 0;
+      let cy = 0;
+      let rectW = 120;
+      let rectH = 40;
+
+      if (rect) {
+        const rx = parseFloat(rect.getAttribute('x') || '0') || 0;
+        const ry = parseFloat(rect.getAttribute('y') || '0') || 0;
+        rectW = parseFloat(rect.getAttribute('width') || '0') || 120;
+        rectH = parseFloat(rect.getAttribute('height') || '0') || 40;
+        cx = rx + rectW / 2;
+        cy = ry + rectH / 2;
+      } else {
+        const fox = parseFloat(fo.getAttribute('x') || '0') || 0;
+        const foy = parseFloat(fo.getAttribute('y') || '0') || 0;
+        const fow = parseFloat(fo.getAttribute('width') || '0') || 120;
+        const foh = parseFloat(fo.getAttribute('height') || '0') || 40;
+        cx = fox + fow / 2;
+        cy = foy + foh / 2;
+        rectW = fow;
+        rectH = foh;
+      }
+
+      const availW = Math.max(30, rectW - 16);
+      const availH = Math.max(16, rectH - 12);
+
+      const lines: string[] = [];
+      if (isEdgeLabel) {
+        rawLines.forEach((line) => lines.push(...wrapLine(line, 32)));
+      } else {
+        // Line 0: State Name MUST NEVER BE WRAPPED (single line always)
+        lines.push(rawLines[0]);
+        // Lines 1..N: Description lines CAN be wrapped
+        const descMaxChars = Math.max(20, Math.floor(availW / 6.8));
+        rawLines.slice(1).forEach((line) => {
+          lines.push(...wrapLine(line, descMaxChars));
+        });
+      }
+
       const innerElem = fo.querySelector('.nodeLabel, .edgeLabel, span, p, div') as HTMLElement | null;
       let textColor = innerElem?.style?.color || (isEdgeLabel ? defaultLabelColor : defaultTextColor);
       if (!textColor || textColor === 'inherit') {
         textColor = isEdgeLabel ? defaultLabelColor : defaultTextColor;
       }
-      const fontSize = innerElem?.style?.fontSize || (isEdgeLabel ? '11px' : '13px');
-      const fontWeight = innerElem?.style?.fontWeight || (isEdgeLabel ? '500' : '600');
 
       const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      const cx = x + (width > 0 ? width / 2 : 0);
-      const cy = y + (height > 0 ? height / 2 : 0);
-
       textEl.setAttribute('x', String(cx));
       textEl.setAttribute('y', String(cy));
       textEl.setAttribute('text-anchor', 'middle');
       textEl.setAttribute('dominant-baseline', 'central');
       textEl.setAttribute('fill', textColor);
-      textEl.setAttribute('font-size', fontSize);
-      textEl.setAttribute('font-weight', fontWeight);
       textEl.setAttribute(
         'font-family',
         'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
       );
 
       if (lines.length <= 1) {
+        let titleFontSize = isEdgeLabel ? 11 : 13.5;
+        const estTitleW = lines[0].length * (isEdgeLabel ? 6.5 : 7.6);
+        if (!isEdgeLabel && estTitleW > availW) {
+          titleFontSize = Math.max(9.5, Math.floor(13.5 * (availW / estTitleW)));
+        }
+        textEl.setAttribute('font-size', `${titleFontSize}px`);
+        textEl.setAttribute('font-weight', isEdgeLabel ? '500' : '600');
+        textEl.setAttribute('class', isEdgeLabel ? 'edge-title' : 'node-title');
         textEl.textContent = lines[0] || '';
       } else {
-        const lineSpacing = parseFloat(fontSize) * 1.35 || 16;
-        const totalHeight = (lines.length - 1) * lineSpacing;
-        lines.forEach((line, idx) => {
-          const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-          tspan.setAttribute('x', String(cx));
-          tspan.setAttribute('y', String(cy - totalHeight / 2 + idx * lineSpacing));
-          tspan.setAttribute('text-anchor', 'middle');
-          tspan.setAttribute('dominant-baseline', 'central');
-          if (idx > 0 && !isEdgeLabel) {
-            tspan.setAttribute('font-size', `${Math.max(10, parseFloat(fontSize) - 1.5)}px`);
-            tspan.setAttribute('font-weight', 'normal');
-            tspan.setAttribute('opacity', '0.88');
+        if (isEdgeLabel) {
+          const fontSize = 11;
+          const lineSpacing = 14;
+          const totalH = (lines.length - 1) * lineSpacing;
+          lines.forEach((line, idx) => {
+            const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+            tspan.setAttribute('x', String(cx));
+            tspan.setAttribute('y', String(cy - totalH / 2 + idx * lineSpacing));
+            tspan.setAttribute('text-anchor', 'middle');
+            tspan.setAttribute('dominant-baseline', 'central');
+            tspan.setAttribute('font-size', `${fontSize}px`);
+            tspan.setAttribute('font-weight', '500');
+            tspan.textContent = line;
+            textEl.appendChild(tspan);
+          });
+        } else {
+          // Node with State Name (Line 0) + Description (Lines 1..N-1)
+          let titleFontSize = 13.5;
+          const estTitleW = lines[0].length * 7.6;
+          if (estTitleW > availW) {
+            titleFontSize = Math.max(9.5, Math.floor(13.5 * (availW / estTitleW)));
           }
-          tspan.textContent = line;
-          textEl.appendChild(tspan);
-        });
+
+          let descFontSize = 12;
+          let descLineHeight = 16;
+          let gap = 6;
+          let totalBlockH = titleFontSize + gap + (lines.length - 1) * descLineHeight;
+
+          if (totalBlockH > availH) {
+            gap = 4;
+            descLineHeight = Math.max(12, Math.floor((availH - titleFontSize - gap) / (lines.length - 1)));
+            descFontSize = Math.max(9.5, Math.min(12, descLineHeight * 0.8));
+            totalBlockH = titleFontSize + gap + (lines.length - 1) * descLineHeight;
+          }
+
+          const startY = cy - totalBlockH / 2;
+          lines.forEach((line, idx) => {
+            const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+            tspan.setAttribute('x', String(cx));
+            tspan.setAttribute('text-anchor', 'middle');
+            tspan.setAttribute('dominant-baseline', 'central');
+
+            if (idx === 0) {
+              const y = startY + titleFontSize / 2;
+              tspan.setAttribute('y', String(y));
+              tspan.setAttribute('font-size', `${titleFontSize}px`);
+              tspan.setAttribute('font-weight', '600');
+              tspan.setAttribute('class', 'node-title');
+            } else {
+              const y = startY + titleFontSize + gap + (idx - 1) * descLineHeight + descLineHeight / 2;
+              tspan.setAttribute('y', String(y));
+              tspan.setAttribute('font-size', `${descFontSize}px`);
+              tspan.setAttribute('font-weight', '400');
+              tspan.setAttribute('opacity', '0.92');
+              tspan.setAttribute('class', 'node-desc');
+            }
+            tspan.textContent = line;
+            textEl.appendChild(tspan);
+          });
+        }
       }
 
-      const parent = fo.parentElement;
-      if (parent) {
-        parent.insertBefore(textEl, fo);
+      // Expand edge label background rect centered at (cx, cy) if present
+      if (isEdgeLabel && lines.length > 1) {
+        const bkgRect = (fo.parentElement?.querySelector('rect.labelBkg, rect.background, rect') ||
+          fo.closest('.edgeLabel')?.querySelector('rect.labelBkg, rect.background, rect')) as SVGRectElement | null;
+        if (bkgRect) {
+          const maxLineWidth = Math.max(...lines.map((l) => l.length * 6.8));
+          const origWidth = parseFloat(bkgRect.getAttribute('width') || '0') || 0;
+          const origHeight = parseFloat(bkgRect.getAttribute('height') || '0') || 0;
+          const neededWidth = maxLineWidth + 16;
+          const neededHeight = lines.length * 14 + 10;
+
+          if (neededWidth > origWidth) {
+            bkgRect.setAttribute('width', String(Math.ceil(neededWidth)));
+            bkgRect.setAttribute('x', String(Math.round(cx - neededWidth / 2)));
+          }
+          if (neededHeight > origHeight) {
+            bkgRect.setAttribute('height', String(Math.ceil(neededHeight)));
+            bkgRect.setAttribute('y', String(Math.round(cy - neededHeight / 2)));
+          }
+        }
+      }
+
+      // Exact coordinate alignment:
+      // If in a node group where rect is a direct child of nodeGroup:
+      if (nodeGroup && rect && (rect.parentNode === (nodeGroup as Node))) {
+        nodeGroup.appendChild(textEl);
+        if (labelG) labelG.remove();
+        else fo.remove();
+      } else if (labelG) {
+        // In edge labels or when rect is inside labelG:
+        labelG.insertBefore(textEl, fo);
+        fo.remove();
+      } else if (fo.parentElement) {
+        fo.parentElement.insertBefore(textEl, fo);
         fo.remove();
       }
     } catch (err) {
       console.warn('Failed to convert foreignObject to SVG text:', err);
       fo.remove();
     }
+  }
+
+  // Also sanitize any native SVG <text> elements that contain <BR> or <br/>
+  sanitizeSvgTextElements(svg);
+}
+
+/**
+ * Sanitizes any native SVG <text> elements that contain unparsed HTML break tags (<BR>).
+ */
+function sanitizeSvgTextElements(svg: SVGSVGElement): void {
+  const textEls = Array.from(svg.querySelectorAll('text'));
+  for (const textEl of textEls) {
+    if (textEl.querySelector('tspan')) continue;
+    const raw = textEl.textContent || '';
+    if (!/<br\s*\/?>|&lt;br\s*\/?&gt;|\n/i.test(raw)) continue;
+
+    const lines = extractLinesFromHtmlOrText(raw);
+    if (lines.length <= 1) continue;
+
+    const x = parseFloat(textEl.getAttribute('x') || '0') || 0;
+    const y = parseFloat(textEl.getAttribute('y') || '0') || 0;
+    const fontSize = parseFloat(textEl.getAttribute('font-size') || '11') || 11;
+    const lineSpacing = fontSize * 1.35;
+    const totalHeight = (lines.length - 1) * lineSpacing;
+
+    textEl.textContent = '';
+    lines.forEach((line, idx) => {
+      const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      tspan.setAttribute('x', String(x));
+      tspan.setAttribute('y', String(y - totalHeight / 2 + idx * lineSpacing));
+      tspan.setAttribute('text-anchor', textEl.getAttribute('text-anchor') || 'middle');
+      tspan.setAttribute('dominant-baseline', textEl.getAttribute('dominant-baseline') || 'central');
+      tspan.textContent = line;
+      textEl.appendChild(tspan);
+    });
   }
 }
 
@@ -186,8 +386,8 @@ function computeNotePlacements(
       nodeEl =
         sourceSvg.querySelector(`g.node[data-state-id="${cleanId}"]`) ||
         sourceSvg.querySelector(`g.node[data-state-id="${targetId}"]`) ||
-        sourceSvg.querySelector(`g.node#${cleanId}`) ||
-        sourceSvg.querySelector(`g.node#${targetId}`) ||
+        sourceSvg.querySelector(`g.node[id="${cleanId}"]`) ||
+        sourceSvg.querySelector(`g.node[id="${targetId}"]`) ||
         sourceSvg.querySelector(`g.node[id*="${cleanId}"]`) ||
         findNodeElement(sourceSvg, cleanId) ||
         null;
@@ -311,15 +511,15 @@ function computeNotePlacements(
       }
     }
 
-    // 3. Compute note card dimensions (no title header, exact note text)
-    const noteW = 180;
-    const lines = wrapText(noteText, 22);
-    const paddingInternal = 10;
-    const noteH = Math.max(38, lines.length * 16 + paddingInternal * 2);
+    // 3. Compute note card dimensions (proportional 11px font size, clean padding)
+    const noteW = 150;
+    const lines = wrapText(noteText, 19);
+    const paddingInternal = 8;
+    const noteH = Math.max(32, lines.length * 15 + paddingInternal * 2);
 
     // 4. Compute note position in SVG coordinates
-    let noteSvgX = Math.round(targetSvgX + targetSvgW / 2 + 28);
-    let noteSvgY = Math.max(16, Math.round(targetSvgY - targetSvgH / 2 - 12));
+    let noteSvgX = Math.round(targetSvgX + targetSvgW / 2 + 22);
+    let noteSvgY = Math.max(16, Math.round(targetSvgY - targetSvgH / 2 - 8));
 
     if (pos) {
       // Case A: If relative displacement deltaX / deltaY was recorded
@@ -529,14 +729,20 @@ export function prepareStandaloneSvg(
     svg.insertBefore(defs, svg.firstChild);
   }
 
-  // Add shadow filter for notes
+  // Add shadow filter for notes using SVG namespace and proper casing
   const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
   filter.setAttribute('id', 'diagram-note-shadow');
   filter.setAttribute('x', '-20%');
   filter.setAttribute('y', '-20%');
   filter.setAttribute('width', '140%');
   filter.setAttribute('height', '140%');
-  filter.innerHTML = `<feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.25"/>`;
+  const feDrop = document.createElementNS('http://www.w3.org/2000/svg', 'feDropShadow');
+  feDrop.setAttribute('dx', '0');
+  feDrop.setAttribute('dy', '2');
+  feDrop.setAttribute('stdDeviation', '2');
+  feDrop.setAttribute('flood-color', '#000000');
+  feDrop.setAttribute('flood-opacity', '0.25');
+  filter.appendChild(feDrop);
   defs.appendChild(filter);
 
   const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
@@ -550,10 +756,19 @@ export function prepareStandaloneSvg(
     text {
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
-    .node text, .nodeLabel {
-      font-size: 13px;
-      font-weight: 500;
-      fill: ${textColor} !important;
+    .node text {
+      fill: ${textColor};
+    }
+    .node text .node-title, tspan.node-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      fill: ${textColor};
+    }
+    .node text .node-desc, tspan.node-desc {
+      font-size: 12px;
+      font-weight: 400;
+      fill: ${textColor};
+      opacity: 0.92;
     }
     .edgeLabel text {
       font-size: 11px;
@@ -567,6 +782,12 @@ export function prepareStandaloneSvg(
     }
     .diagram-note-box {
       font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+    .diagram-note-card-bg {
+      shape-rendering: geometricPrecision;
+    }
+    .diagram-note-cards text {
+      text-rendering: geometricPrecision;
     }
   `;
   defs.appendChild(styleEl);
@@ -630,8 +851,21 @@ export function prepareStandaloneSvg(
       gCard.setAttribute('class', 'diagram-note-item');
       gCard.setAttribute('data-note-id', note.targetId);
 
-      // Card body rect
+      // Subtle vector drop shadow underneath card (100% compatible across all SVG viewers)
+      const shadowRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      shadowRect.setAttribute('x', `${note.noteBox.x}`);
+      shadowRect.setAttribute('y', `${note.noteBox.y + 2}`);
+      shadowRect.setAttribute('width', `${note.noteBox.width}`);
+      shadowRect.setAttribute('height', `${note.noteBox.height}`);
+      shadowRect.setAttribute('rx', '8');
+      shadowRect.setAttribute('ry', '8');
+      shadowRect.setAttribute('fill', '#000000');
+      shadowRect.setAttribute('fill-opacity', '0.15');
+      gCard.appendChild(shadowRect);
+
+      // Card body rect with explicit fill, stroke, and inline style for 100% rendering immunity
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('class', 'diagram-note-card-bg');
       rect.setAttribute('x', `${note.noteBox.x}`);
       rect.setAttribute('y', `${note.noteBox.y}`);
       rect.setAttribute('width', `${note.noteBox.width}`);
@@ -641,23 +875,23 @@ export function prepareStandaloneSvg(
       rect.setAttribute('fill', note.cardBg);
       rect.setAttribute('stroke', note.cardBorder);
       rect.setAttribute('stroke-width', note.cardBorderWidth);
-      rect.setAttribute('filter', 'url(#diagram-note-shadow)');
+      rect.setAttribute('style', `fill: ${note.cardBg} !important; stroke: ${note.cardBorder} !important; stroke-width: ${note.cardBorderWidth} !important;`);
       gCard.appendChild(rect);
 
-      // Note text lines (only the exact note text, omitting the title header)
+      // Note text lines (proportional 11px font size matching in-canvas notes)
       const contentText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      contentText.setAttribute('x', `${note.noteBox.x + 12}`);
-      contentText.setAttribute('y', `${note.noteBox.y + 19}`);
+      contentText.setAttribute('x', `${note.noteBox.x + 10}`);
+      contentText.setAttribute('y', `${note.noteBox.y + 17}`);
       contentText.setAttribute('fill', note.cardColor);
-      contentText.setAttribute('font-size', '12px');
+      contentText.setAttribute('font-size', '11px');
       contentText.setAttribute('font-weight', '500');
       contentText.setAttribute('font-family', 'ui-sans-serif, system-ui, -apple-system, sans-serif');
 
       note.lines.forEach((line, idx) => {
         const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-        tspan.setAttribute('x', `${note.noteBox.x + 12}`);
+        tspan.setAttribute('x', `${note.noteBox.x + 10}`);
         if (idx > 0) {
-          tspan.setAttribute('dy', '16');
+          tspan.setAttribute('dy', '14.5');
         }
         tspan.textContent = line;
         contentText.appendChild(tspan);

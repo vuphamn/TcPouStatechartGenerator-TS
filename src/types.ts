@@ -32,6 +32,8 @@ export interface EdgeInfo {
   hasNote?: boolean;
   note?: string;
   pathId?: string;
+  priority?: number;
+  condition?: string;
 }
 
 export interface NotePosition {
