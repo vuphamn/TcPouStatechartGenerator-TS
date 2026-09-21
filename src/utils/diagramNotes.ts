@@ -364,20 +364,18 @@ export function applyNotesToMermaid(
           const stroke = noteStyle?.stroke || '#f59e0b';
           const strokeWidth = noteStyle?.strokeWidth || '1.5px';
 
-          // Note card with ONLY typed text, connected between targetFrom and targetTo
-          // Connecting to both nodes keeps the note directly along the transition in Mermaid
+          // Note card with ONLY typed text, positioned adjacent to targetTo with an invisible link (no dashed line)
+          // Similar to a note attached to a node, positioned as close as possible to the target node
           const noteSnippet = [
             `    ${noteNodeId}["<span style='font-size:11px;font-weight:500;line-height:1.35;'>${cleanNote}</span>"]`,
-            `    ${targetFrom} -.- ${noteNodeId} -.- ${targetTo}`,
+            `    ${targetTo} ~~~ ${noteNodeId}`,
             `    style ${noteNodeId} fill:${fill},color:${color},stroke:${stroke},stroke-width:${strokeWidth}`,
           ].join('\n');
 
-          // To ensure the note stays close to the nodes (and inside the same subgraph if applicable):
-          // Check if targetFrom is declared inside a subgraph/block
-          const rxFromDecl = new RegExp(
-            `^([ \\t]*${escapeRegex(targetFrom)}(?:\\[|\\(|\\{|\\>|:::|\\s*$).*)$`,
-            'm'
-          );
+          // To ensure the note is positioned as close as possible to the target node (and inside the same subgraph if applicable):
+          // 1. Check if targetTo is declared in the code (place right after target node declaration)
+          // 2. Check if the transition line into targetTo exists (place right after transition line)
+          // 3. Fallback to targetFrom declaration or append to diagram
           const rxToDecl = new RegExp(
             `^([ \\t]*${escapeRegex(targetTo)}(?:\\[|\\(|\\{|\\>|:::|\\s*$).*)$`,
             'm'
@@ -386,14 +384,19 @@ export function applyNotesToMermaid(
             `^([ \\t]*(?:${escFrom})${shapePattern}[ \\t]*(?:-->|-.->|==>|---|--)[^\\n]*(?:${escTo})[^\\n]*)$`,
             'm'
           );
+          const rxFromDecl = new RegExp(
+            `^([ \\t]*${escapeRegex(targetFrom)}(?:\\[|\\(|\\{|\\>|:::|\\s*$).*)$`,
+            'm'
+          );
 
-          if (rxFromDecl.test(result)) {
-            // Inject directly after targetFrom declaration line so it remains inside the same subgraph
-            result = result.replace(rxFromDecl, `$1\n${noteSnippet}`);
-          } else if (rxToDecl.test(result)) {
+          if (rxToDecl.test(result)) {
+            // Inject directly after targetTo declaration line so it remains inside the same subgraph and adjacent to the target node
             result = result.replace(rxToDecl, `$1\n${noteSnippet}`);
           } else if (rxTransitionLine.test(result)) {
+            // Otherwise inject directly after the transition line pointing to targetTo
             result = result.replace(rxTransitionLine, `$1\n${noteSnippet}`);
+          } else if (rxFromDecl.test(result)) {
+            result = result.replace(rxFromDecl, `$1\n${noteSnippet}`);
           } else {
             result = `${result.trimEnd()}\n\n${noteSnippet}\n`;
           }
@@ -417,10 +420,10 @@ export function applyNotesToMermaid(
           return cleanLabel ? `${prefix}: ${cleanLabel}` : full;
         });
 
-        // stateDiagram-v2 note right of targetFrom: ONLY typed text (no icons, no [from ➔ to])
-        const noteSnippet = `    note right of ${targetFrom}: ${plainNote}`;
+        // stateDiagram-v2 note right of targetTo: ONLY typed text, positioned as close as possible to the target node
+        const noteSnippet = `    note right of ${targetTo}: ${plainNote}`;
         const rxStateDef = new RegExp(
-          `^([ \\t]*(?:state\\s+"[^"]+"\\s+as\\s+${escapeRegex(targetFrom)}|state\\s+${escapeRegex(targetFrom)}|${escapeRegex(targetFrom)})[ \\t]*)$`,
+          `^([ \\t]*(?:state\\s+"[^"]+"\\s+as\\s+${escapeRegex(targetTo)}|state\\s+${escapeRegex(targetTo)}|${escapeRegex(targetTo)})[ \\t]*)$`,
           'm'
         );
         const rxTransition = new RegExp(
@@ -469,7 +472,7 @@ export function applyNotesToMermaid(
 
         const noteSnippet = [
           `    ${noteNodeId}["<span style='font-size:11px;font-weight:500;line-height:1.35;'>${cleanNote}</span>"]`,
-          `    ${targetNodeId} -.- ${noteNodeId}`,
+          `    ${targetNodeId} ~~~ ${noteNodeId}`,
           `    style ${noteNodeId} fill:${fill},color:${color},stroke:${stroke},stroke-width:${strokeWidth}`,
         ].join('\n');
 

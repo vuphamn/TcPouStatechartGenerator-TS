@@ -391,6 +391,21 @@ function computeNotePlacements(
         sourceSvg.querySelector(`g.node[id*="${cleanId}"]`) ||
         findNodeElement(sourceSvg, cleanId) ||
         null;
+    } else {
+      // For edge notes, anchor adjacent to the transition's target node (to), matching canvas & mermaid.live
+      const edgeParts = targetId.split('#')[0].split('->');
+      if (edgeParts.length === 2) {
+        const toNodeId = edgeParts[1].trim();
+        const toClean = cleanNodeId(toNodeId);
+        nodeEl =
+          sourceSvg.querySelector(`g.node[data-state-id="${toClean}"]`) ||
+          sourceSvg.querySelector(`g.node[data-state-id="${toNodeId}"]`) ||
+          sourceSvg.querySelector(`g.node[id="${toClean}"]`) ||
+          sourceSvg.querySelector(`g.node[id="${toNodeId}"]`) ||
+          findNodeElement(sourceSvg, toClean) ||
+          findNodeElement(sourceSvg, toNodeId) ||
+          null;
+      }
     }
 
     if (!nodeEl) {
@@ -792,57 +807,13 @@ export function prepareStandaloneSvg(
   `;
   defs.appendChild(styleEl);
 
-  // 8. Embed Notes and Connectors as vector SVG groups
+  // 8. Embed Notes as vector SVG group (rendered without dashed-line connectors)
   if (notePlacements.length > 0) {
     const notesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     notesGroup.setAttribute('id', 'exported-diagram-notes');
     notesGroup.setAttribute('class', 'diagram-notes-layer');
 
-    // 8a. Render connector lines underneath note cards
-    const connectorsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    connectorsGroup.setAttribute('class', 'diagram-note-connectors');
-
-    for (const note of notePlacements) {
-      const gConn = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      gConn.setAttribute('class', 'diagram-note-connector');
-
-      // Anchor glow circle
-      const circleGlow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circleGlow.setAttribute('cx', `${note.targetAnchor.x}`);
-      circleGlow.setAttribute('cy', `${note.targetAnchor.y}`);
-      circleGlow.setAttribute('r', '6');
-      circleGlow.setAttribute('fill', note.connectorColor);
-      circleGlow.setAttribute('opacity', '0.25');
-      gConn.appendChild(circleGlow);
-
-      // Anchor center circle
-      const circleCenter = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circleCenter.setAttribute('cx', `${note.targetAnchor.x}`);
-      circleCenter.setAttribute('cy', `${note.targetAnchor.y}`);
-      circleCenter.setAttribute('r', '3');
-      circleCenter.setAttribute('fill', note.connectorColor);
-      circleCenter.setAttribute('stroke', background === 'white' ? '#ffffff' : '#0f172a');
-      circleCenter.setAttribute('stroke-width', '1.5');
-      gConn.appendChild(circleCenter);
-
-      // Curved dashed connector path
-      const midX = (note.targetAnchor.x + note.cardCenter.x) / 2;
-      const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      pathEl.setAttribute(
-        'd',
-        `M ${note.targetAnchor.x} ${note.targetAnchor.y} Q ${midX} ${note.targetAnchor.y} ${note.cardCenter.x} ${note.cardCenter.y}`
-      );
-      pathEl.setAttribute('fill', 'none');
-      pathEl.setAttribute('stroke', note.connectorColor);
-      pathEl.setAttribute('stroke-width', '1.8');
-      pathEl.setAttribute('stroke-dasharray', '4 3');
-      gConn.appendChild(pathEl);
-
-      connectorsGroup.appendChild(gConn);
-    }
-    notesGroup.appendChild(connectorsGroup);
-
-    // 8b. Render note cards
+    // 8. Render note cards
     const cardsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     cardsGroup.setAttribute('class', 'diagram-note-cards');
 

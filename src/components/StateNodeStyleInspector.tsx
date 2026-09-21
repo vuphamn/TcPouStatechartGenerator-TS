@@ -9,6 +9,8 @@ import {
   Sliders,
   Eye,
   Check,
+  Code2,
+  FileCode,
 } from 'lucide-react';
 import {
   ColorPreset,
@@ -23,6 +25,8 @@ import {
   QUICK_BORDER_SWATCHES,
   QUICK_TEXT_SWATCHES,
 } from '../utils/nodeStyles.ts';
+import { StateStructuredTextEditor } from './StateStructuredTextEditor.tsx';
+import { PreProcessStructuredTextEditor } from './PreProcessStructuredTextEditor.tsx';
 
 export interface StateNodeStyleInspectorProps {
   selectedStateId: string;
@@ -34,6 +38,11 @@ export interface StateNodeStyleInspectorProps {
   onClearAllCustomStyles: () => void;
   onSelectState: (stateId: string, label?: string) => void;
   onClose: () => void;
+  tcPouContent?: string;
+  tcPouFileName?: string;
+  onSaveStateCode?: (stateId: string, newCode: string) => { success: boolean; error?: string };
+  onSavePreProcessCode?: (newCode: string, newDeclaration?: string) => { success: boolean; error?: string };
+  initialMode?: 'code' | 'preprocess' | 'style';
 }
 
 export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = ({
@@ -46,7 +55,14 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
   onClearAllCustomStyles,
   onSelectState,
   onClose,
+  tcPouContent,
+  tcPouFileName,
+  onSaveStateCode,
+  onSavePreProcessCode,
+  initialMode = 'code',
 }) => {
+  const [inspectorMode, setInspectorMode] = useState<'code' | 'preprocess' | 'style'>(initialMode);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'presets' | 'custom'>('custom');
   const [isStateDropdownOpen, setIsStateDropdownOpen] = useState(false);
 
@@ -89,18 +105,54 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
   return (
     <div
       id="state-style-inspector"
-      className="absolute top-3 right-3 z-30 w-84 max-w-[calc(100%-24px)] bg-slate-900/95 border border-slate-700/90 rounded-xl shadow-2xl backdrop-blur-md text-slate-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
+      style={{
+        width:
+          inspectorMode === 'code' || inspectorMode === 'preprocess'
+            ? isExpanded
+              ? '780px'
+              : '560px'
+            : '340px',
+        height:
+          inspectorMode === 'code' || inspectorMode === 'preprocess'
+            ? isExpanded
+              ? 'calc(100vh - 24px)'
+              : '700px'
+            : undefined,
+      }}
+      className="absolute top-3 right-3 z-30 max-w-[calc(100%-24px)] max-h-[calc(100vh-24px)] bg-slate-900/95 border border-slate-700/90 rounded-xl shadow-2xl backdrop-blur-md text-slate-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150 transition-all"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-950/80 border-b border-slate-800">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="p-1 rounded-md bg-sky-500/20 text-sky-400">
-            <Palette className="w-4 h-4" />
+          <div
+            className={`p-1 rounded-md ${
+              inspectorMode === 'code'
+                ? 'bg-sky-500/20 text-sky-400'
+                : inspectorMode === 'preprocess'
+                ? 'bg-indigo-500/20 text-indigo-400'
+                : 'bg-emerald-500/20 text-emerald-400'
+            }`}
+          >
+            {inspectorMode === 'code' ? (
+              <Code2 className="w-4 h-4" />
+            ) : inspectorMode === 'preprocess' ? (
+              <FileCode className="w-4 h-4" />
+            ) : (
+              <Palette className="w-4 h-4" />
+            )}
           </div>
           <div className="min-w-0">
-            <h3 className="text-xs font-semibold text-white truncate">State Node Style</h3>
+            <h3 className="text-xs font-semibold text-white truncate">
+              {inspectorMode === 'code'
+                ? 'State Structured Text Editor'
+                : inspectorMode === 'preprocess'
+                ? 'preProcess() Method Editor'
+                : 'State Node Appearance'}
+            </h3>
             <p className="text-[10px] text-slate-400 truncate">
-              {selectedStateLabel || selectedStateId}
+              {inspectorMode === 'preprocess'
+                ? 'preProcess() Structured Text in .TcPOU'
+                : selectedStateLabel || selectedStateId}
             </p>
           </div>
         </div>
@@ -116,66 +168,143 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
         </button>
       </div>
 
-      {/* State Switcher & Customization Status */}
-      <div className="px-3.5 py-2 bg-slate-900/90 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs">
-        {/* Dropdown to pick different state */}
-        <div className="relative flex-1 min-w-0">
-          <button
-            type="button"
-            id="state-selector-dropdown-btn"
-            onClick={() => setIsStateDropdownOpen(!isStateDropdownOpen)}
-            className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1 bg-slate-950 border border-slate-700 hover:border-slate-600 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-sky-500 transition-all"
-            title="Switch state node"
-          >
-            <span className="truncate">{selectedStateId}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          </button>
+      {/* Mode Switcher Tabs */}
+      <div className="flex border-b border-slate-800 bg-slate-950/60 p-1 gap-1">
+        <button
+          type="button"
+          id="inspector-mode-code-tab"
+          onClick={() => setInspectorMode('code')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${
+            inspectorMode === 'code'
+              ? 'bg-sky-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+          title="View and edit doState() code for this state branch"
+        >
+          <Code2 className="w-3.5 h-3.5" />
+          <span>doState()</span>
+        </button>
 
-          {isStateDropdownOpen && (
-            <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-y-auto bg-slate-950 border border-slate-700 rounded-lg shadow-xl py-1 z-40 text-xs font-mono">
-              {availableStates.map((s) => {
-                const hasStyle = Boolean(customStyles[s.id]);
-                const isSelected = s.id === selectedStateId;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => {
-                      onSelectState(s.id, s.label);
-                      setIsStateDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-2.5 py-1.5 flex items-center justify-between gap-2 hover:bg-slate-800 transition-colors ${
-                      isSelected ? 'bg-sky-950/60 text-sky-400 font-medium' : 'text-slate-300'
-                    }`}
-                  >
-                    <span className="truncate">{s.id}</span>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {hasStyle && (
-                        <span
-                          className="w-2 h-2 rounded-full bg-emerald-400 inline-block"
-                          title="Customized style"
-                        />
-                      )}
-                      {isSelected && <Check className="w-3 h-3 text-sky-400" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+        <button
+          type="button"
+          id="inspector-mode-preprocess-tab"
+          onClick={() => setInspectorMode('preprocess')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${
+            inspectorMode === 'preprocess'
+              ? 'bg-sky-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+          title="View and edit preProcess() Structured Text method in .TcPOU"
+        >
+          <FileCode className="w-3.5 h-3.5" />
+          <span>preProcess()</span>
+        </button>
+
+        <button
+          type="button"
+          id="inspector-mode-style-tab"
+          onClick={() => setInspectorMode('style')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${
+            inspectorMode === 'style'
+              ? 'bg-sky-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+          title="Customize fill, border, and text appearance"
+        >
+          <Palette className="w-3.5 h-3.5" />
+          <span>Style</span>
+          {isCustomized && (
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block ml-0.5" />
+          )}
+        </button>
+      </div>
+
+      {/* State Switcher & Customization Status (Hidden when viewing preProcess) */}
+      {inspectorMode !== 'preprocess' && (
+        <div className="px-3.5 py-2 bg-slate-900/90 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs">
+          {/* Dropdown to pick different state */}
+          <div className="relative flex-1 min-w-0">
+            <button
+              type="button"
+              id="state-selector-dropdown-btn"
+              onClick={() => setIsStateDropdownOpen(!isStateDropdownOpen)}
+              className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1 bg-slate-950 border border-slate-700 hover:border-slate-600 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-sky-500 transition-all"
+              title="Switch state node"
+            >
+              <span className="truncate">{selectedStateId}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            </button>
+
+            {isStateDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-y-auto bg-slate-950 border border-slate-700 rounded-lg shadow-xl py-1 z-40 text-xs font-mono">
+                {availableStates.map((s) => {
+                  const hasStyle = Boolean(customStyles[s.id]);
+                  const isSelected = s.id === selectedStateId;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        onSelectState(s.id, s.label);
+                        setIsStateDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-1.5 flex items-center justify-between gap-2 hover:bg-slate-800 transition-colors ${
+                        isSelected ? 'bg-sky-950/60 text-sky-400 font-medium' : 'text-slate-300'
+                      }`}
+                    >
+                      <span className="truncate">{s.id}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {hasStyle && (
+                          <span
+                            className="w-2 h-2 rounded-full bg-emerald-400 inline-block"
+                            title="Customized style"
+                          />
+                        )}
+                        {isSelected && <Check className="w-3 h-3 text-sky-400" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Status Badge */}
+          {isCustomized ? (
+            <span className="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 text-[10px] font-medium shrink-0">
+              Custom Style
+            </span>
+          ) : (
+            <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] shrink-0">
+              Default Theme
+            </span>
           )}
         </div>
+      )}
 
-        {/* Status Badge */}
-        {isCustomized ? (
-          <span className="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 text-[10px] font-medium shrink-0">
-            Customized
-          </span>
-        ) : (
-          <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] shrink-0">
-            Theme Default
-          </span>
-        )}
-      </div>
+      {/* Main Content: ST Code Editor OR preProcess Editor OR Appearance Customizer */}
+      {inspectorMode === 'code' ? (
+        <StateStructuredTextEditor
+          selectedStateId={selectedStateId}
+          selectedStateLabel={selectedStateLabel}
+          tcPouContent={tcPouContent}
+          tcPouFileName={tcPouFileName}
+          onSaveStateCode={onSaveStateCode}
+          isExpanded={isExpanded}
+          onToggleExpand={() => setIsExpanded((prev) => !prev)}
+        />
+      ) : inspectorMode === 'preprocess' ? (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <PreProcessStructuredTextEditor
+            tcPouContent={tcPouContent}
+            tcPouFileName={tcPouFileName}
+            onSavePreProcessCode={onSavePreProcessCode}
+            onJumpToState={(target) => onSelectState(target)}
+            isModal={false}
+          />
+        </div>
+      ) : (
+        <>
 
       {/* Live Preview Box */}
       <div className="px-3.5 py-2.5 bg-slate-950/50 border-b border-slate-800/80">
@@ -511,6 +640,8 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
           </button>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

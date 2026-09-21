@@ -205,7 +205,47 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
     let defaultNoteX = 290;
     let defaultNoteY = 200;
 
-    if (svgElement) {
+    // Position edge note adjacent to target node (edge.to) just like a node note, matching Mermaid.live
+    const targetNodeId = edge?.to || parsed?.to;
+    let positionedNearTargetNode = false;
+
+    if (svgElement && targetNodeId) {
+      const cleanTarget = cleanNodeId(targetNodeId);
+      const targetNodeEl =
+        findNodeElement(svgElement, cleanTarget) ||
+        findNodeElement(svgElement, targetNodeId) ||
+        (svgElement.querySelector(
+          `g.node[data-state-id="${cleanTarget}"], g.node[data-state-id="${targetNodeId}"], g.node#${cleanTarget}, g.node#${targetNodeId}`
+        ) as SVGGElement | null);
+
+      if (targetNodeEl) {
+        const wrapperEl = (svgElement.closest('#mermaid-svg-wrapper') ||
+          document.getElementById('mermaid-svg-wrapper')) as HTMLElement | null;
+        if (wrapperEl) {
+          const wRect = wrapperEl.getBoundingClientRect();
+          const nRect = targetNodeEl.getBoundingClientRect();
+          if (wRect.width > 0 && nRect.width > 0) {
+            const actualScale =
+              wrapperEl.offsetWidth > 0 && wRect.width > 0
+                ? wRect.width / wrapperEl.offsetWidth
+                : zoom > 0
+                ? zoom
+                : 1;
+            const localLeft = (nRect.left - wRect.left) / actualScale;
+            const localTop = (nRect.top - wRect.top) / actualScale;
+            const localW = nRect.width / actualScale;
+            const localH = nRect.height / actualScale;
+            targetX = Math.round(localLeft + localW / 2);
+            targetY = Math.round(localTop + localH / 2);
+            defaultNoteX = Math.round(localLeft + localW + 28);
+            defaultNoteY = Math.max(16, Math.round(localTop - 12));
+            positionedNearTargetNode = true;
+          }
+        }
+      }
+    }
+
+    if (!positionedNearTargetNode && svgElement) {
       const pathEl =
         findEdgePathElement(svgElement, edgeId, availableEdges) ||
         (edge ? findEdgePathElement(svgElement, edge.id, availableEdges) : null) ||
@@ -345,61 +385,7 @@ export const NoteOverlaysLayer: React.FC<NoteOverlaysLayerProps> = ({
       className="absolute inset-0 pointer-events-none z-20 overflow-visible"
       style={{ width: '100%', height: '100%' }}
     >
-      {/* SVG Connector Lines from note cards to target anchors */}
-      <svg
-        className="absolute inset-0 w-full h-full overflow-visible pointer-events-none"
-        style={{ width: '100%', height: '100%' }}
-      >
-        <defs>
-          <radialGradient id="note-anchor-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        {noteItems.map((note) => {
-          const cardCenterX = note.x + 88;
-          const cardCenterY = note.y + 24;
-          const targetX = note.targetAnchor.x;
-          const targetY = note.targetAnchor.y;
-
-          const noteStyle = notes.styles?.[note.id] || notes.styles?.[cleanNodeId(note.id)];
-          const connectorColor = noteStyle?.stroke || '#f59e0b';
-
-          // Compute smooth curved or straight connector line
-          const midX = (cardCenterX + targetX) / 2;
-
-          return (
-            <g key={`conn-${note.id}`} className="note-connector-group opacity-70 hover:opacity-100 transition-opacity">
-              {/* Target anchor dot */}
-              <circle
-                cx={targetX}
-                cy={targetY}
-                r="6"
-                fill={connectorColor}
-                opacity="0.25"
-              />
-              <circle
-                cx={targetX}
-                cy={targetY}
-                r="3"
-                fill={connectorColor}
-                stroke="#1e293b"
-                strokeWidth="1.2"
-              />
-              {/* Connector path */}
-              <path
-                d={`M ${targetX} ${targetY} Q ${midX} ${targetY} ${cardCenterX} ${cardCenterY}`}
-                fill="none"
-                stroke={connectorColor}
-                strokeWidth="1.4"
-                strokeDasharray="3 2"
-              />
-            </g>
-          );
-        })}
-      </svg>
-
-      {/* Note Overlay Cards */}
+      {/* Note Overlay Cards (rendered without dashed-line connectors) */}
       {noteItems.map((note) => {
         const isDragging = draggingNoteId === note.id;
         const isSelected = selectedNoteCardId === note.id;

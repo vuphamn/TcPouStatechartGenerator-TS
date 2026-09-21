@@ -23,6 +23,7 @@ interface DiagramContextMenuProps {
   onAddOrEditNote: (target: ContextMenuTarget) => void;
   onDeleteNote?: (target: ContextMenuTarget) => void;
   onOpenStyleCustomizer?: (nodeId: string) => void;
+  onOpenPreProcessEditor?: () => void;
   onOpenMermaidLive?: () => void;
   onExportImage?: (format: 'png' | 'svg') => void;
 }
@@ -35,6 +36,7 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
   onAddOrEditNote,
   onDeleteNote,
   onOpenStyleCustomizer,
+  onOpenPreProcessEditor,
   onOpenMermaidLive,
   onExportImage,
 }) => {
@@ -182,16 +184,43 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
             )}
 
             {target.type === 'node' && onOpenStyleCustomizer && (
+              <>
+                <button
+                  id="context-menu-edit-code-btn"
+                  onClick={() => {
+                    onOpenStyleCustomizer(target.id);
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-sky-600/20 hover:text-sky-300 text-sky-400 transition-colors font-medium"
+                >
+                  <FileCode className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Edit ST Code (doState)...</span>
+                </button>
+                <button
+                  id="context-menu-style-btn"
+                  onClick={() => {
+                    onOpenStyleCustomizer(target.id);
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-slate-800 text-slate-300 hover:text-slate-100 transition-colors"
+                >
+                  <Palette className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Customize Style...</span>
+                </button>
+              </>
+            )}
+
+            {onOpenPreProcessEditor && (
               <button
-                id="context-menu-style-btn"
+                id="context-menu-edit-preprocess-btn"
                 onClick={() => {
-                  onOpenStyleCustomizer(target.id);
+                  onOpenPreProcessEditor();
                   onClose();
                 }}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-slate-800 text-slate-300 hover:text-slate-100 transition-colors"
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-indigo-600/20 hover:text-indigo-300 text-indigo-400 transition-colors font-medium"
               >
-                <Palette className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Customize Style...</span>
+                <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Edit preProcess() ST...</span>
               </button>
             )}
 

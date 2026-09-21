@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
 import mermaid from 'mermaid';
 import elkLayouts from '@mermaid-js/layout-elk';
 import {
@@ -31,7 +31,8 @@ import { NoteDialog } from './NoteDialog.tsx';
 import { NotesDrawer } from './NotesDrawer.tsx';
 import { NoteOverlaysLayer } from './NoteOverlaysLayer.tsx';
 import { ExportModal } from './ExportModal.tsx';
-import { EdgeConditionDetailOverlay } from './EdgeConditionDetailOverlay.tsx';
+import { TransitionGuardInspector } from './TransitionGuardInspector.tsx';
+import { PreProcessStructuredTextEditor } from './PreProcessStructuredTextEditor.tsx';
 import { createInteractiveMermaidCode } from '../utils/interactiveDiagram.ts';
 import {
   exportHighResSvg,
@@ -88,6 +89,14 @@ function ensureElkRegistered() {
   }
 }
 
+export interface MermaidViewerHandle {
+  panToState: (stateId: string) => void;
+  resetView: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  fitToScreen: () => void;
+}
+
 export interface MermaidViewerProps {
   code: string;
   layoutEngine?: LayoutEngine;
@@ -115,6 +124,11 @@ export interface MermaidViewerProps {
   fileName?: string;
   interactiveMode?: boolean;
   onInteractiveModeChange?: (enabled: boolean) => void;
+  tcPouContent?: string;
+  tcPouFileName?: string;
+  onSaveStateCode?: (stateId: string, newCode: string) => { success: boolean; error?: string };
+  onSavePreProcessCode?: (newCode: string, newDeclaration?: string) => { success: boolean; error?: string };
+  focusStateRequest?: { stateId: string; timestamp: number } | null;
 }
 
 interface SearchMatchItem {
@@ -387,6 +401,14 @@ function resolveEdgeFromElement(
     }
 
     if (pathId) {
+      const pMatch = availableEdges.find((e) => e.id === pathId || e.pathId === pathId);
+      if (pMatch) return pMatch;
+      if (pathId.startsWith('path-')) {
+        const pIdx = parseInt(pathId.replace('path-', ''), 10);
+        if (!isNaN(pIdx) && pIdx >= 0 && pIdx < availableEdges.length) {
+          return availableEdges[pIdx];
+        }
+      }
       return {
         id: pathId,
         pathId,
@@ -409,12 +431,30 @@ function resolveEdgeFromElement(
       if (match) return match;
     }
 
+    const from = labelEl.getAttribute('data-from');
+    const to = labelEl.getAttribute('data-to');
+    if (from && to) {
+      const match = availableEdges.find((e) => e.from === from && e.to === to);
+      if (match) return match;
+      return {
+        id: `${from}->${to}`,
+        from,
+        to,
+        label: labelEl.getAttribute('data-condition') || '',
+        condition: labelEl.getAttribute('data-condition') || '',
+        priority: Number(labelEl.getAttribute('data-priority')) || undefined,
+      };
+    }
+
     const linkedPathId = labelEl.getAttribute('data-linked-path-id');
     if (linkedPathId && svg) {
       const p = svg.querySelector(
         `path[data-path-id="${linkedPathId}"], path[data-edge-id="${linkedPathId}"], path#${linkedPathId}`
       ) as SVGPathElement | null;
-      if (p) return resolveEdgeFromElement(p, svg, availableEdges);
+      if (p) {
+        const edgeFromP = resolveEdgeFromElement(p, svg, availableEdges);
+        if (edgeFromP && edgeFromP.from && edgeFromP.to) return edgeFromP;
+      }
     }
 
     const text = labelEl.textContent?.trim() || '';
@@ -460,14 +500,51 @@ function resolveEdgeFromElement(
   }
 
   // 3. Priority badge element
-  const badgeEl = targetEl.closest('.tc-priority-badge') as SVGGElement | null;
-  if (badgeEl && svg) {
-    const pathId = badgeEl.getAttribute('data-path-id');
-    if (pathId) {
-      const p = svg.querySelector(
-        `path[data-path-id="${pathId}"], path[data-edge-id="${pathId}"], path#${pathId}`
-      ) as SVGPathElement | null;
-      if (p) return resolveEdgeFromElement(p, svg, availableEdges);
+  const badgeEl = (targetEl.closest('.tc-priority-badge') || targetEl.closest('.priority-badge')) as SVGGElement | null;
+  if (badgeEl) {
+    const directEdgeId = badgeEl.getAttribute('data-edge-id');
+    if (directEdgeId) {
+      const match = availableEdges.find(
+        (e) => e.id === directEdgeId || `${e.from}->${e.to}` === directEdgeId || e.pathId === directEdgeId
+      );
+      if (match) return match;
+    }
+
+    const from = badgeEl.getAttribute('data-from');
+    const to = badgeEl.getAttribute('data-to');
+    if (from && to) {
+      const match = availableEdges.find((e) => e.from === from && e.to === to);
+      if (match) return match;
+      return {
+        id: `${from}->${to}`,
+        from,
+        to,
+        label: badgeEl.getAttribute('data-condition') || '',
+        condition: badgeEl.getAttribute('data-condition') || '',
+        priority: Number(badgeEl.getAttribute('data-priority')) || undefined,
+      };
+    }
+
+    const prioVal = badgeEl.getAttribute('data-priority') || badgeEl.querySelector('text')?.textContent?.trim();
+    if (prioVal) {
+      const prioNum = parseInt(prioVal, 10);
+      if (!isNaN(prioNum)) {
+        const match = availableEdges.find((e) => e.priority === prioNum);
+        if (match) return match;
+      }
+    }
+
+    if (svg) {
+      const pathId = badgeEl.getAttribute('data-path-id');
+      if (pathId) {
+        const p = svg.querySelector(
+          `path[data-path-id="${pathId}"], path[data-edge-id="${pathId}"], path#${pathId}`
+        ) as SVGPathElement | null;
+        if (p) {
+          const edgeFromP = resolveEdgeFromElement(p, svg, availableEdges);
+          if (edgeFromP && edgeFromP.from && edgeFromP.to) return edgeFromP;
+        }
+      }
     }
   }
 
@@ -532,7 +609,8 @@ function enhanceSvgWithPriorityCircles(
   selectedEdgeId?: string | null,
   notes?: DiagramNotes,
   isInteractiveMode?: boolean,
-  activeEdgeId?: string | null
+  activeEdgeId?: string | null,
+  availableEdgesList?: EdgeInfo[]
 ): string {
   if (typeof window === 'undefined' || !svgString) return svgString;
   try {
@@ -632,12 +710,10 @@ function enhanceSvgWithPriorityCircles(
       }
       for (let lIdx = 0; lIdx < labels.length; lIdx++) {
         const l = labels[lIdx];
-        l.classList.add('clickable-edge-label');
+        l.classList.add('clickable-edge-label', 'tc-interactive-edge-label');
         l.setAttribute('data-edge', 'true');
-        if (isInteractiveMode) {
-          l.classList.add('tc-interactive-edge-label');
-          l.setAttribute('title', 'Click to toggle full transition condition details');
-        }
+        l.setAttribute('style', 'cursor: pointer !important; pointer-events: all !important;');
+        l.setAttribute('title', 'Click to toggle Transition Guard & Condition Inspector');
       }
 
       if (paths.length === 0 || labels.length === 0) continue;
@@ -710,11 +786,82 @@ function enhanceSvgWithPriorityCircles(
           }
         }
 
+        let matchedEdge: EdgeInfo | null = null;
+        if (availableEdgesList && availableEdgesList.length > 0) {
+          const directId = labelEl.getAttribute('data-edge-id');
+          if (directId) {
+            matchedEdge = availableEdgesList.find((e) => e.id === directId || e.pathId === directId) || null;
+          }
+
+          if (!matchedEdge) {
+            const cleanText = text
+              .replace(/📝.*$/, '')
+              .replace(/▾/g, '')
+              .replace(/\.\.\./g, '')
+              .replace(/\(\+\d+\)/g, '')
+              .replace(/^[①-⑳㉑-㉟㊱-㊿]\s*/, '')
+              .replace(/^\(\d+\)\s*/, '')
+              .replace(/^\[\d+\]\s*/, '')
+              .trim();
+            if (cleanText) {
+              matchedEdge =
+                availableEdgesList.find((e) => {
+                  const fullCand = (e.condition || e.label || '').trim();
+                  if (!fullCand) return false;
+                  const eClean = fullCand
+                    .replace(/📝.*$/, '')
+                    .replace(/^[①-⑳㉑-㉟㊱-㊿]\s*/, '')
+                    .replace(/^\(\d+\)\s*/, '')
+                    .replace(/^\[\d+\]\s*/, '')
+                    .trim();
+                  return (
+                    cleanText === eClean ||
+                    cleanText.includes(eClean) ||
+                    eClean.includes(cleanText) ||
+                    (cleanText.length >= 4 &&
+                      eClean.toLowerCase().startsWith(cleanText.slice(0, Math.min(cleanText.length, 12)).toLowerCase()))
+                  );
+                }) || null;
+            }
+          }
+
+          if (!matchedEdge && prioInfo) {
+            const prioMatches = availableEdgesList.filter((e) => e.priority === prioInfo.priority);
+            if (prioMatches.length === 1) {
+              matchedEdge = prioMatches[0];
+            }
+          }
+
+          if (!matchedEdge && i < availableEdgesList.length) {
+            matchedEdge = availableEdgesList[i];
+          }
+        }
+
         if (pathEl) {
           const pId = pathEl.getAttribute('id') || pathEl.getAttribute('data-id') || `path-${paths.indexOf(pathEl as SVGPathElement)}`;
           labelEl.setAttribute('data-linked-path-id', pId);
-          if (isInteractiveMode && activeEdgeId && (pId === activeEdgeId || labelEl.getAttribute('data-edge-id') === activeEdgeId)) {
+          if (activeEdgeId && (pId === activeEdgeId || labelEl.getAttribute('data-edge-id') === activeEdgeId || matchedEdge?.id === activeEdgeId)) {
             labelEl.classList.add('tc-interactive-edge-label-active');
+          }
+        }
+
+        if (matchedEdge) {
+          labelEl.setAttribute('data-edge-id', matchedEdge.id);
+          labelEl.setAttribute('data-from', matchedEdge.from);
+          labelEl.setAttribute('data-to', matchedEdge.to);
+          if (matchedEdge.condition || matchedEdge.label) {
+            labelEl.setAttribute('data-condition', matchedEdge.condition || matchedEdge.label || '');
+          }
+          if (matchedEdge.priority !== undefined || prioInfo?.priority) {
+            labelEl.setAttribute('data-priority', String(matchedEdge.priority ?? prioInfo?.priority));
+          }
+          if (pathEl) {
+            pathEl.setAttribute('data-edge-id', matchedEdge.id);
+            pathEl.setAttribute('data-from', matchedEdge.from);
+            pathEl.setAttribute('data-to', matchedEdge.to);
+            if (matchedEdge.condition || matchedEdge.label) {
+              pathEl.setAttribute('data-condition', matchedEdge.condition || matchedEdge.label || '');
+            }
           }
         }
 
@@ -736,6 +883,23 @@ function enhanceSvgWithPriorityCircles(
         if (!pathEl.getAttribute('data-path-id')) {
           pathEl.setAttribute('data-path-id', pathDataId);
         }
+        if (matchedEdge) {
+          badgeG.setAttribute('data-edge-id', matchedEdge.id);
+          badgeG.setAttribute('data-from', matchedEdge.from);
+          badgeG.setAttribute('data-to', matchedEdge.to);
+          if (matchedEdge.condition || matchedEdge.label) {
+            badgeG.setAttribute('data-condition', matchedEdge.condition || matchedEdge.label || '');
+          }
+          badgeG.setAttribute('data-priority', String(matchedEdge.priority ?? prioInfo.priority));
+        } else {
+          badgeG.setAttribute('data-priority', String(prioInfo.priority));
+        }
+        badgeG.setAttribute('style', 'cursor: pointer !important; pointer-events: all !important;');
+        badgeG.setAttribute('title', 'Click to toggle Transition Guard & Condition Inspector');
+
+        if (activeEdgeId && (activeEdgeId === matchedEdge?.id || activeEdgeId === pathDataId)) {
+          badgeG.classList.add('tc-priority-badge-active');
+        }
 
         const circle = doc.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('cx', cx.toFixed(1));
@@ -745,6 +909,7 @@ function enhanceSvgWithPriorityCircles(
         circle.setAttribute('stroke', '#0f172a');
         circle.setAttribute('stroke-width', '1.5');
         circle.setAttribute('filter', 'drop-shadow(0px 1px 2px rgba(0,0,0,0.35))');
+        circle.setAttribute('style', 'cursor: pointer !important; pointer-events: all !important;');
 
         const textEl = doc.createElementNS('http://www.w3.org/2000/svg', 'text');
         textEl.setAttribute('x', cx.toFixed(1));
@@ -755,6 +920,7 @@ function enhanceSvgWithPriorityCircles(
         textEl.setAttribute('font-size', prioInfo.priority >= 10 ? '9' : '10.5');
         textEl.setAttribute('font-weight', '700');
         textEl.setAttribute('fill', '#0f172a');
+        textEl.setAttribute('style', 'cursor: pointer !important; pointer-events: all !important;');
         textEl.textContent = String(prioInfo.priority);
 
         badgeG.appendChild(circle);
@@ -780,34 +946,40 @@ function enhanceSvgWithPriorityCircles(
   }
 }
 
-export const MermaidViewer: React.FC<MermaidViewerProps> = ({
-  code,
-  layoutEngine = 'elk',
-  flowchartCurve = 'basis',
-  mermaidTheme = 'dark',
-  searchQuery: externalSearchQuery,
-  onSearchQueryChange,
-  selectedStateId: externalSelectedStateId,
-  selectedStateLabel: externalSelectedStateLabel,
-  onSelectState: onSelectStateProp,
-  customStyles: externalCustomStyles,
-  onStyleChange: onStyleChangeProp,
-  onResetStateStyle: onResetStateStyleProp,
-  onClearAllCustomStyles: onClearAllCustomStylesProp,
-  nodeOffsets: externalNodeOffsets,
-  onNodeOffsetsChange,
-  notes,
-  onSaveNote,
-  onDeleteNote,
-  onClearAllNotes,
-  onUpdateNotePosition: onUpdateNotePositionProp,
-  onUpdateNoteStyle,
-  onCanvasPositionsChange,
-  onOpenMermaidLive,
-  fileName = 'statechart',
-  interactiveMode: externalInteractiveMode,
-  onInteractiveModeChange,
-}) => {
+export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>((props, ref) => {
+  const {
+    code,
+    layoutEngine = 'elk',
+    flowchartCurve = 'basis',
+    mermaidTheme = 'dark',
+    searchQuery: externalSearchQuery,
+    onSearchQueryChange,
+    selectedStateId: externalSelectedStateId,
+    selectedStateLabel: externalSelectedStateLabel,
+    onSelectState: onSelectStateProp,
+    customStyles: externalCustomStyles,
+    onStyleChange: onStyleChangeProp,
+    onResetStateStyle: onResetStateStyleProp,
+    onClearAllCustomStyles: onClearAllCustomStylesProp,
+    nodeOffsets: externalNodeOffsets,
+    onNodeOffsetsChange,
+    notes,
+    onSaveNote,
+    onDeleteNote,
+    onClearAllNotes,
+    onUpdateNotePosition: onUpdateNotePositionProp,
+    onUpdateNoteStyle,
+    onCanvasPositionsChange,
+    onOpenMermaidLive,
+    fileName = 'statechart',
+    interactiveMode: externalInteractiveMode,
+    onInteractiveModeChange,
+    tcPouContent,
+    tcPouFileName,
+    onSaveStateCode,
+    onSavePreProcessCode,
+    focusStateRequest,
+  } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -820,6 +992,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   const mouseDownPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [copiedSvg, setCopiedSvg] = useState<boolean>(false);
+  const [isPreProcessModalOpen, setIsPreProcessModalOpen] = useState<boolean>(false);
 
   // Interactive Mode & Transition Condition Detail Overlay
   const [internalInteractiveMode, setInternalInteractiveMode] = useState<boolean>(true);
@@ -838,6 +1011,90 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     edge: EdgeInfo;
     anchorPos: { x: number; y: number };
   } | null>(null);
+
+  const pendingLabelBadgeClickRef = useRef<{
+    el: HTMLElement | SVGElement;
+    clientX: number;
+    clientY: number;
+  } | null>(null);
+  const lastOverlayToggleTimeRef = useRef<number>(0);
+
+  const toggleConditionOverlay = (edge: EdgeInfo, anchorPos?: { x: number; y: number }) => {
+    const now = Date.now();
+    if (now - lastOverlayToggleTimeRef.current < 300) {
+      return;
+    }
+    lastOverlayToggleTimeRef.current = now;
+
+    setActiveConditionOverlay((prev) => {
+      if (
+        prev &&
+        (prev.edge.id === edge.id ||
+          (prev.edge.from === edge.from && prev.edge.to === edge.to))
+      ) {
+        return null;
+      }
+      let finalAnchor = anchorPos;
+      if (!finalAnchor && containerRef.current) {
+        const svg = containerRef.current.querySelector('svg');
+        if (svg) {
+          const el = svg.querySelector(
+            `g.edgeLabel[data-edge-id="${edge.id}"], .tc-priority-badge[data-edge-id="${edge.id}"], path[data-edge-id="${edge.id}"]`
+          );
+          if (el) {
+            const r = el.getBoundingClientRect();
+            finalAnchor = { x: r.left + r.width / 2, y: r.top };
+          }
+        }
+      }
+      if (!finalAnchor && containerRef.current) {
+        const cRect = containerRef.current.getBoundingClientRect();
+        finalAnchor = { x: cRect.left + cRect.width / 2, y: cRect.top + 100 };
+      }
+      return {
+        edge,
+        anchorPos: finalAnchor || { x: 200, y: 150 },
+      };
+    });
+  };
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const svg = containerRef.current.querySelector('svg');
+    if (!svg) return;
+
+    svg.querySelectorAll('.tc-priority-badge-active').forEach((el) => {
+      el.classList.remove('tc-priority-badge-active');
+    });
+    svg.querySelectorAll('.tc-interactive-edge-label-active').forEach((el) => {
+      el.classList.remove('tc-interactive-edge-label-active');
+    });
+
+    if (activeConditionOverlay) {
+      const edge = activeConditionOverlay.edge;
+      const targetEdgeId = edge.id;
+      const targetPathId = edge.pathId;
+      const selectors = [
+        targetEdgeId ? `[data-edge-id="${targetEdgeId}"]` : '',
+        targetPathId ? `[data-path-id="${targetPathId}"]` : '',
+        targetPathId ? `[data-linked-path-id="${targetPathId}"]` : '',
+        edge.from && edge.to ? `[data-from="${edge.from}"][data-to="${edge.to}"]` : '',
+      ]
+        .filter(Boolean)
+        .join(', ');
+
+      if (selectors) {
+        svg.querySelectorAll(selectors).forEach((el) => {
+          if (el.classList.contains('tc-priority-badge') || el.classList.contains('priority-badge')) {
+            el.classList.add('tc-priority-badge-active');
+          }
+          if (el.classList.contains('clickable-edge-label') || el.classList.contains('edgeLabel')) {
+            el.classList.add('tc-interactive-edge-label-active');
+          }
+        });
+      }
+    }
+  }, [activeConditionOverlay]);
 
   // High-Resolution Export States
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
@@ -1252,7 +1509,8 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             selectedEdge?.id,
             effectiveNotes,
             isInteractiveMode,
-            activeConditionOverlay?.edge?.id
+            activeConditionOverlay?.edge?.id,
+            availableEdges
           );
           setSvgContent(enhancedSvg);
         }
@@ -1423,14 +1681,54 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     }
   };
 
-  const panToState = (stateId: string) => {
-    if (!containerRef.current) return;
-    const svg = containerRef.current.querySelector('svg');
-    if (!svg) return;
-    const nodeEl = svg.querySelector(`g.node[data-state-id="${stateId}"]`);
-    if (!nodeEl) return;
-    panToElement(nodeEl);
-  };
+  const panToState = useCallback((stateId: string) => {
+    const attempt = (retriesLeft = 4) => {
+      if (!containerRef.current) return;
+      const svg = containerRef.current.querySelector('svg');
+      if (!svg) {
+        if (retriesLeft > 0) {
+          requestAnimationFrame(() => attempt(retriesLeft - 1));
+        }
+        return;
+      }
+      const nodeEl = findNodeElement(svg as SVGSVGElement, stateId) || svg.querySelector(`g.node[data-state-id="${stateId}"]`);
+      if (!nodeEl) {
+        if (retriesLeft > 0) {
+          requestAnimationFrame(() => attempt(retriesLeft - 1));
+        }
+        return;
+      }
+      panToElement(nodeEl);
+
+      // Trigger pulse highlight animation
+      nodeEl.classList.remove('diagram-jump-highlight');
+      void (nodeEl as unknown as HTMLElement).offsetWidth;
+      nodeEl.classList.add('diagram-jump-highlight');
+      setTimeout(() => {
+        nodeEl.classList.remove('diagram-jump-highlight');
+      }, 2200);
+    };
+
+    attempt();
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      panToState,
+      resetView: handleResetZoom,
+      zoomIn: () => setZoom((prev) => Math.min(5, prev * 1.2)),
+      zoomOut: () => setZoom((prev) => Math.max(0.2, prev / 1.2)),
+      fitToScreen: handleResetZoom,
+    }),
+    [panToState]
+  );
+
+  useEffect(() => {
+    if (focusStateRequest?.stateId) {
+      panToState(focusStateRequest.stateId);
+    }
+  }, [focusStateRequest, panToState]);
 
   const handleStyleChange = (stateId: string, style: NodeDisplayProperties) => {
     // 1. Immediately update DOM element in SVG for instantaneous live response
@@ -1499,14 +1797,31 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
 
     const target = e.target as Element;
-    // If clicking inside inspector, toolbar, context menu, or dialogs, don't initiate drag
+    // If clicking inside inspector, toolbar, context menu, dialogs, or detail overlay, don't initiate drag
     if (
       target.closest('#state-style-inspector') ||
       target.closest('#mermaid-toolbar') ||
       target.closest('#diagram-context-menu') ||
       target.closest('#note-dialog-overlay') ||
-      target.closest('#notes-drawer-overlay')
+      target.closest('#notes-drawer-overlay') ||
+      target.closest('#edge-condition-detail-overlay') ||
+      target.closest('#transition-guard-inspector')
     ) {
+      return;
+    }
+
+    // A0. Check if user clicked on a priority badge or edge label -> record pending click and do not initiate drag/pan
+    const labelOrBadgeEl = (target.closest('.tc-priority-badge') ||
+      target.closest('.priority-badge') ||
+      target.closest('g.edgeLabel') ||
+      target.closest('.clickable-edge-label') ||
+      target.closest('.tc-interactive-edge-label')) as HTMLElement | SVGElement | null;
+    if (labelOrBadgeEl) {
+      pendingLabelBadgeClickRef.current = {
+        el: labelOrBadgeEl,
+        clientX: e.clientX,
+        clientY: e.clientY,
+      };
       return;
     }
 
@@ -1692,6 +2007,34 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
+    // 0. Check pending click on priority badge or edge label
+    if (pendingLabelBadgeClickRef.current) {
+      const { el, clientX, clientY } = pendingLabelBadgeClickRef.current;
+      pendingLabelBadgeClickRef.current = null;
+      const dx = Math.abs(e.clientX - clientX);
+      const dy = Math.abs(e.clientY - clientY);
+      if (dx < 10 && dy < 10) {
+        const svg = containerRef.current?.querySelector('svg') || null;
+        const edge = resolveEdgeFromElement(el, svg, availableEdges);
+        if (edge && edge.from && edge.to) {
+          setSelectedEdge(edge);
+          if (effectiveSelectedStateId) {
+            if (onSelectStateProp) {
+              onSelectStateProp(null);
+            } else {
+              setInternalSelectedStateId(null);
+            }
+          }
+          const rect = el.getBoundingClientRect();
+          toggleConditionOverlay(edge, {
+            x: rect.left + rect.width / 2,
+            y: rect.top,
+          });
+          return;
+        }
+      }
+    }
+
     // 1. Released edge handle
     if (isDraggingEdgeHandleRef.current) {
       const edgeId = draggedEdgeIdRef.current;
@@ -1703,8 +2046,8 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
 
       if (wasMoved && edgeId) {
         setEdgeOffsets({ ...currentEdgeOffsetsRef.current });
+        return;
       }
-      return;
     }
 
     // 2. Released while dragging a state node
@@ -1807,10 +2150,11 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         setSelectedEdge(clickedEdge);
 
         // Check if user clicked an edge label or priority badge to toggle transition condition detail overlay
-        const labelOrBadgeEl = (target.closest('g.edgeLabel') ||
+        const labelOrBadgeEl = (target.closest('.tc-priority-badge') ||
+          target.closest('.priority-badge') ||
+          target.closest('g.edgeLabel') ||
           target.closest('.clickable-edge-label') ||
-          target.closest('.tc-interactive-edge-label') ||
-          target.closest('.tc-priority-badge')) as HTMLElement | SVGElement | null;
+          target.closest('.tc-interactive-edge-label')) as HTMLElement | SVGElement | null;
 
         if (labelOrBadgeEl || isInteractiveMode) {
           const rect = labelOrBadgeEl?.getBoundingClientRect() || {
@@ -1818,23 +2162,10 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             width: 20,
             top: e.clientY - 10,
           };
-          // Toggle detail view overlay
-          if (
-            activeConditionOverlay &&
-            (activeConditionOverlay.edge.id === clickedEdge.id ||
-              (activeConditionOverlay.edge.from === clickedEdge.from &&
-                activeConditionOverlay.edge.to === clickedEdge.to))
-          ) {
-            setActiveConditionOverlay(null);
-          } else {
-            setActiveConditionOverlay({
-              edge: clickedEdge,
-              anchorPos: {
-                x: rect.left + rect.width / 2,
-                y: rect.top,
-              },
-            });
-          }
+          toggleConditionOverlay(clickedEdge, {
+            x: rect.left + rect.width / 2,
+            y: rect.top,
+          });
         }
 
         if (effectiveSelectedStateId) {
@@ -2337,6 +2668,49 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
     };
   }, [isFullscreen, isInspectorOpen, effectiveSelectedStateId, effectiveNodeOffsets]);
 
+  const handleClick = (e: React.MouseEvent) => {
+    const target = e.target as Element;
+    if (
+      target.closest('#state-style-inspector') ||
+      target.closest('#mermaid-toolbar') ||
+      target.closest('#diagram-context-menu') ||
+      target.closest('#note-dialog-overlay') ||
+      target.closest('#notes-drawer-overlay') ||
+      target.closest('#mermaid-note-overlays-layer') ||
+      target.closest('#edge-condition-detail-overlay') ||
+      target.closest('#transition-guard-inspector')
+    ) {
+      return;
+    }
+
+    const labelOrBadgeEl = (target.closest('.tc-priority-badge') ||
+      target.closest('.priority-badge') ||
+      target.closest('g.edgeLabel') ||
+      target.closest('.clickable-edge-label') ||
+      target.closest('.tc-interactive-edge-label')) as HTMLElement | SVGElement | null;
+
+    if (labelOrBadgeEl) {
+      e.stopPropagation();
+      const svg = containerRef.current?.querySelector('svg') || null;
+      const edge = resolveEdgeFromElement(labelOrBadgeEl, svg, availableEdges);
+      if (edge && edge.from && edge.to) {
+        setSelectedEdge(edge);
+        if (effectiveSelectedStateId) {
+          if (onSelectStateProp) {
+            onSelectStateProp(null);
+          } else {
+            setInternalSelectedStateId(null);
+          }
+        }
+        const rect = labelOrBadgeEl.getBoundingClientRect();
+        toggleConditionOverlay(edge, {
+          x: rect.left + rect.width / 2,
+          y: rect.top,
+        });
+      }
+    }
+  };
+
   return (
     <div
       id="mermaid-viewer-container"
@@ -2474,6 +2848,20 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
             >
               <SlidersHorizontal className="w-3 h-3 text-sky-400" />
               <span>{isCompactLabels ? 'Clean Layout' : 'Full Labels'}</span>
+            </button>
+          )}
+
+          {/* preProcess() Method Structured Text Editor Button */}
+          {isInteractiveMode && (
+            <button
+              id="open-preprocess-editor-btn"
+              type="button"
+              onClick={() => setIsPreProcessModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-300 hover:text-white border border-indigo-700/60 transition-all text-xs font-medium shadow-sm"
+              title="View and edit preProcess() Structured Text method in .TcPOU"
+            >
+              <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">preProcess()</span>
             </button>
           )}
 
@@ -2732,6 +3120,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onClick={handleClick}
         onWheel={handleWheel}
         onContextMenu={handleContextMenu}
         className={`flex-1 relative overflow-hidden [background-size:16px_16px] cursor-grab transition-colors duration-200 ${
@@ -2809,12 +3198,33 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
               if (id) panToState(id);
             }}
             onClose={handleCloseInspector}
+            tcPouContent={tcPouContent}
+            tcPouFileName={tcPouFileName || fileName}
+            onSaveStateCode={onSaveStateCode}
+            onSavePreProcessCode={onSavePreProcessCode}
+            initialMode="code"
           />
         )}
 
-        {/* Floating Transition Condition Detail Overlay */}
+        {/* Modal for preProcess() Structured Text Editor */}
+        {isPreProcessModalOpen && (
+          <PreProcessStructuredTextEditor
+            tcPouContent={tcPouContent}
+            tcPouFileName={tcPouFileName || fileName}
+            onSavePreProcessCode={onSavePreProcessCode}
+            onClose={() => setIsPreProcessModalOpen(false)}
+            isModal={true}
+            onJumpToState={(stateId) => {
+              setIsPreProcessModalOpen(false);
+              handleSelectState(stateId);
+              panToState(stateId);
+            }}
+          />
+        )}
+
+        {/* Floating Transition Guard & Condition Inspector */}
         {activeConditionOverlay && (
-          <EdgeConditionDetailOverlay
+          <TransitionGuardInspector
             edge={activeConditionOverlay.edge}
             anchorPos={activeConditionOverlay.anchorPos}
             containerRef={containerRef}
@@ -2851,6 +3261,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
               handleSelectState(stateId, st?.label || stateId);
               setIsInspectorOpen(true);
             }}
+            onOpenPreProcessEditor={() => setIsPreProcessModalOpen(true)}
             onOpenMermaidLive={onOpenMermaidLive}
             onExportImage={(fmt) => handleOpenExportModal(fmt)}
             onClose={() => setContextMenuState(null)}
@@ -2922,4 +3333,6 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({
       </div>
     </div>
   );
-};
+});
+
+MermaidViewer.displayName = 'MermaidViewer';

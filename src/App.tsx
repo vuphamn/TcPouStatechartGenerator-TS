@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Play,
   Download,
@@ -17,9 +17,11 @@ import {
   Palette,
 } from 'lucide-react';
 import { generateStatechart, PriorityFormat } from './generator.ts';
-import { MermaidViewer, LayoutEngine, FlowchartCurve, MermaidTheme } from './components/MermaidViewer.tsx';
+import { MermaidViewer, MermaidViewerHandle, LayoutEngine, FlowchartCurve, MermaidTheme } from './components/MermaidViewer.tsx';
 import { MermaidMarkdownViewer } from './components/MermaidMarkdownViewer.tsx';
 import { FileDropzone } from './components/FileDropzone.tsx';
+import { IdentifiedStatesSidebarSection } from './components/IdentifiedStatesSidebarSection.tsx';
+import { extractIdentifiedStatesFromPou } from './utils/pouStateExtractor.ts';
 import { SAMPLES, SampleItem } from './samples/samplesData.ts';
 import { getMermaidLiveUrl } from './utils/mermaidLive.ts';
 import { CustomNodeStylesMap, NodeDisplayProperties, DiagramNotes, ContextMenuTarget, NotePosition } from './types.ts';
@@ -32,6 +34,7 @@ import {
   appendCanvasPositionsToMermaid,
 } from './utils/canvasPositions.ts';
 import { copyTextToClipboard } from './utils/diagramExport.ts';
+import { updateStateCodeInPou, updatePreProcessCodeInPou } from './utils/pouStateEditor.ts';
 
 export const App: React.FC = () => {
   // Active sample or custom state
@@ -76,6 +79,28 @@ export const App: React.FC = () => {
   // Node drag offsets and canvas extracted positions
   const [nodeOffsets, setNodeOffsets] = useState<NodeOffsetsMap>({});
   const [canvasPositions, setCanvasPositions] = useState<CanvasNodePositionsMap>({});
+
+  // Mermaid viewer reference and jump focus request
+  const mermaidViewerRef = useRef<MermaidViewerHandle>(null);
+  const [jumpRequest, setJumpRequest] = useState<{ stateId: string; timestamp: number } | null>(null);
+
+  // Extract all identified states and their transitions from .TcPOU and optional .TcDUT
+  const identifiedStatesResult = useMemo(() => {
+    return extractIdentifiedStatesFromPou(pouContent, dutContent);
+  }, [pouContent, dutContent]);
+
+  // Jump to state from sidebar list
+  const handleJumpToState = useCallback((stateId: string, label?: string) => {
+    setActiveTab('diagram');
+    setSelectedStateId(stateId);
+    if (label) {
+      setSelectedStateLabel(label);
+    }
+    setJumpRequest({ stateId, timestamp: Date.now() });
+    if (mermaidViewerRef.current) {
+      mermaidViewerRef.current.panToState(stateId);
+    }
+  }, []);
 
   // Raw generated Mermaid Markdown
   const [rawMarkdown, setRawMarkdown] = useState<string>('');
@@ -271,6 +296,120 @@ export const App: React.FC = () => {
   const handleClearAllNotes = useCallback(() => {
     setDiagramNotes({ nodes: {}, edges: {}, positions: {}, styles: {} });
   }, []);
+
+  const handleSaveStateCode = useCallback(
+    (stateId: string, newCode: string) => {
+      try {
+        const updateResult = updateStateCodeInPou(pouContent, stateId, newCode);
+        if (!updateResult.success) {
+          return { success: false, error: updateResult.error || 'Failed to update POU' };
+        }
+        const updatedPou = updateResult.updatedPou;
+        // Update pouContent state (this updates left drawer editor and downloaded file)
+        setPouContent(updatedPou);
+
+        // Regenerate the diagram and markdown with the updated POU code immediately
+        try {
+          const startTime = performance.now();
+          setGenerationError(null);
+          const result = generateStatechart(dutContent, updatedPou, {
+            flowchartOutput,
+            collapseErrorSinkEdges,
+            includeStateDescriptions,
+            showTransitionPriorities,
+            priorityFormat,
+          });
+
+          const elapsed = Math.round(performance.now() - startTime);
+          setRawMarkdown(result);
+
+          const lines = result.split('\n');
+          const stateMatches = result.match(/-->/g) || [];
+          setGenerationStats({
+            statesCount: stateMatches.length,
+            linesCount: lines.length,
+            timeMs: elapsed,
+          });
+        } catch (genErr: unknown) {
+          const msg = genErr instanceof Error ? genErr.message : String(genErr);
+          setGenerationError(msg);
+        }
+
+        return { success: true };
+      } catch (err: unknown) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Error updating state code',
+        };
+      }
+    },
+    [
+      pouContent,
+      dutContent,
+      flowchartOutput,
+      collapseErrorSinkEdges,
+      includeStateDescriptions,
+      showTransitionPriorities,
+      priorityFormat,
+    ]
+  );
+
+  const handleSavePreProcessCode = useCallback(
+    (newCode: string, newDeclaration?: string) => {
+      try {
+        const updateResult = updatePreProcessCodeInPou(pouContent, newCode, newDeclaration);
+        if (!updateResult.success) {
+          return { success: false, error: updateResult.error || 'Failed to update preProcess method in POU' };
+        }
+        const updatedPou = updateResult.updatedPou;
+        // Update pouContent state (this updates left drawer editor, samples, and downloaded files)
+        setPouContent(updatedPou);
+
+        // Regenerate the diagram and markdown with the updated POU code immediately
+        try {
+          const startTime = performance.now();
+          setGenerationError(null);
+          const result = generateStatechart(dutContent, updatedPou, {
+            flowchartOutput,
+            collapseErrorSinkEdges,
+            includeStateDescriptions,
+            showTransitionPriorities,
+            priorityFormat,
+          });
+
+          const elapsed = Math.round(performance.now() - startTime);
+          setRawMarkdown(result);
+
+          const lines = result.split('\n');
+          const stateMatches = result.match(/-->/g) || [];
+          setGenerationStats({
+            statesCount: stateMatches.length,
+            linesCount: lines.length,
+            timeMs: elapsed,
+          });
+        } catch (genErr: unknown) {
+          const msg = genErr instanceof Error ? genErr.message : String(genErr);
+          setGenerationError(msg);
+        }
+
+        return { success: true };
+      } catch (err: unknown) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Error updating preProcess method',
+        };
+      }
+    },
+    [
+      pouContent,
+      dutContent,
+      flowchartOutput,
+      collapseErrorSinkEdges,
+      includeStateDescriptions,
+      showTransitionPriorities,
+      priorityFormat,
+    ]
+  );
 
   const customizedStatesCount = useMemo(() => {
     return Object.values(customNodeStyles).filter(
@@ -776,6 +915,15 @@ export const App: React.FC = () => {
               idPrefix="tcpou"
             />
 
+            {/* Identified States Sidebar Section */}
+            <IdentifiedStatesSidebarSection
+              states={identifiedStatesResult.states}
+              selectedStateId={selectedStateId}
+              onJumpToState={handleJumpToState}
+              customStyles={customNodeStyles}
+              stateVarName={identifiedStatesResult.stateVarName}
+            />
+
             {/* Guidance Info Card */}
             <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 text-[11px] text-slate-400 leading-relaxed">
               <div className="font-semibold text-slate-200 mb-1 flex items-center gap-1.5">
@@ -832,6 +980,8 @@ export const App: React.FC = () => {
           <div className="flex-1 min-h-0 relative">
             {activeTab === 'diagram' ? (
               <MermaidViewer
+                ref={mermaidViewerRef}
+                focusStateRequest={jumpRequest}
                 code={styledMarkdown}
                 layoutEngine={layoutEngine}
                 flowchartCurve={flowchartCurve}
@@ -859,6 +1009,10 @@ export const App: React.FC = () => {
                 onUpdateNoteStyle={handleUpdateNoteStyle}
                 onOpenMermaidLive={handleOpenMermaidLive}
                 fileName={pouFileName.replace(/\.TcPOU$/i, '') || 'statechart'}
+                tcPouContent={pouContent}
+                tcPouFileName={pouFileName}
+                onSaveStateCode={handleSaveStateCode}
+                onSavePreProcessCode={handleSavePreProcessCode}
               />
             ) : (
               <MermaidMarkdownViewer

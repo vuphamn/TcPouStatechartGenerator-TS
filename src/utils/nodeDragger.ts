@@ -1393,9 +1393,25 @@ export function applyDiagramOffsetsToSvg(
     // Update edge label position to follow rerouted midpoint
     if (edgeKey || edgeId) {
       const labels = Array.from(
-        svg.querySelectorAll(`g.edgeLabel[data-linked-path-id="${rawPathId}"], g.edgeLabel[data-linked-path-id="${edgeKey}"]`)
+        svg.querySelectorAll(
+          `g.edgeLabel[data-linked-path-id="${rawPathId}"], g.edgeLabel[data-linked-path-id="${edgeKey}"], g.edgeLabel[data-edge-id="${edgeId}"], g.edgeLabel[data-edge-id="${rawPathId}"], g.edgeLabel[data-edge-id="${edgeKey}"]`
+        )
       ) as SVGGElement[];
       for (const label of labels) {
+        if (!label.hasAttribute('data-orig-x')) {
+          let curX = 0;
+          let curY = 0;
+          const tf = label.getAttribute('transform');
+          if (tf) {
+            const tm = tf.match(/translate\(\s*(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)\s*\)/);
+            if (tm) {
+              curX = parseFloat(tm[1]);
+              curY = parseFloat(tm[2]);
+            }
+          }
+          label.setAttribute('data-orig-x', String(curX));
+          label.setAttribute('data-orig-y', String(curY));
+        }
         const origLx = parseFloat(label.getAttribute('data-orig-x') || '0');
         const origLy = parseFloat(label.getAttribute('data-orig-y') || '0');
         // Smoothly adjust label based on difference from original midpoint
@@ -1409,9 +1425,15 @@ export function applyDiagramOffsetsToSvg(
 
       // Update priority badge position
       const badges = Array.from(
-        svg.querySelectorAll(`.tc-priority-badge[data-path-id="${rawPathId}"], .tc-priority-badge[data-path-id="${edgeKey}"]`)
+        svg.querySelectorAll(
+          `.tc-priority-badge[data-path-id="${rawPathId}"], .tc-priority-badge[data-path-id="${edgeKey}"], .tc-priority-badge[data-edge-id="${edgeId}"], .tc-priority-badge[data-edge-id="${rawPathId}"], .tc-priority-badge[data-edge-id="${edgeKey}"]`
+        )
       ) as SVGGElement[];
       for (const badge of badges) {
+        if (!badge.hasAttribute('data-orig-x')) {
+          badge.setAttribute('data-orig-x', '0');
+          badge.setAttribute('data-orig-y', '0');
+        }
         const origD = path.getAttribute('data-orig-d') || '';
         const origPoints = extractCoordinatePoints(parseSvgPathCommands(origD));
         const origStart = origPoints[0] || { x: 0, y: 0 };
