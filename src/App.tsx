@@ -15,12 +15,31 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Palette,
+<<<<<<< HEAD
+  Code2,
+  Lock,
+  Unlock,
+  Printer,
+  Loader2,
+  ChevronDown,
+  FileImage,
+  FileCode,
+  X,
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 } from 'lucide-react';
 import { generateStatechart, PriorityFormat } from './generator.ts';
 import { MermaidViewer, MermaidViewerHandle, LayoutEngine, FlowchartCurve, MermaidTheme } from './components/MermaidViewer.tsx';
 import { MermaidMarkdownViewer } from './components/MermaidMarkdownViewer.tsx';
 import { FileDropzone } from './components/FileDropzone.tsx';
 import { IdentifiedStatesSidebarSection } from './components/IdentifiedStatesSidebarSection.tsx';
+<<<<<<< HEAD
+import { DutEnumEditor } from './components/DutEnumEditor.tsx';
+import { MethodStructuredTextEditor } from './components/MethodStructuredTextEditor.tsx';
+import { StateNodeStyleInspector, InspectorMode } from './components/StateNodeStyleInspector.tsx';
+import { HeaderHiddenControls } from './components/HeaderHiddenControls.tsx';
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 import { extractIdentifiedStatesFromPou } from './utils/pouStateExtractor.ts';
 import { SAMPLES, SampleItem } from './samples/samplesData.ts';
 import { getMermaidLiveUrl } from './utils/mermaidLive.ts';
@@ -34,7 +53,12 @@ import {
   appendCanvasPositionsToMermaid,
 } from './utils/canvasPositions.ts';
 import { copyTextToClipboard } from './utils/diagramExport.ts';
+<<<<<<< HEAD
+import { exportDiagramVisibleAreaToPdf } from './utils/printToPdf.ts';
+import { updateStateCodeInPou, updatePreProcessCodeInPou, updateMethodCodeInPou } from './utils/pouStateEditor.ts';
+=======
 import { updateStateCodeInPou, updatePreProcessCodeInPou } from './utils/pouStateEditor.ts';
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
 export const App: React.FC = () => {
   // Active sample or custom state
@@ -59,23 +83,84 @@ export const App: React.FC = () => {
   const [mermaidTheme, setMermaidTheme] = useState<MermaidTheme>('dark');
   const [liveUpdate, setLiveUpdate] = useState<boolean>(true);
 
+<<<<<<< HEAD
+  // Lock diagram layout toggle: disables automatic re-layout triggered by edits, preserving custom node positions
+  const [lockDiagramLayout, setLockDiagramLayout] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('tc_statechart_lock_diagram_layout') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tc_statechart_lock_diagram_layout', String(lockDiagramLayout));
+    } catch {
+      // ignore
+    }
+  }, [lockDiagramLayout]);
+
+  // UI tabs & states
+  const [activeTab, setActiveTab] = useState<'diagram' | 'markdown' | 'enum-editor'>('diagram');
+  const [diagramSearchQuery, setDiagramSearchQuery] = useState<string>('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [copiedMarkdown, setCopiedMarkdown] = useState<boolean>(false);
+  // Unified Inspector & Editor Modal State (Method Editor, Edit ENUM, Documentation, Style)
+  const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(false);
+  const [inspectorMode, setInspectorMode] = useState<InspectorMode>('method');
+  const [inspectorInitialMethod, setInspectorInitialMethod] = useState<string>('doState()');
+  const [inspectorInitialEnumMember, setInspectorInitialEnumMember] = useState<string | undefined>(undefined);
+=======
   // UI tabs & states
   const [activeTab, setActiveTab] = useState<'diagram' | 'markdown'>('diagram');
   const [diagramSearchQuery, setDiagramSearchQuery] = useState<string>('');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [copiedMarkdown, setCopiedMarkdown] = useState<boolean>(false);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // Node display customizations
   const [customNodeStyles, setCustomNodeStyles] = useState<CustomNodeStylesMap>({});
   const [selectedStateId, setSelectedStateId] = useState<string | null>(null);
   const [selectedStateLabel, setSelectedStateLabel] = useState<string>('');
 
+<<<<<<< HEAD
+  // Diagram notes and state documentation state with localStorage persistence
+  const [diagramNotes, setDiagramNotes] = useState<DiagramNotes>(() => {
+    try {
+      const stored = localStorage.getItem('tc_statechart_diagram_notes_metadata');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object' && parsed.nodes) {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return {
+      nodes: {},
+      edges: {},
+    };
+  });
+
+  // Sync diagram notes and state documentation changes to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('tc_statechart_diagram_notes_metadata', JSON.stringify(diagramNotes));
+    } catch {
+      // ignore
+    }
+  }, [diagramNotes]);
+
+=======
   // Diagram notes state
   const [diagramNotes, setDiagramNotes] = useState<DiagramNotes>({
     nodes: {},
     edges: {},
   });
 
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   // Node drag offsets and canvas extracted positions
   const [nodeOffsets, setNodeOffsets] = useState<NodeOffsetsMap>({});
   const [canvasPositions, setCanvasPositions] = useState<CanvasNodePositionsMap>({});
@@ -89,6 +174,24 @@ export const App: React.FC = () => {
     return extractIdentifiedStatesFromPou(pouContent, dutContent);
   }, [pouContent, dutContent]);
 
+<<<<<<< HEAD
+  // Effective selected state for Inspector (defaults to first identified state if none explicitly selected)
+  const effectiveSelectedStateId = useMemo(() => {
+    if (selectedStateId) return selectedStateId;
+    if (identifiedStatesResult.states.length > 0) {
+      return identifiedStatesResult.states[0].id;
+    }
+    return '';
+  }, [selectedStateId, identifiedStatesResult.states]);
+
+  const effectiveSelectedStateLabel = useMemo(() => {
+    if (selectedStateLabel) return selectedStateLabel;
+    const found = identifiedStatesResult.states.find((s) => s.id === effectiveSelectedStateId);
+    return found?.label || effectiveSelectedStateId;
+  }, [selectedStateLabel, identifiedStatesResult.states, effectiveSelectedStateId]);
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   // Jump to state from sidebar list
   const handleJumpToState = useCallback((stateId: string, label?: string) => {
     setActiveTab('diagram');
@@ -96,9 +199,16 @@ export const App: React.FC = () => {
     if (label) {
       setSelectedStateLabel(label);
     }
+<<<<<<< HEAD
+    const ts = Date.now();
+    setJumpRequest({ stateId, timestamp: ts });
+    if (mermaidViewerRef.current) {
+      mermaidViewerRef.current.panToState(stateId, ts);
+=======
     setJumpRequest({ stateId, timestamp: Date.now() });
     if (mermaidViewerRef.current) {
       mermaidViewerRef.current.panToState(stateId);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     }
   }, []);
 
@@ -354,6 +464,66 @@ export const App: React.FC = () => {
     ]
   );
 
+<<<<<<< HEAD
+  const handleSaveMethodCode = useCallback(
+    (methodName: string, newCode: string, newDeclaration?: string) => {
+      try {
+        const updateResult = updateMethodCodeInPou(pouContent, methodName, newCode, newDeclaration);
+        if (!updateResult.success) {
+          return { success: false, error: updateResult.error || `Failed to update method ${methodName} in POU` };
+        }
+        const updatedPou = updateResult.updatedPou;
+        // Update pouContent state (this updates left drawer editor, samples, and downloaded files)
+        setPouContent(updatedPou);
+
+        // Regenerate the diagram and markdown with the updated POU code immediately
+        try {
+          const startTime = performance.now();
+          setGenerationError(null);
+          const result = generateStatechart(dutContent, updatedPou, {
+            flowchartOutput,
+            collapseErrorSinkEdges,
+            includeStateDescriptions,
+            showTransitionPriorities,
+            priorityFormat,
+          });
+
+          const elapsed = Math.round(performance.now() - startTime);
+          setRawMarkdown(result);
+
+          const lines = result.split('\n');
+          const stateMatches = result.match(/-->/g) || [];
+          setGenerationStats({
+            statesCount: stateMatches.length,
+            linesCount: lines.length,
+            timeMs: elapsed,
+          });
+        } catch (genErr: unknown) {
+          const msg = genErr instanceof Error ? genErr.message : String(genErr);
+          setGenerationError(msg);
+        }
+
+        return { success: true };
+      } catch (err: unknown) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : `Error updating method ${methodName}`,
+        };
+      }
+    },
+    [
+      pouContent,
+      dutContent,
+      flowchartOutput,
+      collapseErrorSinkEdges,
+      includeStateDescriptions,
+      showTransitionPriorities,
+      priorityFormat,
+    ]
+  );
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const handleSavePreProcessCode = useCallback(
     (newCode: string, newDeclaration?: string) => {
       try {
@@ -411,6 +581,59 @@ export const App: React.FC = () => {
     ]
   );
 
+<<<<<<< HEAD
+  const handleSaveDutContent = useCallback(
+    (newDutContent: string) => {
+      try {
+        setDutContent(newDutContent);
+
+        // Regenerate diagram with updated DUT content immediately
+        try {
+          const startTime = performance.now();
+          setGenerationError(null);
+          const result = generateStatechart(newDutContent, pouContent, {
+            flowchartOutput,
+            collapseErrorSinkEdges,
+            includeStateDescriptions,
+            showTransitionPriorities,
+            priorityFormat,
+          });
+
+          const elapsed = Math.round(performance.now() - startTime);
+          setRawMarkdown(result);
+
+          const lines = result.split('\n');
+          const stateMatches = result.match(/-->/g) || [];
+          setGenerationStats({
+            statesCount: stateMatches.length,
+            linesCount: lines.length,
+            timeMs: elapsed,
+          });
+        } catch (genErr: unknown) {
+          const msg = genErr instanceof Error ? genErr.message : String(genErr);
+          setGenerationError(msg);
+        }
+
+        return { success: true };
+      } catch (err: unknown) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Error updating DUT enum content',
+        };
+      }
+    },
+    [
+      pouContent,
+      flowchartOutput,
+      collapseErrorSinkEdges,
+      includeStateDescriptions,
+      showTransitionPriorities,
+      priorityFormat,
+    ]
+  );
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const customizedStatesCount = useMemo(() => {
     return Object.values(customNodeStyles).filter(
       (s) => s.fill || s.color || s.stroke || s.strokeWidth
@@ -444,6 +667,11 @@ export const App: React.FC = () => {
   // Helper to extract the most up-to-date canvas positions and generate the full exported markdown
   const getLatestFullMarkdown = useCallback(() => {
     const livePositions = extractCanvasNodePositions(
+<<<<<<< HEAD
+      document.getElementById('mermaid-diagram-svg-container')?.querySelector('svg') ||
+      document.getElementById('mermaid-canvas-area')?.querySelector('svg:not(#diagram-snap-grid-svg):not([id*="snap-grid"])') ||
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       document.getElementById('mermaid-canvas-area')?.querySelector('svg'),
       nodeOffsets
     );
@@ -457,6 +685,47 @@ export const App: React.FC = () => {
   }, [nodeOffsets, canvasPositions, styledMarkdown, diagramNotes, layoutEngine, flowchartCurve, mermaidTheme]);
 
   // Actions
+<<<<<<< HEAD
+  const [copyToast, setCopyToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const copyToastTimeoutRef = useRef<number | null>(null);
+
+  const showCopyToast = useCallback((message: string, type: 'success' | 'error' = 'success', durationMs = 3200) => {
+    if (copyToastTimeoutRef.current) {
+      window.clearTimeout(copyToastTimeoutRef.current);
+    }
+    setCopyToast({ message, type });
+    copyToastTimeoutRef.current = window.setTimeout(() => {
+      setCopyToast(null);
+      copyToastTimeoutRef.current = null;
+    }, durationMs);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (copyToastTimeoutRef.current) {
+        window.clearTimeout(copyToastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleCopyMarkdown = () => {
+    const md = getLatestFullMarkdown() || outputMarkdown;
+    if (!md) return;
+    copyTextToClipboard(md)
+      .then((ok) => {
+        if (ok) {
+          setCopiedMarkdown(true);
+          setTimeout(() => setCopiedMarkdown(false), 2000);
+          showCopyToast('Mermaid diagram markdown copied to clipboard!', 'success');
+        } else {
+          showCopyToast('Failed to copy diagram markdown to clipboard', 'error');
+        }
+      })
+      .catch((err) => {
+        console.error('Error copying markdown:', err);
+        showCopyToast('Failed to copy diagram markdown to clipboard', 'error');
+      });
+=======
   const handleCopyMarkdown = () => {
     const md = getLatestFullMarkdown() || outputMarkdown;
     if (!md) return;
@@ -466,6 +735,7 @@ export const App: React.FC = () => {
         setTimeout(() => setCopiedMarkdown(false), 2000);
       }
     });
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   };
 
   const handleDownload = () => {
@@ -483,6 +753,154 @@ export const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+<<<<<<< HEAD
+  const [isPrintingPdf, setIsPrintingPdf] = useState<boolean>(false);
+  const [pdfToast, setPdfToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const pdfToastTimeoutRef = useRef<number | null>(null);
+
+  const showPdfToast = useCallback((message: string, type: 'success' | 'error' = 'success', durationMs = 3500) => {
+    if (pdfToastTimeoutRef.current) {
+      window.clearTimeout(pdfToastTimeoutRef.current);
+    }
+    setPdfToast({ message, type });
+    pdfToastTimeoutRef.current = window.setTimeout(() => {
+      setPdfToast(null);
+      pdfToastTimeoutRef.current = null;
+    }, durationMs);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pdfToastTimeoutRef.current) {
+        window.clearTimeout(pdfToastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleOpenExportDialog = (format: 'png' | 'svg' = 'png') => {
+    setIsExportMenuOpen(false);
+    if (activeTab !== 'diagram') {
+      setActiveTab('diagram');
+      setTimeout(() => {
+        mermaidViewerRef.current?.openExportModal(format);
+      }, 50);
+    } else {
+      mermaidViewerRef.current?.openExportModal(format);
+    }
+  };
+
+  const handleQuickDownloadPng = (scale: 1 | 2 | 3 | 4 = 2) => {
+    setIsExportMenuOpen(false);
+    if (activeTab !== 'diagram') {
+      setActiveTab('diagram');
+      setTimeout(() => {
+        mermaidViewerRef.current?.quickDownloadPng(scale);
+      }, 50);
+    } else {
+      mermaidViewerRef.current?.quickDownloadPng(scale);
+    }
+  };
+
+  const handleQuickDownloadSvg = (scale: 1 | 2 | 3 | 4 = 1) => {
+    setIsExportMenuOpen(false);
+    if (activeTab !== 'diagram') {
+      setActiveTab('diagram');
+      setTimeout(() => {
+        mermaidViewerRef.current?.quickDownloadSvg(scale);
+      }, 50);
+    } else {
+      mermaidViewerRef.current?.quickDownloadSvg(scale);
+    }
+  };
+
+  const handleQuickCopyPng = (scale: 1 | 2 | 3 | 4 = 2) => {
+    setIsExportMenuOpen(false);
+    const trigger = async () => {
+      try {
+        const res = await mermaidViewerRef.current?.quickCopyPng(scale);
+        if (res) {
+          showCopyToast(res.message, res.success ? 'success' : 'error');
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Clipboard copy failed';
+        showCopyToast(`Copy failed: ${msg}`, 'error');
+      }
+    };
+
+    if (activeTab !== 'diagram') {
+      setActiveTab('diagram');
+      setTimeout(trigger, 80);
+    } else {
+      trigger();
+    }
+  };
+
+  const handleQuickCopySvg = () => {
+    setIsExportMenuOpen(false);
+    const trigger = async () => {
+      try {
+        const res = await mermaidViewerRef.current?.quickCopySvg();
+        if (res) {
+          showCopyToast(res.message, res.success ? 'success' : 'error');
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Clipboard copy failed';
+        showCopyToast(`Copy failed: ${msg}`, 'error');
+      }
+    };
+
+    if (activeTab !== 'diagram') {
+      setActiveTab('diagram');
+      setTimeout(trigger, 80);
+    } else {
+      trigger();
+    }
+  };
+
+  const handlePrintToPdf = async () => {
+    if (!outputMarkdown || isPrintingPdf) return;
+    setIsPrintingPdf(true);
+    try {
+      const baseName = pouFileName.replace(/\.TcPOU$/i, '') || 'statechart';
+      const result = await exportDiagramVisibleAreaToPdf({
+        targetElementId: 'mermaid-canvas-area',
+        fileName: `${baseName}-diagram-visible`,
+        scale: 2,
+        theme: mermaidTheme,
+        title: `${baseName} - Statechart Diagram (Visible Area)`,
+      });
+
+      if (result.success) {
+        showPdfToast(`Exported high-res PDF: ${result.fileName}`, 'success');
+      } else {
+        showPdfToast(result.error || 'Failed to export PDF', 'error');
+      }
+    } catch (err: unknown) {
+      console.error('Error printing PDF:', err);
+      const msg = err instanceof Error ? err.message : 'Failed to generate PDF';
+      showPdfToast(msg, 'error');
+    } finally {
+      setIsPrintingPdf(false);
+    }
+  };
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const handleOpenMermaidLive = () => {
     const md = getLatestFullMarkdown() || outputMarkdown;
     if (!md) return;
@@ -499,19 +917,43 @@ export const App: React.FC = () => {
       {/* Top Application Bar */}
       <header
         id="app-header"
+<<<<<<< HEAD
+        className="relative z-40 flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 backdrop-blur shrink-0"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+=======
         className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 backdrop-blur shrink-0"
       >
         <div className="flex items-center gap-3">
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           <button
             id="toggle-sidebar-btn"
             type="button"
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+<<<<<<< HEAD
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors shrink-0"
+=======
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             title={isSidebarOpen ? 'Collapse inputs' : 'Expand inputs'}
           >
             {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
           </button>
 
+<<<<<<< HEAD
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 font-bold shrink-0">
+              <GitFork className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold tracking-tight text-white flex items-center gap-2 truncate">
+                TcPouStatechartGenerator
+                <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full bg-sky-950 text-sky-400 border border-sky-800/60 font-mono shrink-0">
+                  Web Edition
+                </span>
+              </h1>
+              <p className="text-[11px] text-slate-400 truncate hidden xl:block">
+=======
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 font-bold">
               <GitFork className="w-4 h-4" />
@@ -524,6 +966,7 @@ export const App: React.FC = () => {
                 </span>
               </h1>
               <p className="text-[11px] text-slate-400">
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
                 TwinCAT PLC Statechart & Flowchart Diagram Generator
               </p>
             </div>
@@ -531,7 +974,49 @@ export const App: React.FC = () => {
         </div>
 
         {/* Header Action Bar */}
+<<<<<<< HEAD
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Hidden Controls Menu (ALWAYS at the very front of header action bar on any monitor size) */}
+          <HeaderHiddenControls
+            flowchartOutput={flowchartOutput}
+            setFlowchartOutput={setFlowchartOutput}
+            collapseErrorSinkEdges={collapseErrorSinkEdges}
+            setCollapseErrorSinkEdges={setCollapseErrorSinkEdges}
+            includeStateDescriptions={includeStateDescriptions}
+            setIncludeStateDescriptions={setIncludeStateDescriptions}
+            showTransitionPriorities={showTransitionPriorities}
+            setShowTransitionPriorities={setShowTransitionPriorities}
+            priorityFormat={priorityFormat}
+            setPriorityFormat={setPriorityFormat}
+            layoutEngine={layoutEngine}
+            setLayoutEngine={setLayoutEngine}
+            flowchartCurve={flowchartCurve}
+            setFlowchartCurve={setFlowchartCurve}
+            mermaidTheme={mermaidTheme}
+            setMermaidTheme={setMermaidTheme}
+            lockDiagramLayout={lockDiagramLayout}
+            setLockDiagramLayout={setLockDiagramLayout}
+            liveUpdate={liveUpdate}
+            setLiveUpdate={setLiveUpdate}
+            handlePrintToPdf={handlePrintToPdf}
+            isPrintingPdf={isPrintingPdf}
+            handleOpenMermaidLive={handleOpenMermaidLive}
+            generationStats={generationStats}
+            outputMarkdown={outputMarkdown}
+            customizedStatesCount={customizedStatesCount}
+            onClearAllCustomStyles={handleClearAllCustomStyles}
+            isSidebarOpen={isSidebarOpen}
+            onCopyMarkdown={handleCopyMarkdown}
+            copiedMarkdown={copiedMarkdown}
+            onDownload={handleDownload}
+            onOpenExportDialog={() => handleOpenExportDialog('png')}
+          />
+
+          <div className="h-5 w-[1px] bg-slate-800 mx-0.5"></div>
+
+=======
         <div className="flex items-center gap-2">
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           {/* Sample Selector */}
           <div className="flex items-center gap-1.5 bg-slate-800/80 border border-slate-700/60 rounded-lg px-2 py-1 text-xs">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
@@ -594,17 +1079,192 @@ export const App: React.FC = () => {
             <span className="hidden md:inline">Download</span>
           </button>
 
+<<<<<<< HEAD
+          {/* Export Dropdown */}
+          <div className="relative" ref={exportMenuRef}>
+            <button
+              id="export-dropdown-button"
+              type="button"
+              onClick={() => setIsExportMenuOpen((prev) => !prev)}
+              disabled={!outputMarkdown}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-medium shadow-sm transition-all disabled:opacity-40 cursor-pointer"
+              title="Export high-resolution PNG/SVG with custom scale and options"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isExportMenuOpen && (
+              <div
+                id="export-options-dropdown"
+                className="absolute right-0 top-full mt-1.5 w-64 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 z-50 text-xs text-slate-200 divide-y divide-slate-800/70"
+              >
+                <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  High-Resolution Export
+                </div>
+                <div className="py-1">
+                  <button
+                    id="dropdown-open-modal-btn"
+                    type="button"
+                    onClick={() => handleOpenExportDialog('png')}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-800 text-sky-400 font-medium transition-colors cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-sky-400 shrink-0" />
+                    <div>
+                      <div className="text-white text-xs">High-Res Export Dialog...</div>
+                      <div className="text-[10px] text-slate-400">Custom scale (1x-4x), background & DPI</div>
+                    </div>
+                  </button>
+                </div>
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] text-slate-500 font-medium">Quick Downloads</div>
+                  <button
+                    id="dropdown-png-2x-btn"
+                    type="button"
+                    onClick={() => handleQuickDownloadPng(2)}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileImage className="w-3.5 h-3.5 text-sky-400" />
+                      Download PNG
+                    </span>
+                    <span className="text-[10px] font-mono text-sky-400 bg-sky-950/80 px-1.5 py-0.5 rounded border border-sky-800/50">2x Retina</span>
+                  </button>
+                  <button
+                    id="dropdown-png-3x-btn"
+                    type="button"
+                    onClick={() => handleQuickDownloadPng(3)}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileImage className="w-3.5 h-3.5 text-amber-400" />
+                      Download PNG
+                    </span>
+                    <span className="text-[10px] font-mono text-amber-400 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-800/50">High-Quality (3x)</span>
+                  </button>
+                  <button
+                    id="dropdown-png-4x-btn"
+                    type="button"
+                    onClick={() => handleQuickDownloadPng(4)}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileImage className="w-3.5 h-3.5 text-emerald-400" />
+                      Download PNG
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/50">4x UHD 4K</span>
+                  </button>
+                  <button
+                    id="dropdown-svg-btn"
+                    type="button"
+                    onClick={() => handleQuickDownloadSvg(1)}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+                      Download SVG
+                    </span>
+                    <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/80 px-1.5 py-0.5 rounded border border-indigo-800/50">Vector</span>
+                  </button>
+                  <button
+                    id="dropdown-print-pdf-btn"
+                    type="button"
+                    onClick={() => {
+                      setIsExportMenuOpen(false);
+                      handlePrintToPdf();
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Printer className="w-3.5 h-3.5 text-rose-400" />
+                      Print to PDF
+                    </span>
+                    <span className="text-[10px] font-mono text-rose-400 bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-800/50">Visible Area</span>
+                  </button>
+                </div>
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] text-slate-500 font-medium">Copy to System Clipboard</div>
+                  <button
+                    id="dropdown-copy-png-btn"
+                    type="button"
+                    onClick={() => handleQuickCopyPng(2)}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Copy className="w-3.5 h-3.5 text-slate-400" />
+                      Copy PNG
+                    </span>
+                    <span className="text-[10px] font-mono text-sky-400 bg-sky-950/80 px-1.5 py-0.5 rounded border border-sky-800/50">2x Retina</span>
+                  </button>
+                  <button
+                    id="dropdown-copy-png-3x-btn"
+                    type="button"
+                    onClick={() => handleQuickCopyPng(3)}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Copy className="w-3.5 h-3.5 text-amber-400" />
+                      Copy PNG
+                    </span>
+                    <span className="text-[10px] font-mono text-amber-400 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-800/50">High-Quality (3x)</span>
+                  </button>
+                  <button
+                    id="dropdown-copy-svg-btn"
+                    type="button"
+                    onClick={handleQuickCopySvg}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Copy className="w-3.5 h-3.5 text-indigo-400" />
+                      Copy SVG
+                    </span>
+                    <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/80 px-1.5 py-0.5 rounded border border-indigo-800/50">Vector</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Print to PDF (Visible Area on wide monitors, always available in Hidden menu) */}
+          <button
+            id="print-to-pdf-btn"
+            type="button"
+            onClick={handlePrintToPdf}
+            disabled={!outputMarkdown || isPrintingPdf}
+            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-medium border border-slate-700 transition-colors disabled:opacity-40 cursor-pointer"
+            title="Print current visible area of the Mermaid diagram as a high-resolution PDF file"
+          >
+            {isPrintingPdf ? (
+              <Loader2 className="w-3.5 h-3.5 text-rose-400 animate-spin" />
+            ) : (
+              <Printer className="w-3.5 h-3.5 text-rose-400" />
+            )}
+            <span className="hidden 2xl:inline">{isPrintingPdf ? 'Generating PDF...' : 'Print to PDF'}</span>
+          </button>
+
+          {/* Open in Mermaid Live (on wide monitors, always available in Hidden menu) */}
+=======
           {/* Open in Mermaid Live */}
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           <button
             id="open-mermaid-live-btn"
             type="button"
             onClick={handleOpenMermaidLive}
             disabled={!outputMarkdown}
+<<<<<<< HEAD
+            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-40"
+            title="Open in mermaid.live"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span className="hidden xl:inline">Mermaid Live</span>
+=======
             className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-40"
             title="Open in mermaid.live"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span className="hidden lg:inline">Mermaid Live</span>
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           </button>
         </div>
       </header>
@@ -612,7 +1272,11 @@ export const App: React.FC = () => {
       {/* Options Control Ribbon */}
       <div
         id="options-ribbon"
+<<<<<<< HEAD
+        className="relative z-30 flex flex-wrap items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800/80 text-xs text-slate-300 gap-3 shrink-0"
+=======
         className="flex flex-wrap items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800/80 text-xs text-slate-300 gap-3 shrink-0"
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       >
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-1.5 text-slate-400 font-medium">
@@ -805,6 +1469,38 @@ export const App: React.FC = () => {
             </select>
           </div>
 
+<<<<<<< HEAD
+          {/* Lock Diagram Layout Toggle */}
+          <button
+            id="lock-diagram-layout-toggle-btn"
+            type="button"
+            onClick={() => setLockDiagramLayout((prev) => !prev)}
+            title={
+              lockDiagramLayout
+                ? 'Diagram layout is LOCKED: automatic re-layout is disabled on code edits, preserving custom node positions. Click to unlock.'
+                : 'Lock diagram layout: disables automatic re-layout triggered by edits, allowing you to maintain custom node positions when tweaking code logic.'
+            }
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+              lockDiagramLayout
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/60 shadow-xs ring-1 ring-amber-500/30'
+                : 'bg-slate-950/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800'
+            }`}
+          >
+            {lockDiagramLayout ? (
+              <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            ) : (
+              <Unlock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            )}
+            <span>{lockDiagramLayout ? 'Layout Locked' : 'Lock Layout'}</span>
+            {lockDiagramLayout && (
+              <span className="text-[9px] font-bold px-1 rounded bg-amber-400 text-slate-950 leading-none">
+                LOCKED
+              </span>
+            )}
+          </button>
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           {/* Custom Node Styles Count Badge */}
           {customizedStatesCount > 0 && (
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-sky-950/60 border border-sky-800/60 text-sky-400 text-[11px]">
@@ -896,6 +1592,15 @@ export const App: React.FC = () => {
                 setDutContent(text);
               }}
               idPrefix="tcdut"
+<<<<<<< HEAD
+              onOpenEditor={() => {
+                setInspectorInitialEnumMember(undefined);
+                setInspectorMode('enum');
+                setIsInspectorOpen(true);
+              }}
+              editorButtonLabel="Edit ENUM"
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             />
 
             {/* TcPOU File Dropzone */}
@@ -913,6 +1618,15 @@ export const App: React.FC = () => {
                 setPouContent(text);
               }}
               idPrefix="tcpou"
+<<<<<<< HEAD
+              onOpenEditor={() => {
+                setInspectorInitialMethod('doState()');
+                setInspectorMode('method');
+                setIsInspectorOpen(true);
+              }}
+              editorButtonLabel="Edit Method"
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             />
 
             {/* Identified States Sidebar Section */}
@@ -922,6 +1636,14 @@ export const App: React.FC = () => {
               onJumpToState={handleJumpToState}
               customStyles={customNodeStyles}
               stateVarName={identifiedStatesResult.stateVarName}
+<<<<<<< HEAD
+              onOpenEnumEditor={() => {
+                setInspectorInitialEnumMember(selectedStateId || undefined);
+                setInspectorMode('enum');
+                setIsInspectorOpen(true);
+              }}
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             />
 
             {/* Guidance Info Card */}
@@ -966,6 +1688,22 @@ export const App: React.FC = () => {
               >
                 Mermaid Markdown
               </button>
+<<<<<<< HEAD
+              <button
+                id="tab-enum-editor-btn"
+                type="button"
+                onClick={() => setActiveTab('enum-editor')}
+                className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+                  activeTab === 'enum-editor'
+                    ? 'bg-slate-800 text-sky-400 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Code2 className="w-3.5 h-3.5" />
+                <span>Enum Editor (.TcDUT)</span>
+              </button>
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             </div>
 
             {generationError && (
@@ -1011,20 +1749,174 @@ export const App: React.FC = () => {
                 fileName={pouFileName.replace(/\.TcPOU$/i, '') || 'statechart'}
                 tcPouContent={pouContent}
                 tcPouFileName={pouFileName}
+<<<<<<< HEAD
+                tcDutContent={dutContent}
+                tcDutFileName={dutFileName}
+                isInspectorOpen={isInspectorOpen}
+                onToggleInspector={() => setIsInspectorOpen((prev) => !prev)}
+                onOpenInspector={(mode, methodName, memberName) => {
+                  if (mode) setInspectorMode(mode);
+                  if (methodName) setInspectorInitialMethod(methodName);
+                  if (memberName) setInspectorInitialEnumMember(memberName);
+                  setIsInspectorOpen(true);
+                }}
+                onCloseInspector={() => setIsInspectorOpen(false)}
+                onOpenEnumEditor={(memberName) => {
+                  setInspectorInitialEnumMember(memberName);
+                  setInspectorMode('enum');
+                  setIsInspectorOpen(true);
+                }}
+                onOpenMethodEditor={(methodName) => {
+                  setInspectorInitialMethod(methodName || 'doState()');
+                  setInspectorMode('method');
+                  setIsInspectorOpen(true);
+                }}
+                onSaveMethodCode={handleSaveMethodCode}
+                onSaveStateCode={handleSaveStateCode}
+                onSavePreProcessCode={handleSavePreProcessCode}
+                priorityFormat={priorityFormat}
+                layoutLocked={lockDiagramLayout}
+                onLayoutLockedChange={setLockDiagramLayout}
+                onToast={showCopyToast}
+              />
+            ) : activeTab === 'markdown' ? (
+=======
                 onSaveStateCode={handleSaveStateCode}
                 onSavePreProcessCode={handleSavePreProcessCode}
               />
             ) : (
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               <MermaidMarkdownViewer
                 code={outputMarkdown}
                 fileName={`${pouFileName.replace(/\.TcPOU$/i, '') || 'statechart'}.statechart.md`}
                 searchQuery={diagramSearchQuery}
                 onSearchQueryChange={setDiagramSearchQuery}
+<<<<<<< HEAD
+                onToast={showCopyToast}
               />
+            ) : (
+              <div className="h-full flex flex-col rounded-xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl">
+                <DutEnumEditor
+                  dutContent={dutContent}
+                  dutFileName={dutFileName}
+                  pouContent={pouContent}
+                  onSaveDutContent={handleSaveDutContent}
+                  initialSelectedMember={inspectorInitialEnumMember}
+                  isModal={false}
+                />
+              </div>
+=======
+              />
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             )}
           </div>
         </main>
       </div>
+<<<<<<< HEAD
+
+      {/* Unified Inspector & Editor Modal (Method Editor, Edit ENUM, Documentation, Style) */}
+      {isInspectorOpen && (
+        <StateNodeStyleInspector
+          selectedStateId={effectiveSelectedStateId}
+          selectedStateLabel={effectiveSelectedStateLabel}
+          availableStates={identifiedStatesResult.states.map((s) => ({
+            id: s.id,
+            label: s.label || s.id,
+            isSelected: s.id === effectiveSelectedStateId,
+          }))}
+          customStyles={customNodeStyles}
+          onStyleChange={handleStyleChange}
+          onResetStateStyle={handleResetStateStyle}
+          onClearAllCustomStyles={handleClearAllCustomStyles}
+          onSelectState={(id, label) => {
+            setSelectedStateId(id);
+            if (label) setSelectedStateLabel(label);
+            if (id && mermaidViewerRef.current) {
+              mermaidViewerRef.current.panToState(id);
+            }
+          }}
+          onClose={() => setIsInspectorOpen(false)}
+          tcPouContent={pouContent}
+          tcPouFileName={pouFileName}
+          tcDutContent={dutContent}
+          tcDutFileName={dutFileName}
+          onSaveDutContent={handleSaveDutContent}
+          onSaveMethodCode={handleSaveMethodCode}
+          onSaveStateCode={handleSaveStateCode}
+          onSavePreProcessCode={handleSavePreProcessCode}
+          initialMode={inspectorMode}
+          initialMethod={inspectorInitialMethod}
+          initialEnumMember={inspectorInitialEnumMember}
+          notes={diagramNotes}
+          onSaveNote={handleSaveNote}
+          onDeleteNote={handleDeleteNote}
+          onUpdateNoteStyle={handleUpdateNoteStyle}
+        />
+      )}
+
+      {/* Floating Toast Notifications Container */}
+      <div
+        id="toast-notification-container"
+        className="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 pointer-events-none items-end"
+      >
+        {/* Mermaid Diagram Clipboard Copy Toast */}
+        {copyToast && (
+          <div
+            id="clipboard-toast"
+            data-testid="clipboard-toast-notification"
+            className={`pointer-events-auto flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-medium border backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200 ${
+              copyToast.type === 'success'
+                ? 'bg-slate-900/95 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/20'
+                : 'bg-slate-900/95 border-rose-500/50 text-rose-300 ring-1 ring-rose-500/20'
+            }`}
+          >
+            {copyToast.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            )}
+            <span>{copyToast.message}</span>
+            <button
+              type="button"
+              onClick={() => setCopyToast(null)}
+              className="ml-1 p-0.5 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors"
+              title="Dismiss notification"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Floating PDF Toast Notification */}
+        {pdfToast && (
+          <div
+            id="pdf-export-toast"
+            data-testid="pdf-export-toast"
+            className={`pointer-events-auto flex items-center gap-2.5 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-medium border backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200 ${
+              pdfToast.type === 'success'
+                ? 'bg-slate-900/95 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/20'
+                : 'bg-slate-900/95 border-rose-500/50 text-rose-300 ring-1 ring-rose-500/20'
+            }`}
+          >
+            {pdfToast.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            )}
+            <span>{pdfToast.message}</span>
+            <button
+              type="button"
+              onClick={() => setPdfToast(null)}
+              className="ml-1 p-0.5 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors"
+              title="Dismiss notification"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     </div>
   );
 };

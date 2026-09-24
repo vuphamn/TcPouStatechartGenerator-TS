@@ -16,7 +16,10 @@ import {
   ChevronDown,
   ChevronUp,
   Palette,
+<<<<<<< HEAD
+=======
   Move,
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   StickyNote,
   FileImage,
   FileCode,
@@ -24,8 +27,47 @@ import {
   Sliders,
   MousePointerClick,
   SlidersHorizontal,
+<<<<<<< HEAD
+  Map,
+  Grid,
+  Magnet,
+  BookOpen,
+  Activity,
+  Flame,
+  AlertTriangle,
+  Lock,
+  Unlock,
+  Code2,
+  ListFilter,
+  Workflow,
+  Printer,
+  Loader2,
+} from 'lucide-react';
+import { DiagramMinimap } from './DiagramMinimap.tsx';
+import { DiagramLegendOverlay } from './DiagramLegendOverlay.tsx';
+import { ToolbarHiddenControls } from './ToolbarHiddenControls.tsx';
+import { StateMachineStatsPanel } from './StateMachineStatsPanel.tsx';
+import { ComplexityHeatmapPanel } from './ComplexityHeatmapPanel.tsx';
+import {
+  calculateStateComplexityHeatmap,
+  ComplexityHeatmapResult,
+  HeatmapPalette,
+  StateComplexityMetric,
+} from '../utils/complexityHeatmap.ts';
+import { exportDiagramVisibleAreaToPdf } from '../utils/printToPdf.ts';
+import { DiagramSearchPanel } from './DiagramSearchPanel.tsx';
+import { DiagramSnapGuides } from './DiagramSnapGuides.tsx';
+import {
+  SnapConfig,
+  DEFAULT_SNAP_CONFIG,
+  calculateSnappedPosition,
+  SnapResult,
+} from '../utils/snapToGrid.ts';
+import { StateNodeStyleInspector, InspectorMode } from './StateNodeStyleInspector.tsx';
+=======
 } from 'lucide-react';
 import { StateNodeStyleInspector } from './StateNodeStyleInspector.tsx';
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 import { DiagramContextMenu } from './DiagramContextMenu.tsx';
 import { NoteDialog } from './NoteDialog.tsx';
 import { NotesDrawer } from './NotesDrawer.tsx';
@@ -33,6 +75,11 @@ import { NoteOverlaysLayer } from './NoteOverlaysLayer.tsx';
 import { ExportModal } from './ExportModal.tsx';
 import { TransitionGuardInspector } from './TransitionGuardInspector.tsx';
 import { PreProcessStructuredTextEditor } from './PreProcessStructuredTextEditor.tsx';
+<<<<<<< HEAD
+import { MethodStructuredTextEditor } from './MethodStructuredTextEditor.tsx';
+import { DutEnumEditor } from './DutEnumEditor.tsx';
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 import { createInteractiveMermaidCode } from '../utils/interactiveDiagram.ts';
 import {
   exportHighResSvg,
@@ -49,6 +96,10 @@ import {
   ContextMenuTarget,
   EdgeInfo,
   NotePosition,
+<<<<<<< HEAD
+  SearchMatchItem,
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 } from '../types.ts';
 import { extractStateNodesFromMermaid } from '../utils/nodeStyles.ts';
 import {
@@ -67,6 +118,10 @@ import {
   findEdgePathElement,
   getEdgeAnchorPoint,
   parseTranslation,
+<<<<<<< HEAD
+  getNodeGeometry,
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 } from '../utils/nodeDragger.ts';
 import {
   CanvasNodePositionsMap,
@@ -90,11 +145,26 @@ function ensureElkRegistered() {
 }
 
 export interface MermaidViewerHandle {
+<<<<<<< HEAD
+  panToState: (stateId: string, timestamp?: number) => void;
+=======
   panToState: (stateId: string) => void;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   resetView: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
   fitToScreen: () => void;
+<<<<<<< HEAD
+  autoAlign: () => void;
+  openExportModal: (format?: ExportFormat) => void;
+  quickDownloadPng: (scale?: ExportScale) => Promise<void>;
+  quickDownloadSvg: (scale?: ExportScale) => Promise<void>;
+  quickCopyPng: (scale?: ExportScale) => Promise<{ success: boolean; message: string }>;
+  quickCopySvg: () => Promise<{ success: boolean; message: string }>;
+  printVisiblePdf: () => Promise<void>;
+  getActiveSvgElement: () => SVGSVGElement | null;
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 export interface MermaidViewerProps {
@@ -126,6 +196,25 @@ export interface MermaidViewerProps {
   onInteractiveModeChange?: (enabled: boolean) => void;
   tcPouContent?: string;
   tcPouFileName?: string;
+<<<<<<< HEAD
+  tcDutContent?: string;
+  tcDutFileName?: string;
+  onSaveDutContent?: (newDutContent: string) => { success: boolean; error?: string };
+  onOpenEnumEditor?: (memberName?: string) => void;
+  onOpenMethodEditor?: (methodName?: string) => void;
+  onSaveMethodCode?: (methodName: string, newCode: string, newDeclaration?: string) => { success: boolean; error?: string };
+  onSaveStateCode?: (stateId: string, newCode: string) => { success: boolean; error?: string };
+  onSavePreProcessCode?: (newCode: string, newDeclaration?: string) => { success: boolean; error?: string };
+  focusStateRequest?: { stateId: string; timestamp: number } | null;
+  priorityFormat?: 'circled' | 'bracket' | 'paren';
+  layoutLocked?: boolean;
+  onLayoutLockedChange?: (locked: boolean) => void;
+  onToast?: (message: string, type: 'success' | 'error') => void;
+  isInspectorOpen?: boolean;
+  onToggleInspector?: () => void;
+  onOpenInspector?: (mode?: InspectorMode, methodName?: string, memberName?: string) => void;
+  onCloseInspector?: () => void;
+=======
   onSaveStateCode?: (stateId: string, newCode: string) => { success: boolean; error?: string };
   onSavePreProcessCode?: (newCode: string, newDeclaration?: string) => { success: boolean; error?: string };
   focusStateRequest?: { stateId: string; timestamp: number } | null;
@@ -136,6 +225,7 @@ interface SearchMatchItem {
   name: string;
   element: Element;
   associatedPaths?: Element[];
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 interface ParsedPath {
@@ -610,7 +700,16 @@ function enhanceSvgWithPriorityCircles(
   notes?: DiagramNotes,
   isInteractiveMode?: boolean,
   activeEdgeId?: string | null,
+<<<<<<< HEAD
+  availableEdgesList?: EdgeInfo[],
+  heatmapResult?: ComplexityHeatmapResult | null,
+  isHeatmapActive?: boolean,
+  heatmapOnlyRefactor?: boolean,
+  complexityThreshold: number = 5,
+  showComplexityBadges: boolean = true
+=======
   availableEdgesList?: EdgeInfo[]
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 ): string {
   if (typeof window === 'undefined' || !svgString) return svgString;
   try {
@@ -659,8 +758,44 @@ function enhanceSvgWithPriorityCircles(
           node.setAttribute('title', `Note: ${notes.nodes[rawId]}`);
         }
 
+<<<<<<< HEAD
+        // Complexity Heat-map coloring takes precedence when Heat-map mode is active
+        const metric =
+          heatmapResult?.metrics.get(rawId) ||
+          heatmapResult?.metricsList.find((m) => m.stateId.toLowerCase() === rawId.toLowerCase());
+
+        const isExceeded = metric ? metric.score >= complexityThreshold : false;
+        const shouldShowBadge = Boolean(
+          metric && (
+            (showComplexityBadges && isExceeded) ||
+            (isHeatmapActive && (!heatmapOnlyRefactor || metric.refactorNeeded))
+          )
+        );
+
+        if (isHeatmapActive && metric) {
+          if (!heatmapOnlyRefactor || metric.refactorNeeded) {
+            const shapes = node.querySelectorAll('rect, polygon, circle, path.basic');
+            shapes.forEach((shape) => {
+              (shape as HTMLElement).style.setProperty('fill', metric.color.fill, 'important');
+              (shape as HTMLElement).style.setProperty('stroke', metric.color.stroke, 'important');
+              (shape as HTMLElement).style.setProperty('stroke-width', metric.color.strokeWidth, 'important');
+            });
+            const textEls = node.querySelectorAll('.nodeLabel, span, p, text, div');
+            textEls.forEach((txt) => {
+              (txt as HTMLElement).style.setProperty('color', metric.color.color, 'important');
+              (txt as HTMLElement).style.setProperty('font-weight', '700', 'important');
+            });
+
+            node.setAttribute('data-complexity-score', String(metric.score));
+            node.setAttribute('data-complexity-level', metric.level);
+            node.classList.add('complexity-heatmap-node', `complexity-level-${metric.level}`);
+          }
+        } else if (customStyles && customStyles[rawId]) {
+          // Fallback to custom styles directly on SVG elements
+=======
         // Apply custom styles directly to SVG elements for instant robustness across all themes
         if (customStyles && customStyles[rawId]) {
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           const st = customStyles[rawId];
           const shapes = node.querySelectorAll('rect, polygon, circle, path.basic');
           shapes.forEach((shape) => {
@@ -673,6 +808,175 @@ function enhanceSvgWithPriorityCircles(
             if (st.color) (txt as HTMLElement).style.setProperty('color', st.color, 'important');
           });
         }
+<<<<<<< HEAD
+
+        // If the state exceeds cyclomatic complexity threshold, flag it as needing refactoring
+        if (metric && isExceeded) {
+          node.classList.add('complexity-refactor-needed');
+          node.setAttribute('data-complexity-score', String(metric.score));
+          node.setAttribute('data-complexity-exceeded', 'true');
+        }
+
+        // Render visual complexity badge on the node if eligible
+        if (shouldShowBadge && metric) {
+          let anchorX = 60;
+          let anchorY = -25;
+          let foundAnchor = false;
+
+          const primaryRect = node.querySelector('rect');
+          if (primaryRect) {
+            const rx = parseFloat(primaryRect.getAttribute('x') || '0');
+            const ry = parseFloat(primaryRect.getAttribute('y') || '0');
+            const rw = parseFloat(primaryRect.getAttribute('width') || '0');
+            if (!isNaN(rw) && rw > 15) {
+              anchorX = rx + rw;
+              anchorY = ry;
+              foundAnchor = true;
+            }
+          }
+
+          if (!foundAnchor) {
+            const primaryPolygon = node.querySelector('polygon');
+            if (primaryPolygon) {
+              const pointsStr = primaryPolygon.getAttribute('points') || '';
+              if (pointsStr) {
+                const pts = pointsStr.trim().split(/[\s,]+/).map(parseFloat);
+                let maxX = -Infinity;
+                let minY = Infinity;
+                for (let i = 0; i < pts.length; i += 2) {
+                  if (!isNaN(pts[i]) && pts[i] > maxX) maxX = pts[i];
+                  if (!isNaN(pts[i + 1]) && pts[i + 1] < minY) minY = pts[i + 1];
+                }
+                if (maxX !== -Infinity && minY !== Infinity) {
+                  anchorX = maxX;
+                  anchorY = minY;
+                  foundAnchor = true;
+                }
+              }
+            }
+          }
+
+          if (!foundAnchor) {
+            const primaryCircle = node.querySelector('circle');
+            if (primaryCircle) {
+              const cx = parseFloat(primaryCircle.getAttribute('cx') || '0');
+              const cy = parseFloat(primaryCircle.getAttribute('cy') || '0');
+              const r = parseFloat(primaryCircle.getAttribute('r') || '20');
+              anchorX = cx + r * 0.707;
+              anchorY = cy - r * 0.707;
+              foundAnchor = true;
+            }
+          }
+
+          const badgeG = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
+          badgeG.setAttribute('data-state-id', rawId);
+          badgeG.setAttribute('data-complexity-score', String(metric.score));
+
+          if (isExceeded) {
+            // Prominent visual alert badge for states exceeding cyclomatic complexity threshold
+            const isCritical = metric.score >= 8;
+            const isHigh = metric.score >= 5;
+            const glowClass = isCritical ? 'is-critical' : isHigh ? 'is-high' : 'is-moderate';
+            const badgeBg = isCritical
+              ? 'rgba(225, 29, 72, 0.96)'
+              : isHigh
+              ? 'rgba(217, 119, 6, 0.96)'
+              : 'rgba(2, 132, 199, 0.96)';
+            const badgeBorder = isCritical ? '#fda4af' : isHigh ? '#fde047' : '#7dd3fc';
+
+            badgeG.setAttribute('class', `tc-complexity-badge tc-refactor-flag-badge ${glowClass}`);
+            badgeG.setAttribute('transform', `translate(${anchorX - 38}, ${anchorY - 10})`);
+
+            // Tooltip title
+            const titleEl = doc.createElementNS('http://www.w3.org/2000/svg', 'title');
+            titleEl.textContent = `Cyclomatic Complexity: M=${metric.score} (Exceeds Threshold ${complexityThreshold}) - Potential Refactoring Needed! ${metric.refactorRecommendation || ''}`;
+            badgeG.appendChild(titleEl);
+
+            // Badge pill background
+            const badgeRect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            badgeRect.setAttribute('width', '54');
+            badgeRect.setAttribute('height', '20');
+            badgeRect.setAttribute('rx', '10');
+            badgeRect.setAttribute('ry', '10');
+            badgeRect.setAttribute('fill', badgeBg);
+            badgeRect.setAttribute('stroke', badgeBorder);
+            badgeRect.setAttribute('stroke-width', '1.5');
+            badgeG.appendChild(badgeRect);
+
+            // Warning triangle icon
+            const warnIcon = doc.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            warnIcon.setAttribute('points', '8,14.5 13.5,5.5 19,14.5');
+            warnIcon.setAttribute('fill', 'none');
+            warnIcon.setAttribute('stroke', '#ffffff');
+            warnIcon.setAttribute('stroke-width', '1.2');
+            warnIcon.setAttribute('stroke-linejoin', 'round');
+            badgeG.appendChild(warnIcon);
+
+            const warnLine = doc.createElementNS('http://www.w3.org/2000/svg', 'line');
+            warnLine.setAttribute('x1', '13.5');
+            warnLine.setAttribute('y1', '8.5');
+            warnLine.setAttribute('x2', '13.5');
+            warnLine.setAttribute('y2', '11.5');
+            warnLine.setAttribute('stroke', '#ffffff');
+            warnLine.setAttribute('stroke-width', '1.2');
+            warnLine.setAttribute('stroke-linecap', 'round');
+            badgeG.appendChild(warnLine);
+
+            const warnDot = doc.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            warnDot.setAttribute('cx', '13.5');
+            warnDot.setAttribute('cy', '13.2');
+            warnDot.setAttribute('r', '0.65');
+            warnDot.setAttribute('fill', '#ffffff');
+            badgeG.appendChild(warnDot);
+
+            // Monospace Score Text
+            const badgeText = doc.createElementNS('http://www.w3.org/2000/svg', 'text');
+            badgeText.setAttribute('x', '35');
+            badgeText.setAttribute('y', '14');
+            badgeText.setAttribute('text-anchor', 'middle');
+            badgeText.setAttribute('fill', '#ffffff');
+            badgeText.setAttribute('font-size', '10.5px');
+            badgeText.setAttribute('font-weight', 'bold');
+            badgeText.setAttribute('font-family', 'ui-monospace, monospace');
+            badgeText.textContent = `M=${metric.score}`;
+            badgeG.appendChild(badgeText);
+
+            node.appendChild(badgeG);
+          } else {
+            // Standard compact pill badge in heatmap mode
+            badgeG.setAttribute('class', 'tc-complexity-badge');
+            badgeG.setAttribute('transform', `translate(${anchorX - 32}, ${anchorY - 9})`);
+
+            const titleEl = doc.createElementNS('http://www.w3.org/2000/svg', 'title');
+            titleEl.textContent = `Cyclomatic Complexity: M=${metric.score} (${metric.levelLabel})`;
+            badgeG.appendChild(titleEl);
+
+            const badgeRect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            badgeRect.setAttribute('width', '42');
+            badgeRect.setAttribute('height', '18');
+            badgeRect.setAttribute('rx', '9');
+            badgeRect.setAttribute('ry', '9');
+            badgeRect.setAttribute('fill', metric.color.badgeBg);
+            badgeRect.setAttribute('stroke', metric.color.badgeBorder);
+            badgeRect.setAttribute('stroke-width', '1.5');
+            badgeG.appendChild(badgeRect);
+
+            const badgeText = doc.createElementNS('http://www.w3.org/2000/svg', 'text');
+            badgeText.setAttribute('x', '21');
+            badgeText.setAttribute('y', '12.5');
+            badgeText.setAttribute('text-anchor', 'middle');
+            badgeText.setAttribute('fill', '#ffffff');
+            badgeText.setAttribute('font-size', '10px');
+            badgeText.setAttribute('font-weight', 'bold');
+            badgeText.setAttribute('font-family', 'ui-monospace, monospace');
+            badgeText.textContent = `M=${metric.score}`;
+            badgeG.appendChild(badgeText);
+
+            node.appendChild(badgeG);
+          }
+        }
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       }
     }
 
@@ -976,6 +1280,34 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     onInteractiveModeChange,
     tcPouContent,
     tcPouFileName,
+<<<<<<< HEAD
+    tcDutContent,
+    tcDutFileName,
+    onSaveDutContent,
+    onOpenEnumEditor: onOpenEnumEditorProp,
+    onOpenMethodEditor: onOpenMethodEditorProp,
+    onSaveMethodCode,
+    onSaveStateCode,
+    onSavePreProcessCode,
+    focusStateRequest,
+    priorityFormat = 'circled',
+    layoutLocked: externalLayoutLocked,
+    onLayoutLockedChange: onLayoutLockedChangeProp,
+    onToast: onToastProp,
+    isInspectorOpen: externalIsInspectorOpen,
+    onToggleInspector: onToggleInspectorProp,
+    onOpenInspector: onOpenInspectorProp,
+    onCloseInspector: onCloseInspectorProp,
+  } = props;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const codeMenuRef = useRef<HTMLDivElement>(null);
+  const [isCodeMenuOpen, setIsCodeMenuOpen] = useState<boolean>(false);
+  const [svgContent, setSvgContent] = useState<string>('');
+  const [layoutTrigger, setLayoutTrigger] = useState<number>(0);
+  const [isAutoAligning, setIsAutoAligning] = useState<boolean>(false);
+  const autoAlignInProgressRef = useRef<boolean>(false);
+=======
     onSaveStateCode,
     onSavePreProcessCode,
     focusStateRequest,
@@ -984,6 +1316,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   const searchInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState<string>('');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState<number>(1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -992,7 +1325,58 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   const mouseDownPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [copiedSvg, setCopiedSvg] = useState<boolean>(false);
+<<<<<<< HEAD
+  const [isMethodModalOpen, setIsMethodModalOpen] = useState<boolean>(false);
+  const [methodModalInitialMethod, setMethodModalInitialMethod] = useState<string>('doState()');
+  const [isEnumModalOpen, setIsEnumModalOpen] = useState<boolean>(false);
+  const [enumModalInitialMember, setEnumModalInitialMember] = useState<string | undefined>(undefined);
+  const [isMinimapOpen, setIsMinimapOpen] = useState<boolean>(true);
+  const [isLegendOpen, setIsLegendOpen] = useState<boolean>(false);
+  const [isStatsOpen, setIsStatsOpen] = useState<boolean>(false);
+  const [isSearchPanelOpen, setIsSearchPanelOpen] = useState<boolean>(true);
+  const [canvasNodePositions, setCanvasNodePositions] = useState<CanvasNodePositionsMap>({});
+
+  const handleOpenMethodEditor = useCallback((methodName: string = 'doState()') => {
+    if (onOpenInspectorProp) {
+      onOpenInspectorProp('method', methodName);
+    } else if (onOpenMethodEditorProp) {
+      onOpenMethodEditorProp(methodName);
+    } else {
+      setMethodModalInitialMethod(methodName);
+      setIsMethodModalOpen(true);
+    }
+  }, [onOpenInspectorProp, onOpenMethodEditorProp]);
+
+  const handleOpenEnumEditor = useCallback((memberName?: string) => {
+    if (onOpenInspectorProp) {
+      onOpenInspectorProp('enum', undefined, memberName);
+    } else if (onOpenEnumEditorProp) {
+      onOpenEnumEditorProp(memberName);
+    } else {
+      setEnumModalInitialMember(memberName);
+      setIsEnumModalOpen(true);
+    }
+  }, [onOpenInspectorProp, onOpenEnumEditorProp]);
+
+  // Snap to Grid & Smart Alignment Guides State
+  const [snapConfig, setSnapConfig] = useState<SnapConfig>({
+    enabled: true,
+    gridSize: 20,
+    snapToNodes: true,
+    tolerance: 8,
+  });
+  const [activeSnapResult, setActiveSnapResult] = useState<SnapResult | null>(null);
+  const [showSnapToast, setShowSnapToast] = useState<{ message: string; timestamp: number } | null>(null);
+  const [isSnapMenuOpen, setIsSnapMenuOpen] = useState<boolean>(false);
+  const nodeInitialCenterRef = useRef<{
+    x: number;
+    y: number;
+    origCenterX: number;
+    origCenterY: number;
+  } | null>(null);
+=======
   const [isPreProcessModalOpen, setIsPreProcessModalOpen] = useState<boolean>(false);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // Interactive Mode & Transition Condition Detail Overlay
   const [internalInteractiveMode, setInternalInteractiveMode] = useState<boolean>(true);
@@ -1019,6 +1403,21 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   } | null>(null);
   const lastOverlayToggleTimeRef = useRef<number>(0);
 
+<<<<<<< HEAD
+  const [canvasTransition, setCanvasTransition] = useState<string>('none');
+  const [renderedSvg, setRenderedSvg] = useState<SVGSVGElement | null>(null);
+
+  const getDiagramSvg = useCallback((): SVGSVGElement | null => {
+    if (!containerRef.current) return null;
+    return (
+      (containerRef.current.querySelector('#mermaid-diagram-svg-container svg') as SVGSVGElement | null) ||
+      (containerRef.current.querySelector('svg:not(#diagram-snap-grid-svg):not([id*="snap-grid"])') as SVGSVGElement | null) ||
+      (renderedSvg && renderedSvg.id !== 'diagram-snap-grid-svg' ? renderedSvg : null)
+    );
+  }, [renderedSvg]);
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const toggleConditionOverlay = (edge: EdgeInfo, anchorPos?: { x: number; y: number }) => {
     const now = Date.now();
     if (now - lastOverlayToggleTimeRef.current < 300) {
@@ -1036,7 +1435,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       }
       let finalAnchor = anchorPos;
       if (!finalAnchor && containerRef.current) {
+<<<<<<< HEAD
+        const svg = getDiagramSvg();
+=======
         const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         if (svg) {
           const el = svg.querySelector(
             `g.edgeLabel[data-edge-id="${edge.id}"], .tc-priority-badge[data-edge-id="${edge.id}"], path[data-edge-id="${edge.id}"]`
@@ -1060,7 +1463,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
   useEffect(() => {
     if (!containerRef.current) return;
+<<<<<<< HEAD
+    const svg = getDiagramSvg();
+=======
     const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
 
     svg.querySelectorAll('.tc-priority-badge-active').forEach((el) => {
@@ -1094,18 +1501,30 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         });
       }
     }
+<<<<<<< HEAD
+  }, [activeConditionOverlay, getDiagramSvg]);
+=======
   }, [activeConditionOverlay]);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // High-Resolution Export States
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [exportModalDefaultFormat, setExportModalDefaultFormat] = useState<ExportFormat>('png');
+<<<<<<< HEAD
+=======
   const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const [exportingNotification, setExportingNotification] = useState<string | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+<<<<<<< HEAD
+      if (codeMenuRef.current && !codeMenuRef.current.contains(e.target as Node)) {
+        setIsCodeMenuOpen(false);
+=======
       if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
         setIsExportMenuOpen(false);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1122,14 +1541,23 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState<boolean>(false);
   const [activeNoteTarget, setActiveNoteTarget] = useState<ContextMenuTarget | null>(null);
   const [isNotesDrawerOpen, setIsNotesDrawerOpen] = useState<boolean>(false);
+<<<<<<< HEAD
+=======
   const [renderedSvg, setRenderedSvg] = useState<SVGSVGElement | null>(null);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   useEffect(() => {
     if (!containerRef.current || !svgContent) {
       setRenderedSvg(null);
       return;
     }
+<<<<<<< HEAD
+    const svg = (containerRef.current.querySelector('#mermaid-diagram-svg-container svg') ||
+      containerRef.current.querySelector('svg:not(#diagram-snap-grid-svg):not([id*="snap-grid"])') ||
+      containerRef.current.querySelector('svg')) as SVGSVGElement | null;
+=======
     const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     setRenderedSvg(svg);
   }, [svgContent]);
 
@@ -1189,13 +1617,116 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   // State selection and inspector
   const [internalSelectedStateId, setInternalSelectedStateId] = useState<string | null>(null);
   const [internalSelectedStateLabel, setInternalSelectedStateLabel] = useState<string>('');
+<<<<<<< HEAD
+  const [internalIsInspectorOpen, setInternalIsInspectorOpen] = useState<boolean>(false);
+  const isInspectorControlled = externalIsInspectorOpen !== undefined;
+  const isInspectorOpen = isInspectorControlled ? externalIsInspectorOpen! : internalIsInspectorOpen;
+
+  const setIsInspectorOpen = useCallback(
+    (open: boolean | ((prev: boolean) => boolean)) => {
+      if (typeof open === 'function') {
+        setInternalIsInspectorOpen((prev) => {
+          const next = open(prev);
+          if (next && onOpenInspectorProp) onOpenInspectorProp();
+          else if (!next && onCloseInspectorProp) onCloseInspectorProp();
+          return next;
+        });
+      } else {
+        setInternalIsInspectorOpen(open);
+        if (open && onOpenInspectorProp) onOpenInspectorProp();
+        else if (!open && onCloseInspectorProp) onCloseInspectorProp();
+      }
+    },
+    [onOpenInspectorProp, onCloseInspectorProp]
+  );
+=======
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(false);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   const effectiveSelectedStateId =
     externalSelectedStateId !== undefined ? externalSelectedStateId : internalSelectedStateId;
   const effectiveSelectedStateLabel =
     externalSelectedStateLabel !== undefined ? externalSelectedStateLabel : internalSelectedStateLabel;
 
+<<<<<<< HEAD
+  // Lock Diagram Layout state: disables automatic re-layout triggered by edits, preserving custom node positions
+  const [internalLayoutLocked, setInternalLayoutLocked] = useState<boolean>(false);
+  const isLayoutLocked = externalLayoutLocked !== undefined ? externalLayoutLocked : internalLayoutLocked;
+  const setEffectiveLayoutLocked = useCallback(
+    (valOrFn: boolean | ((prev: boolean) => boolean)) => {
+      const nextVal = typeof valOrFn === 'function' ? valOrFn(isLayoutLocked) : valOrFn;
+      if (onLayoutLockedChangeProp) {
+        onLayoutLockedChangeProp(nextVal);
+      } else {
+        setInternalLayoutLocked(nextVal);
+      }
+    },
+    [isLayoutLocked, onLayoutLockedChangeProp]
+  );
+
+  // Toast notification for layout locking
+  const [layoutLockToast, setLayoutLockToast] = useState<{ message: string; locked: boolean; timestamp: number } | null>(null);
+
+  useEffect(() => {
+    if (!layoutLockToast) return;
+    const timer = setTimeout(() => {
+      setLayoutLockToast(null);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [layoutLockToast]);
+
+  // Pinned/locked canvas positions for all states (stateId -> { centerX, centerY })
+  const lockedNodePositionsRef = useRef<Record<string, { centerX: number; centerY: number }>>({});
+
+  const handleToggleLayoutLocked = useCallback(() => {
+    setEffectiveLayoutLocked((prev) => {
+      const next = !prev;
+      if (next) {
+        if (containerRef.current) {
+          const svg = getDiagramSvg();
+          if (svg) {
+            const currentPos = extractCanvasNodePositions(svg, effectiveNodeOffsets);
+            const snapshot: Record<string, { centerX: number; centerY: number }> = {};
+            for (const [sId, p] of Object.entries(currentPos)) {
+              snapshot[sId] = { centerX: p.centerX, centerY: p.centerY };
+            }
+            lockedNodePositionsRef.current = snapshot;
+          }
+        }
+        setLayoutLockToast({
+          message: 'Diagram Layout Locked: Custom node positions will be maintained on code edits.',
+          locked: true,
+          timestamp: Date.now(),
+        });
+      } else {
+        setLayoutLockToast({
+          message: 'Diagram Layout Unlocked: Automatic re-layout re-enabled.',
+          locked: false,
+          timestamp: Date.now(),
+        });
+      }
+      return next;
+    });
+  }, [effectiveNodeOffsets, setEffectiveLayoutLocked, getDiagramSvg]);
+
+  useEffect(() => {
+    if (externalLayoutLocked) {
+      if (containerRef.current) {
+        const svg = getDiagramSvg();
+        if (svg) {
+          const currentPos = extractCanvasNodePositions(svg, effectiveNodeOffsets);
+          const snapshot: Record<string, { centerX: number; centerY: number }> = {};
+          for (const [sId, p] of Object.entries(currentPos)) {
+            snapshot[sId] = { centerX: p.centerX, centerY: p.centerY };
+          }
+          lockedNodePositionsRef.current = snapshot;
+        }
+      }
+    }
+  }, [externalLayoutLocked, effectiveNodeOffsets]);
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   // Custom node styles (fallback to local if not controlled)
   const [internalCustomStyles, setInternalCustomStyles] = useState<CustomNodeStylesMap>({});
   const effectiveCustomStyles = externalCustomStyles !== undefined ? externalCustomStyles : internalCustomStyles;
@@ -1205,6 +1736,74 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     return extractStateNodesFromMermaid(code);
   }, [code]);
 
+<<<<<<< HEAD
+  // Auto-Align: triggers a re-run of the layout engine to organize all nodes according to the current flowchart or stateDiagram-v2 logic, while respecting the locked layout state
+  const handleAutoAlign = useCallback(() => {
+    autoAlignInProgressRef.current = true;
+    setIsAutoAligning(true);
+
+    // 1. Clear any active manual node and edge drag offsets
+    currentNodeOffsetsRef.current = {};
+    currentEdgeOffsetsRef.current = {};
+    setNodeOffsets({});
+    setEdgeOffsets({});
+
+    // 2. Clear locked positions snapshot so the layout engine positions won't be overridden by previous drag offsets
+    lockedNodePositionsRef.current = {};
+
+    // 3. Reset SVG diagram offsets in current DOM if rendered
+    if (containerRef.current) {
+      const svg = getDiagramSvg();
+      if (svg) {
+        resetSvgDiagramOffsets(svg);
+      }
+    }
+
+    // 4. Trigger re-run of layout engine in mermaid
+    setLayoutTrigger((prev) => prev + 1);
+
+    // 5. Toast notification respecting locked state
+    const statesCount = availableStates.length;
+    setLayoutLockToast({
+      message: isLayoutLocked
+        ? `Diagram Auto-Aligned (${statesCount} states organized, layout remains locked)`
+        : `Diagram Auto-Aligned (${statesCount} states organized by ${layoutEngine.toUpperCase()} engine)`,
+      locked: isLayoutLocked,
+      timestamp: Date.now(),
+    });
+
+    // Safety fallback timer to clear spinner if svg render is instantaneous
+    setTimeout(() => {
+      setIsAutoAligning(false);
+      autoAlignInProgressRef.current = false;
+    }, 1200);
+  }, [getDiagramSvg, isLayoutLocked, layoutEngine, availableStates.length]);
+
+  // Complexity Heat-Map & Refactoring State & Calculation
+  const [isHeatmapActive, setIsHeatmapActive] = useState<boolean>(false);
+  const [isHeatmapPanelOpen, setIsHeatmapPanelOpen] = useState<boolean>(false);
+  const [heatmapPalette, setHeatmapPalette] = useState<HeatmapPalette>('traffic');
+  const [heatmapOnlyRefactor, setHeatmapOnlyRefactor] = useState<boolean>(false);
+  const [complexityThreshold, setComplexityThreshold] = useState<number>(5);
+  const [showComplexityBadges, setShowComplexityBadges] = useState<boolean>(true);
+  const [hoveredComplexityMetric, setHoveredComplexityMetric] = useState<{
+    metric: StateComplexityMetric;
+    anchorX: number;
+    anchorY: number;
+  } | null>(null);
+
+  const complexityHeatmapResult = useMemo<ComplexityHeatmapResult>(() => {
+    return calculateStateComplexityHeatmap(
+      availableStates,
+      availableEdges,
+      tcPouContent,
+      heatmapPalette,
+      complexityThreshold
+    );
+  }, [availableStates, availableEdges, tcPouContent, heatmapPalette, complexityThreshold]);
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   // Search state
   const [internalSearchQuery, setInternalSearchQuery] = useState<string>('');
   const effectiveSearchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
@@ -1215,6 +1814,28 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     transitions: 0,
   });
 
+<<<<<<< HEAD
+  // State jump animation and auto-centering refs
+  const jumpAttemptTimerRef = useRef<number | null>(null);
+  const jumpHighlightTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const jumpTransitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const jumpHighlightedNodeRef = useRef<SVGElement | null>(null);
+  const jumpSavedInlineStylesRef = useRef<Array<{
+    el: SVGElement;
+    fill: string;
+    stroke: string;
+    strokeWidth: string;
+    fillPriority: string;
+    strokePriority: string;
+    attrFill: string | null;
+    attrStroke: string | null;
+    attrStrokeWidth: string | null;
+  }> | null>(null);
+  const lastPanStateIdRef = useRef<{ id: string; timestamp: number } | null>(null);
+  const lastHandledFocusRequestTimestampRef = useRef<number | null>(null);
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const panToElement = (elem: Element) => {
     if (!containerRef.current) return;
     const containerRect = containerRef.current.getBoundingClientRect();
@@ -1222,6 +1843,27 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
     if (elemRect.width === 0 && elemRect.height === 0) return;
 
+<<<<<<< HEAD
+    const wrapper = containerRef.current.querySelector('#mermaid-svg-wrapper') as HTMLElement | null;
+    let currentPanX = pan.x;
+    let currentPanY = pan.y;
+
+    if (wrapper) {
+      const transformStr = window.getComputedStyle(wrapper).transform;
+      if (transformStr && transformStr !== 'none') {
+        const matrixMatch = transformStr.match(/matrix\(([^)]+)\)/);
+        if (matrixMatch) {
+          const parts = matrixMatch[1].split(',').map((p) => parseFloat(p.trim()));
+          if (parts.length >= 6 && !isNaN(parts[4]) && !isNaN(parts[5])) {
+            currentPanX = parts[4];
+            currentPanY = parts[5];
+          }
+        }
+      }
+    }
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     const currentElemCenterX = elemRect.left + elemRect.width / 2;
     const currentElemCenterY = elemRect.top + elemRect.height / 2;
     const targetCenterX = containerRect.left + containerRect.width / 2;
@@ -1230,15 +1872,37 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     const deltaX = targetCenterX - currentElemCenterX;
     const deltaY = targetCenterY - currentElemCenterY;
 
+<<<<<<< HEAD
+    // Apply smooth animated glide on the canvas wrapper via state
+    setCanvasTransition('transform 0.45s cubic-bezier(0.16, 1, 0.3, 1)');
+
+    setPan({
+      x: Math.round(currentPanX + deltaX),
+      y: Math.round(currentPanY + deltaY),
+    });
+
+    // Reset transition back to none after glide finishes so drag/zoom remain instant
+    if (jumpTransitionTimerRef.current) {
+      clearTimeout(jumpTransitionTimerRef.current);
+    }
+    jumpTransitionTimerRef.current = setTimeout(() => {
+      setCanvasTransition('none');
+    }, 500);
+=======
     setPan((prev) => ({
       x: prev.x + deltaX,
       y: prev.y + deltaY,
     }));
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   };
 
   const clearHighlighting = () => {
     if (!containerRef.current) return;
+<<<<<<< HEAD
+    const svg = getDiagramSvg();
+=======
     const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
 
     svg.classList.remove('diagram-search-active');
@@ -1261,7 +1925,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     shouldPan = false
   ) => {
     if (!containerRef.current) return;
+<<<<<<< HEAD
+    const svg = getDiagramSvg();
+=======
     const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
 
     const term = query.trim().toLowerCase();
@@ -1286,13 +1954,35 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     const nodes = Array.from(svg.querySelectorAll('g.node'));
     nodes.forEach((node) => {
       const text = node.textContent || '';
+<<<<<<< HEAD
+      const stateId =
+        node.getAttribute('data-state-id') ||
+        node.id?.replace(/^flowchart-/, '').replace(/-\d+$/, '') ||
+        '';
+      const stateLabel = node.getAttribute('data-state-label') || text.trim().replace(/\s+/g, ' ');
+
+      const isMatch =
+        text.toLowerCase().includes(term) ||
+        stateId.toLowerCase().includes(term) ||
+        stateLabel.toLowerCase().includes(term);
+
+      if (isMatch) {
+=======
       if (text.toLowerCase().includes(term)) {
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         node.classList.add('diagram-match-node');
         stateMatches++;
         newMatches.push({
           type: 'state',
+<<<<<<< HEAD
+          name: stateLabel || text.trim().replace(/\s+/g, ' '),
+          element: node,
+          stateId,
+          stateLabel,
+=======
           name: text.trim().replace(/\s+/g, ' '),
           element: node,
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         });
       }
     });
@@ -1308,6 +1998,46 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
     edgeLabels.forEach((labelEl, idx) => {
       const text = labelEl.textContent || '';
+<<<<<<< HEAD
+
+      // Find linked path
+      let matchedPath: Element | null = null;
+      const labelDataId =
+        labelEl.getAttribute('data-id') ||
+        labelEl.querySelector('[data-id]')?.getAttribute('data-id');
+
+      if (labelDataId) {
+        matchedPath =
+          allPaths.find((p) => p.getAttribute('data-id') === labelDataId) ||
+          null;
+      }
+
+      if (!matchedPath && idx < allPaths.length) {
+        matchedPath = allPaths[idx];
+      }
+
+      // Resolve linked edge info
+      const edge =
+        resolveEdgeFromElement(labelEl, svg, availableEdges) ||
+        (matchedPath ? resolveEdgeFromElement(matchedPath, svg, availableEdges) : undefined);
+
+      const fromState = edge?.from || '';
+      const toState = edge?.to || '';
+      const guard = edge?.guard || edge?.condition || '';
+      const label = edge?.label || '';
+
+      const isMatch =
+        text.toLowerCase().includes(term) ||
+        fromState.toLowerCase().includes(term) ||
+        toState.toLowerCase().includes(term) ||
+        guard.toLowerCase().includes(term) ||
+        label.toLowerCase().includes(term);
+
+      if (isMatch) {
+        labelEl.classList.add('diagram-match-edge');
+        transitionMatches++;
+
+=======
       if (text.toLowerCase().includes(term)) {
         labelEl.classList.add('diagram-match-edge');
         transitionMatches++;
@@ -1328,6 +2058,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           matchedPath = allPaths[idx];
         }
 
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         const associatedPaths: Element[] = [];
         if (matchedPath) {
           matchedPath.classList.add('diagram-match-path');
@@ -1350,9 +2081,20 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
         newMatches.push({
           type: 'transition',
+<<<<<<< HEAD
+          name: text.trim().replace(/\s+/g, ' ') || label || `${fromState} -> ${toState}`,
+          element: labelEl,
+          associatedPaths,
+          edgeInfo: edge || undefined,
+          fromState,
+          toState,
+          guard,
+          priority: edge?.priority,
+=======
           name: text.trim().replace(/\s+/g, ' '),
           element: labelEl,
           associatedPaths,
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         });
       }
     });
@@ -1459,6 +2201,10 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
+<<<<<<< HEAD
+        setIsSearchPanelOpen(true);
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
       }
@@ -1510,7 +2256,16 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
             effectiveNotes,
             isInteractiveMode,
             activeConditionOverlay?.edge?.id,
+<<<<<<< HEAD
+            availableEdges,
+            complexityHeatmapResult,
+            isHeatmapActive,
+            heatmapOnlyRefactor,
+            complexityThreshold,
+            showComplexityBadges
+=======
             availableEdges
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           );
           setSvgContent(enhancedSvg);
         }
@@ -1526,12 +2281,35 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     return () => {
       isMounted = false;
     };
+<<<<<<< HEAD
+  }, [
+    code,
+    layoutEngine,
+    flowchartCurve,
+    mermaidTheme,
+    effectiveCustomStyles,
+    isInteractiveMode,
+    isCompactLabels,
+    effectiveNotes,
+    complexityHeatmapResult,
+    isHeatmapActive,
+    heatmapOnlyRefactor,
+    complexityThreshold,
+    showComplexityBadges,
+    layoutTrigger,
+  ]);
+=======
   }, [code, layoutEngine, flowchartCurve, mermaidTheme, effectiveCustomStyles, isInteractiveMode, isCompactLabels, effectiveNotes]);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // Synchronize active transition detail overlay label highlighting in SVG
   useEffect(() => {
     if (!containerRef.current) return;
+<<<<<<< HEAD
+    const svg = getDiagramSvg();
+=======
     const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
     svg.querySelectorAll('.tc-interactive-edge-label-active').forEach((el) => {
       el.classList.remove('tc-interactive-edge-label-active');
@@ -1552,49 +2330,142 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         }
       }
     }
+<<<<<<< HEAD
+  }, [activeConditionOverlay, getDiagramSvg]);
+=======
   }, [activeConditionOverlay]);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // 1. Initialize SVG metadata and active offsets whenever SVG content updates
   useEffect(() => {
     if (!containerRef.current || !svgContent) return;
+<<<<<<< HEAD
+    const svg = getDiagramSvg();
+    if (!svg) return;
+    initializeSvgDragMetadata(svg, availableEdges);
+
+    let targetNodeOffsets = { ...effectiveNodeOffsets };
+
+    if (isLayoutLocked && Object.keys(lockedNodePositionsRef.current).length > 0) {
+      // Automatic re-layout is disabled! Maintain custom node positions across code edits:
+      const nodes = Array.from(svg.querySelectorAll('g.node')) as SVGGElement[];
+      const updatedOffsets: NodeOffsetsMap = { ...targetNodeOffsets };
+      let hasAdjusted = false;
+
+      for (const node of nodes) {
+        const rawStateId = node.getAttribute('data-state-id') || node.getAttribute('id') || '';
+        let stateId = cleanNodeId(rawStateId);
+        if (!stateId && (rawStateId.includes('root_start') || rawStateId.includes('startNode'))) {
+          stateId = '[*]';
+        }
+        if (!stateId || stateId.startsWith('note_')) continue;
+
+        const lockedPos = lockedNodePositionsRef.current[stateId];
+        if (lockedPos) {
+          const geom = getNodeGeometry(node, svg);
+          const neededX = Math.round(lockedPos.centerX - geom.origCenterX);
+          const neededY = Math.round(lockedPos.centerY - geom.origCenterY);
+          updatedOffsets[stateId] = { x: neededX, y: neededY };
+          hasAdjusted = true;
+        }
+      }
+
+      if (hasAdjusted) {
+        targetNodeOffsets = updatedOffsets;
+        currentNodeOffsetsRef.current = updatedOffsets;
+        if (onNodeOffsetsChange) {
+          onNodeOffsetsChange(updatedOffsets);
+        } else {
+          setInternalNodeOffsets(updatedOffsets);
+        }
+      }
+    }
+
+    applyDiagramOffsetsToSvg(
+      svg,
+      targetNodeOffsets,
+=======
     const svg = containerRef.current.querySelector('svg');
     if (!svg) return;
     initializeSvgDragMetadata(svg, availableEdges);
     applyDiagramOffsetsToSvg(
       svg,
       effectiveNodeOffsets,
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       edgeOffsets,
       null,
       selectedEdge?.id || null,
       layoutEngine,
       flowchartCurve
     );
+<<<<<<< HEAD
+    const positions = extractCanvasNodePositions(svg, targetNodeOffsets);
+    setCanvasNodePositions(positions);
+
+    // If layout is not locked, OR if lockedNodePositions is empty (freshly auto-aligned), keep lockedNodePositionsRef in sync with latest positions
+    if (!isLayoutLocked || Object.keys(lockedNodePositionsRef.current).length === 0) {
+      const newLocked: Record<string, { centerX: number; centerY: number }> = {};
+      for (const [id, p] of Object.entries(positions)) {
+        newLocked[id] = { centerX: p.centerX, centerY: p.centerY };
+      }
+      lockedNodePositionsRef.current = newLocked;
+    }
+
+    if (autoAlignInProgressRef.current) {
+      autoAlignInProgressRef.current = false;
+      setIsAutoAligning(false);
+    }
+
+    if (onCanvasPositionsChange) {
+      onCanvasPositionsChange(positions);
+    }
+  }, [svgContent, availableEdges, isLayoutLocked, getDiagramSvg]);
+=======
     if (onCanvasPositionsChange) {
       const positions = extractCanvasNodePositions(svg, effectiveNodeOffsets);
       onCanvasPositionsChange(positions);
     }
   }, [svgContent, availableEdges]);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // 2. Synchronize node selection highlight class in SVG
   useEffect(() => {
     if (!containerRef.current) return;
+<<<<<<< HEAD
+    const svg = getDiagramSvg();
+=======
     const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
     svg.querySelectorAll('.diagram-selected-node').forEach((el) => {
       el.classList.remove('diagram-selected-node');
     });
     if (effectiveSelectedStateId) {
+<<<<<<< HEAD
+      const target =
+        findNodeElement(svg as SVGSVGElement, effectiveSelectedStateId) ||
+        (svg.querySelector(`g.node[data-state-id="${effectiveSelectedStateId}"]`) as SVGGElement | null);
+=======
       const target = svg.querySelector(`g.node[data-state-id="${effectiveSelectedStateId}"]`);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       if (target) {
         target.classList.add('diagram-selected-node');
       }
     }
+<<<<<<< HEAD
+  }, [effectiveSelectedStateId, svgContent, getDiagramSvg]);
+=======
   }, [effectiveSelectedStateId, svgContent]);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // 3. Synchronize edge selection highlight and active offsets in SVG
   useEffect(() => {
     if (!containerRef.current || !svgContent) return;
+<<<<<<< HEAD
+    const svg = getDiagramSvg();
+=======
     const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
 
     svg.querySelectorAll('.diagram-selected-edge, .selected-edge').forEach((el) => {
@@ -1643,12 +2514,177 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       flowchartCurve
     );
 
+<<<<<<< HEAD
+    const positions = extractCanvasNodePositions(svg, effectiveNodeOffsets);
+    setCanvasNodePositions(positions);
+    if (onCanvasPositionsChange) {
+=======
     if (onCanvasPositionsChange) {
       const positions = extractCanvasNodePositions(svg, effectiveNodeOffsets);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       onCanvasPositionsChange(positions);
     }
   }, [selectedEdge, effectiveNodeOffsets, edgeOffsets, layoutEngine, flowchartCurve]);
 
+<<<<<<< HEAD
+  const panToState = useCallback((stateId: string, timestamp?: number) => {
+    if (!stateId) return;
+
+    if (timestamp) {
+      lastHandledFocusRequestTimestampRef.current = timestamp;
+    }
+
+    // Cancel any previous pending jump attempts
+    if (jumpAttemptTimerRef.current) {
+      cancelAnimationFrame(jumpAttemptTimerRef.current);
+      jumpAttemptTimerRef.current = null;
+    }
+
+    const startTime = performance.now();
+    const maxWaitMs = 2500; // Allow sufficient time for async Mermaid rendering if tab just mounted
+
+    const attempt = () => {
+      if (!containerRef.current) {
+        if (performance.now() - startTime < maxWaitMs) {
+          jumpAttemptTimerRef.current = requestAnimationFrame(attempt);
+        }
+        return;
+      }
+      const svg = getDiagramSvg();
+      if (!svg) {
+        if (performance.now() - startTime < maxWaitMs) {
+          jumpAttemptTimerRef.current = requestAnimationFrame(attempt);
+        }
+        return;
+      }
+      const nodeEl =
+        findNodeElement(svg as SVGSVGElement, stateId) ||
+        (svg.querySelector(`g.node[data-state-id="${stateId}"]`) as SVGGElement | null);
+
+      if (!nodeEl) {
+        if (performance.now() - startTime < maxWaitMs) {
+          jumpAttemptTimerRef.current = requestAnimationFrame(attempt);
+        }
+        return;
+      }
+
+      // Check if element has non-zero size (ensure layout is computed)
+      const rect = nodeEl.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        if (performance.now() - startTime < maxWaitMs) {
+          jumpAttemptTimerRef.current = requestAnimationFrame(attempt);
+        }
+        return;
+      }
+
+      // Clean up previously flashing node if different from target
+      if (jumpHighlightedNodeRef.current && jumpHighlightedNodeRef.current !== nodeEl) {
+        jumpHighlightedNodeRef.current.classList.remove('diagram-jump-highlight', 'state-jump-ring-glow');
+        jumpHighlightedNodeRef.current.querySelectorAll('.state-jump-border-bg-flash').forEach((s) => {
+          s.classList.remove('state-jump-border-bg-flash');
+        });
+        jumpHighlightedNodeRef.current.querySelectorAll('.state-jump-div-flash').forEach((d) => {
+          d.classList.remove('state-jump-div-flash');
+        });
+        if (jumpSavedInlineStylesRef.current) {
+          jumpSavedInlineStylesRef.current.forEach(
+            ({ el, fill, stroke, strokeWidth, fillPriority, strokePriority, attrFill, attrStroke, attrStrokeWidth }) => {
+              if (fill) el.style.setProperty('fill', fill, fillPriority);
+              else el.style.removeProperty('fill');
+              if (stroke) el.style.setProperty('stroke', stroke, strokePriority);
+              else el.style.removeProperty('stroke');
+              if (strokeWidth) el.style.setProperty('stroke-width', strokeWidth, strokePriority);
+              else el.style.removeProperty('stroke-width');
+              if (attrFill !== null) el.setAttribute('fill', attrFill);
+              if (attrStroke !== null) el.setAttribute('stroke', attrStroke);
+              if (attrStrokeWidth !== null) el.setAttribute('stroke-width', attrStrokeWidth);
+            }
+          );
+          jumpSavedInlineStylesRef.current = null;
+        }
+      }
+
+      // Collect shapes and inner divs of the target node
+      const shapes = Array.from(nodeEl.querySelectorAll<SVGElement>('rect, polygon, circle, path'));
+      const innerDivs = Array.from(nodeEl.querySelectorAll<HTMLElement>('foreignObject div, div'));
+
+      // Save original styles ONLY if not already saved (e.g. if the same node was re-clicked while flashing)
+      if (!jumpSavedInlineStylesRef.current || jumpHighlightedNodeRef.current !== nodeEl) {
+        const savedStyles = shapes.map((s) => ({
+          el: s,
+          fill: s.style.getPropertyValue('fill'),
+          stroke: s.style.getPropertyValue('stroke'),
+          strokeWidth: s.style.getPropertyValue('stroke-width'),
+          fillPriority: s.style.getPropertyPriority('fill'),
+          strokePriority: s.style.getPropertyPriority('stroke'),
+          attrFill: s.getAttribute('fill'),
+          attrStroke: s.getAttribute('stroke'),
+          attrStrokeWidth: s.getAttribute('stroke-width'),
+        }));
+        jumpSavedInlineStylesRef.current = savedStyles;
+      }
+
+      // Temporarily clear inline fill/stroke and presentation attributes so CSS keyframes for flashing border & background take effect
+      shapes.forEach((s) => {
+        s.style.removeProperty('fill');
+        s.style.removeProperty('stroke');
+        s.style.removeProperty('stroke-width');
+        s.removeAttribute('fill');
+        s.removeAttribute('stroke');
+        s.removeAttribute('stroke-width');
+      });
+
+      // Clear any prior animation classes and force reflow
+      nodeEl.classList.remove('diagram-jump-highlight', 'state-jump-ring-glow');
+      shapes.forEach((s) => s.classList.remove('state-jump-border-bg-flash'));
+      innerDivs.forEach((d) => d.classList.remove('state-jump-div-flash'));
+
+      void (nodeEl as unknown as HTMLElement).offsetWidth; // Force DOM reflow to restart CSS animation
+
+      // Center the node in canvas viewport while in its clean resting position
+      panToElement(nodeEl);
+
+      // Apply the four specific flash & glow CSS classes
+      nodeEl.classList.add('diagram-jump-highlight', 'state-jump-ring-glow');
+      shapes.forEach((s) => s.classList.add('state-jump-border-bg-flash'));
+      innerDivs.forEach((d) => d.classList.add('state-jump-div-flash'));
+      jumpHighlightedNodeRef.current = nodeEl;
+
+      if (jumpHighlightTimerRef.current) {
+        clearTimeout(jumpHighlightTimerRef.current);
+      }
+      jumpHighlightTimerRef.current = setTimeout(() => {
+        nodeEl.classList.remove('diagram-jump-highlight', 'state-jump-ring-glow');
+        shapes.forEach((s) => s.classList.remove('state-jump-border-bg-flash'));
+        innerDivs.forEach((d) => d.classList.remove('state-jump-div-flash'));
+
+        if (jumpSavedInlineStylesRef.current) {
+          jumpSavedInlineStylesRef.current.forEach(
+            ({ el, fill, stroke, strokeWidth, fillPriority, strokePriority, attrFill, attrStroke, attrStrokeWidth }) => {
+              if (fill) el.style.setProperty('fill', fill, fillPriority);
+              else el.style.removeProperty('fill');
+              if (stroke) el.style.setProperty('stroke', stroke, strokePriority);
+              else el.style.removeProperty('stroke');
+              if (strokeWidth) el.style.setProperty('stroke-width', strokeWidth, strokePriority);
+              else el.style.removeProperty('stroke-width');
+              if (attrFill !== null) el.setAttribute('fill', attrFill);
+              if (attrStroke !== null) el.setAttribute('stroke', attrStroke);
+              if (attrStrokeWidth !== null) el.setAttribute('stroke-width', attrStrokeWidth);
+            }
+          );
+          jumpSavedInlineStylesRef.current = null;
+        }
+        if (jumpHighlightedNodeRef.current === nodeEl) {
+          jumpHighlightedNodeRef.current = null;
+        }
+      }, 2500);
+    };
+
+    attempt();
+  }, [getDiagramSvg]);
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const handleSelectState = (stateId: string | null, label?: string) => {
     if (onSelectStateProp) {
       onSelectStateProp(stateId, label);
@@ -1657,12 +2693,28 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       if (label) setInternalSelectedStateLabel(label);
     }
     if (stateId) {
+<<<<<<< HEAD
+      if (onOpenInspectorProp) {
+        onOpenInspectorProp('style');
+      } else {
+        setIsInspectorOpen(true);
+      }
+=======
       setIsInspectorOpen(true);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     }
   };
 
   const handleCloseInspector = () => {
+<<<<<<< HEAD
+    if (onCloseInspectorProp) {
+      onCloseInspectorProp();
+    } else {
+      setIsInspectorOpen(false);
+    }
+=======
     setIsInspectorOpen(false);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (onSelectStateProp) {
       onSelectStateProp(null);
     } else {
@@ -1671,16 +2723,40 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   };
 
   const handleToggleInspector = () => {
+<<<<<<< HEAD
+    if (onToggleInspectorProp) {
+      onToggleInspectorProp();
+    } else {
+      if (isInspectorOpen) {
+        handleCloseInspector();
+      } else {
+        setIsInspectorOpen(true);
+        if (!effectiveSelectedStateId && availableStates.length > 0) {
+          handleSelectState(availableStates[0].id, availableStates[0].label);
+        }
+=======
     if (isInspectorOpen) {
       handleCloseInspector();
     } else {
       setIsInspectorOpen(true);
       if (!effectiveSelectedStateId && availableStates.length > 0) {
         handleSelectState(availableStates[0].id, availableStates[0].label);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       }
     }
   };
 
+<<<<<<< HEAD
+  useEffect(() => {
+    if (focusStateRequest?.stateId) {
+      if (
+        focusStateRequest.timestamp &&
+        lastHandledFocusRequestTimestampRef.current === focusStateRequest.timestamp
+      ) {
+        return;
+      }
+      lastHandledFocusRequestTimestampRef.current = focusStateRequest.timestamp || Date.now();
+=======
   const panToState = useCallback((stateId: string) => {
     const attempt = (retriesLeft = 4) => {
       if (!containerRef.current) return;
@@ -1726,14 +2802,30 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
   useEffect(() => {
     if (focusStateRequest?.stateId) {
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       panToState(focusStateRequest.stateId);
     }
   }, [focusStateRequest, panToState]);
 
+<<<<<<< HEAD
+  useEffect(() => {
+    return () => {
+      if (jumpAttemptTimerRef.current) cancelAnimationFrame(jumpAttemptTimerRef.current);
+      if (jumpHighlightTimerRef.current) clearTimeout(jumpHighlightTimerRef.current);
+      if (jumpTransitionTimerRef.current) clearTimeout(jumpTransitionTimerRef.current);
+    };
+  }, []);
+
+  const handleStyleChange = (stateId: string, style: NodeDisplayProperties) => {
+    // 1. Immediately update DOM element in SVG for instantaneous live response
+    if (containerRef.current) {
+      const svg = getDiagramSvg();
+=======
   const handleStyleChange = (stateId: string, style: NodeDisplayProperties) => {
     // 1. Immediately update DOM element in SVG for instantaneous live response
     if (containerRef.current) {
       const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       if (svg) {
         const nodeEl = svg.querySelector(`g.node[data-state-id="${stateId}"]`);
         if (nodeEl) {
@@ -1796,6 +2888,15 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     if (e.button !== 0) return;
     mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
 
+<<<<<<< HEAD
+    // Reset any active jump transition immediately on mouse interaction
+    const wrapper = containerRef.current?.querySelector('#mermaid-svg-wrapper') as HTMLElement | null;
+    if (wrapper) {
+      wrapper.style.transition = 'none';
+    }
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     const target = e.target as Element;
     // If clicking inside inspector, toolbar, context menu, dialogs, or detail overlay, don't initiate drag
     if (
@@ -1857,6 +2958,19 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         nodeMovedRef.current = false;
         const currentOffset = effectiveNodeOffsets[stateId] || { x: 0, y: 0 };
         nodeInitialOffsetRef.current = { ...currentOffset };
+<<<<<<< HEAD
+
+        const svgEl = getDiagramSvg();
+        const geom = getNodeGeometry(nodeEl, svgEl);
+        nodeInitialCenterRef.current = {
+          x: geom.origCenterX + currentOffset.x,
+          y: geom.origCenterY + currentOffset.y,
+          origCenterX: geom.origCenterX,
+          origCenterY: geom.origCenterY,
+        };
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         nodeEl.classList.add('dragging-state-node');
         setIsNodeDragging(true);
         return;
@@ -1864,7 +2978,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     }
 
     // C. Check if user clicked on an edge path or hitbox
+<<<<<<< HEAD
+    const svg = getDiagramSvg();
+=======
     const svg = containerRef.current?.querySelector('svg') || null;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     let clickedEdge = resolveEdgeFromElement(target, svg, availableEdges);
     if (!clickedEdge && svg && (target.tagName.toLowerCase() === 'svg' || target.closest('svg'))) {
       clickedEdge = findEdgeNearPoint(svg, e.clientX, e.clientY, availableEdges, 24);
@@ -1940,7 +3058,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         };
 
         if (containerRef.current) {
+<<<<<<< HEAD
+          const svg = getDiagramSvg();
+=======
           const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           if (svg) {
             applyDiagramOffsetsToSvg(
               svg,
@@ -1970,18 +3092,52 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       if (nodeMovedRef.current) {
         const canvasDx = screenDx / zoom;
         const canvasDy = screenDy / zoom;
+<<<<<<< HEAD
+
+        let newOffset = {
+=======
         const newOffset = {
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           x: Math.round(nodeInitialOffsetRef.current.x + canvasDx),
           y: Math.round(nodeInitialOffsetRef.current.y + canvasDy),
         };
 
+<<<<<<< HEAD
+        if (snapConfig.enabled && nodeInitialCenterRef.current) {
+          const rawCenterX = nodeInitialCenterRef.current.x + canvasDx;
+          const rawCenterY = nodeInitialCenterRef.current.y + canvasDy;
+
+          const snapRes = calculateSnappedPosition(
+            rawCenterX,
+            rawCenterY,
+            stateId,
+            canvasNodePositions,
+            snapConfig
+          );
+
+          setActiveSnapResult(snapRes);
+
+          newOffset = {
+            x: Math.round(snapRes.x - nodeInitialCenterRef.current.origCenterX),
+            y: Math.round(snapRes.y - nodeInitialCenterRef.current.origCenterY),
+          };
+        } else {
+          setActiveSnapResult(null);
+        }
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         currentNodeOffsetsRef.current = {
           ...currentNodeOffsetsRef.current,
           [stateId]: newOffset,
         };
 
         if (containerRef.current) {
+<<<<<<< HEAD
+          const svg = getDiagramSvg();
+=======
           const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           if (svg) {
             applyDiagramOffsetsToSvg(
               svg,
@@ -1999,11 +3155,69 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     }
 
     // 3. Panning canvas
+<<<<<<< HEAD
+    if (isDragging) {
+      setPan({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y,
+      });
+      if (hoveredComplexityMetric) {
+        setHoveredComplexityMetric(null);
+      }
+      return;
+    }
+
+    // 4. Hover tracking for Complexity Heat-map Tooltip & Refactor Badges
+    const shouldTrackComplexityHover =
+      (isHeatmapActive || showComplexityBadges) &&
+      !isDraggingNodeRef.current &&
+      !isDraggingEdgeHandleRef.current;
+
+    if (shouldTrackComplexityHover) {
+      const target = e.target as Element;
+      const nodeEl = target?.closest('g.node') as HTMLElement | SVGElement | null;
+      if (nodeEl) {
+        const sId =
+          nodeEl.getAttribute('data-state-id') ||
+          nodeEl.id?.replace(/^flowchart-/, '').replace(/-\d+$/, '');
+        if (sId) {
+          const metric =
+            complexityHeatmapResult.metrics.get(sId) ||
+            complexityHeatmapResult.metricsList.find(
+              (m) => m.stateId.toLowerCase() === sId.toLowerCase()
+            );
+          const isEligibleForTooltip =
+            Boolean(metric && (
+              isHeatmapActive
+                ? !heatmapOnlyRefactor || metric.refactorNeeded
+                : metric.score >= complexityThreshold || metric.refactorNeeded
+            ));
+
+          if (metric && isEligibleForTooltip) {
+            setHoveredComplexityMetric({
+              metric,
+              anchorX: e.clientX,
+              anchorY: e.clientY,
+            });
+          } else if (hoveredComplexityMetric) {
+            setHoveredComplexityMetric(null);
+          }
+        } else if (hoveredComplexityMetric) {
+          setHoveredComplexityMetric(null);
+        }
+      } else if (hoveredComplexityMetric) {
+        setHoveredComplexityMetric(null);
+      }
+    } else if (hoveredComplexityMetric) {
+      setHoveredComplexityMetric(null);
+    }
+=======
     if (!isDragging) return;
     setPan({
       x: e.clientX - dragStart.x,
       y: e.clientY - dragStart.y,
     });
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
@@ -2014,7 +3228,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       const dx = Math.abs(e.clientX - clientX);
       const dy = Math.abs(e.clientY - clientY);
       if (dx < 10 && dy < 10) {
+<<<<<<< HEAD
+        const svg = getDiagramSvg();
+=======
         const svg = containerRef.current?.querySelector('svg') || null;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         const edge = resolveEdgeFromElement(el, svg, availableEdges);
         if (edge && edge.from && edge.to) {
           setSelectedEdge(edge);
@@ -2060,6 +3278,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       isDraggingNodeRef.current = false;
       draggedNodeIdRef.current = null;
       draggedNodeElRef.current = null;
+<<<<<<< HEAD
+      nodeInitialCenterRef.current = null;
+      setActiveSnapResult(null);
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       setIsNodeDragging(false);
 
       if (wasMoved && stateId) {
@@ -2068,10 +3291,27 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         if (onNodeOffsetsChange) {
           onNodeOffsetsChange(nextOffsets);
         }
+<<<<<<< HEAD
+        if (containerRef.current) {
+          const svg = getDiagramSvg();
+          if (svg) {
+            const nextPositions = extractCanvasNodePositions(svg, nextOffsets);
+            setCanvasNodePositions(nextPositions);
+            if (nextPositions[stateId]) {
+              lockedNodePositionsRef.current[stateId] = {
+                centerX: nextPositions[stateId].centerX,
+                centerY: nextPositions[stateId].centerY,
+              };
+            }
+            if (onCanvasPositionsChange) {
+              onCanvasPositionsChange(nextPositions);
+            }
+=======
         if (onCanvasPositionsChange && containerRef.current) {
           const svg = containerRef.current.querySelector('svg');
           if (svg) {
             onCanvasPositionsChange(extractCanvasNodePositions(svg, nextOffsets));
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           }
         }
         return;
@@ -2136,12 +3376,22 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           handleSelectState(stateId, stateLabel);
           setSelectedEdge(null);
           setActiveConditionOverlay(null);
+<<<<<<< HEAD
+          if (target.closest('.tc-refactor-flag-badge, .tc-complexity-badge')) {
+            setIsHeatmapPanelOpen(true);
+          }
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           return;
         }
       }
 
       // Check if user clicked on an edge path, label, or priority badge
+<<<<<<< HEAD
+      const svg = getDiagramSvg();
+=======
       const svg = containerRef.current?.querySelector('svg') || null;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       let clickedEdge = resolveEdgeFromElement(target, svg, availableEdges);
       if (!clickedEdge && svg && (target.tagName.toLowerCase() === 'svg' || target.closest('svg'))) {
         clickedEdge = findEdgeNearPoint(svg, e.clientX, e.clientY, availableEdges, 24);
@@ -2275,7 +3525,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     }
 
     // 2. Clicked on an edge
+<<<<<<< HEAD
+    const svg = getDiagramSvg();
+=======
     const svg = containerRef.current?.querySelector('svg') || null;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     let edge = resolveEdgeFromElement(target, svg, availableEdges);
     if (!edge && svg) {
       edge = findEdgeNearPoint(svg, e.clientX, e.clientY, availableEdges, 24);
@@ -2354,7 +3608,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
   const panToEdge = (edgeId: string) => {
     if (!containerRef.current) return;
+<<<<<<< HEAD
+    const svg = getDiagramSvg();
+=======
     const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
     const pathEl = findEdgePathElement(svg, edgeId, availableEdges);
     if (pathEl) {
@@ -2386,6 +3644,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         isDraggingNodeRef.current = false;
         draggedNodeIdRef.current = null;
         draggedNodeElRef.current = null;
+<<<<<<< HEAD
+        nodeInitialCenterRef.current = null;
+        setActiveSnapResult(null);
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         setIsNodeDragging(false);
 
         if (wasMoved && stateId) {
@@ -2401,6 +3664,32 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     };
   }, []);
 
+<<<<<<< HEAD
+  // Close Snap to Grid configuration menu on outside click
+  useEffect(() => {
+    if (!isSnapMenuOpen) return;
+    const handleCloseSnapMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest('#snap-to-grid-toolbar-group')) {
+        setIsSnapMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', handleCloseSnapMenu);
+    return () => window.removeEventListener('mousedown', handleCloseSnapMenu);
+  }, [isSnapMenuOpen]);
+
+  // Auto-dismiss Snap to Grid status toast
+  useEffect(() => {
+    if (!showSnapToast) return;
+    const timer = setTimeout(() => {
+      setShowSnapToast(null);
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, [showSnapToast]);
+
+  const handleResetLayout = () => {
+    handleAutoAlign();
+=======
   const handleResetLayout = () => {
     currentNodeOffsetsRef.current = {};
     currentEdgeOffsetsRef.current = {};
@@ -2412,6 +3701,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         resetSvgDiagramOffsets(svg);
       }
     }
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   };
 
   const movedElementsCount =
@@ -2429,6 +3719,33 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     ).length;
 
   const handleWheel = (e: React.WheelEvent) => {
+<<<<<<< HEAD
+    const target = e.target as HTMLElement | null;
+    if (
+      target &&
+      (target.closest('#diagram-minimap-container') ||
+        target.closest('#diagram-minimap-collapsed') ||
+        target.closest('#state-style-inspector') ||
+        target.closest('#method-editor-panel') ||
+        target.closest('#method-editor-fullscreen-overlay') ||
+        target.closest('#method-editor-modal-overlay') ||
+        target.closest('#method-split-panels-container') ||
+        target.closest('#method-top-panel') ||
+        target.closest('#method-bottom-panel') ||
+        target.closest('.custom-scrollbar') ||
+        target.closest('textarea') ||
+        target.closest('pre') ||
+        target.closest('select') ||
+        target.closest('#note-dialog-overlay') ||
+        target.closest('#notes-drawer-overlay') ||
+        target.closest('#mermaid-toolbar') ||
+        target.closest('#export-dialog-modal'))
+    ) {
+      // Allow normal scrolling inside editors and UI overlays; do NOT zoom canvas
+      return;
+    }
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.1 : 0.9;
     setZoom((prev) => Math.min(Math.max(0.2, prev * factor), 5));
@@ -2440,19 +3757,29 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   };
 
   const getActiveSvgElement = (): SVGSVGElement | null => {
+<<<<<<< HEAD
+    return getDiagramSvg();
+=======
     return renderedSvg || containerRef.current?.querySelector('svg') || null;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   };
 
   const handleOpenExportModal = (format: ExportFormat = 'png') => {
     setExportModalDefaultFormat(format);
     setIsExportModalOpen(true);
+<<<<<<< HEAD
+=======
     setIsExportMenuOpen(false);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   };
 
   const handleQuickDownloadPng = async (scale: ExportScale = 2) => {
     const svgEl = getActiveSvgElement();
     if (!svgEl) return;
+<<<<<<< HEAD
+=======
     setIsExportMenuOpen(false);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     setExportingNotification(`Exporting ${scale}x PNG...`);
     try {
       const result = await exportHighResPng(svgEl, {
@@ -2477,7 +3804,10 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   const handleQuickDownloadSvg = async (scale: ExportScale = 1) => {
     const svgEl = getActiveSvgElement();
     if (!svgEl) return;
+<<<<<<< HEAD
+=======
     setIsExportMenuOpen(false);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     setExportingNotification('Exporting vector SVG...');
     try {
       const result = await exportHighResSvg(svgEl, {
@@ -2499,11 +3829,24 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     }
   };
 
+<<<<<<< HEAD
+  const handleQuickCopyPng = async (scale: ExportScale = 2): Promise<{ success: boolean; message: string }> => {
+    const svgEl = getActiveSvgElement();
+    if (!svgEl) {
+      const msg = 'Diagram SVG element not ready';
+      onToastProp?.(msg, 'error');
+      return { success: false, message: msg };
+    }
+    if (!onToastProp) {
+      setExportingNotification('Copying PNG to clipboard...');
+    }
+=======
   const handleQuickCopyPng = async (scale: ExportScale = 2) => {
     const svgEl = getActiveSvgElement();
     if (!svgEl) return;
     setIsExportMenuOpen(false);
     setExportingNotification('Copying 2x PNG to clipboard...');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     try {
       const res = await copyToClipboard(svgEl, {
         format: 'png',
@@ -2513,6 +3856,38 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         customStyles: effectiveCustomStyles,
         theme: mermaidTheme,
       });
+<<<<<<< HEAD
+      const isRestricted = Boolean(res.message && (res.message.includes('restricted') || res.message.includes('downloaded')));
+      const msg = res.message || `Copied PNG (${scale}x Retina) to clipboard!`;
+      if (!onToastProp) {
+        setExportingNotification(msg);
+        setTimeout(() => setExportingNotification(null), 2500);
+      }
+      onToastProp?.(msg, isRestricted ? 'error' : 'success');
+      return { success: !isRestricted, message: msg };
+    } catch (e) {
+      console.error('Copy PNG failed:', e);
+      const msg = e instanceof Error ? e.message : 'Clipboard copy failed';
+      if (!onToastProp) {
+        setExportingNotification(`Copy failed: ${msg}`);
+        setTimeout(() => setExportingNotification(null), 3500);
+      }
+      onToastProp?.(`Copy failed: ${msg}`, 'error');
+      return { success: false, message: msg };
+    }
+  };
+
+  const handleQuickCopySvg = async (): Promise<{ success: boolean; message: string }> => {
+    const svgEl = getActiveSvgElement();
+    if (!svgEl) {
+      const msg = 'Diagram SVG element not ready';
+      onToastProp?.(msg, 'error');
+      return { success: false, message: msg };
+    }
+    if (!onToastProp) {
+      setExportingNotification('Copying SVG to clipboard...');
+    }
+=======
       setExportingNotification(res.message || 'Copied 2x PNG to clipboard!');
       setTimeout(() => setExportingNotification(null), 2500);
     } catch (e) {
@@ -2528,6 +3903,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     if (!svgEl) return;
     setIsExportMenuOpen(false);
     setExportingNotification('Copying SVG to clipboard...');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     try {
       const res = await copyToClipboard(svgEl, {
         format: 'svg',
@@ -2537,6 +3913,25 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       });
       setCopiedSvg(true);
       setTimeout(() => setCopiedSvg(false), 2000);
+<<<<<<< HEAD
+      const isRestricted = Boolean(res.message && (res.message.includes('restricted') || res.message.includes('downloaded')));
+      const msg = res.message || 'Copied SVG vector to clipboard!';
+      if (!onToastProp) {
+        setExportingNotification(msg);
+        setTimeout(() => setExportingNotification(null), 2500);
+      }
+      onToastProp?.(msg, isRestricted ? 'error' : 'success');
+      return { success: !isRestricted, message: msg };
+    } catch (e) {
+      console.error('Copy SVG failed:', e);
+      const msg = e instanceof Error ? e.message : 'Clipboard copy failed';
+      if (!onToastProp) {
+        setExportingNotification(`Copy failed: ${msg}`);
+        setTimeout(() => setExportingNotification(null), 3500);
+      }
+      onToastProp?.(`Copy failed: ${msg}`, 'error');
+      return { success: false, message: msg };
+=======
       setExportingNotification(res.message || 'Copied SVG vector to clipboard!');
       setTimeout(() => setExportingNotification(null), 2500);
     } catch (e) {
@@ -2544,12 +3939,81 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       const msg = e instanceof Error ? e.message : 'Clipboard copy failed';
       setExportingNotification(`Copy failed: ${msg}`);
       setTimeout(() => setExportingNotification(null), 3500);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     }
   };
 
   const handleCopySvg = handleQuickCopySvg;
   const handleDownloadSvg = () => handleQuickDownloadSvg(1);
 
+<<<<<<< HEAD
+  const [isPrintingPdf, setIsPrintingPdf] = useState<boolean>(false);
+
+  const handlePrintVisiblePdf = async () => {
+    if (!svgContent || isPrintingPdf) return;
+    setIsPrintingPdf(true);
+    setExportingNotification('Generating high-resolution PDF...');
+    try {
+      const baseName = (fileName || 'statechart').replace(/\.statechart|\.TcPOU/gi, '') || 'statechart';
+      const result = await exportDiagramVisibleAreaToPdf({
+        targetElement: containerRef.current,
+        targetElementId: 'mermaid-canvas-area',
+        fileName: `${baseName}-diagram-visible`,
+        scale: 2,
+        theme: mermaidTheme,
+        title: `${baseName} - Statechart Diagram (Visible Area)`,
+      });
+
+      if (result.success) {
+        setExportingNotification(`Exported high-res PDF: ${result.fileName}`);
+        setTimeout(() => setExportingNotification(null), 3000);
+      } else {
+        setExportingNotification(`PDF export error: ${result.error || 'Failed'}`);
+        setTimeout(() => setExportingNotification(null), 3500);
+      }
+    } catch (err: unknown) {
+      console.error('Print PDF failed:', err);
+      const msg = err instanceof Error ? err.message : 'PDF export failed';
+      setExportingNotification(`PDF export error: ${msg}`);
+      setTimeout(() => setExportingNotification(null), 3500);
+    } finally {
+      setIsPrintingPdf(false);
+    }
+  };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      panToState,
+      resetView: handleResetZoom,
+      zoomIn: () => setZoom((prev) => Math.min(5, prev * 1.2)),
+      zoomOut: () => setZoom((prev) => Math.max(0.2, prev / 1.2)),
+      fitToScreen: handleResetZoom,
+      autoAlign: handleAutoAlign,
+      openExportModal: (format?: ExportFormat) => handleOpenExportModal(format),
+      quickDownloadPng: (scale?: ExportScale) => handleQuickDownloadPng(scale),
+      quickDownloadSvg: (scale?: ExportScale) => handleQuickDownloadSvg(scale),
+      quickCopyPng: (scale?: ExportScale) => handleQuickCopyPng(scale),
+      quickCopySvg: () => handleQuickCopySvg(),
+      printVisiblePdf: () => handlePrintVisiblePdf(),
+      getActiveSvgElement: () => getActiveSvgElement(),
+    }),
+    [
+      panToState,
+      handleAutoAlign,
+      handleResetZoom,
+      handleOpenExportModal,
+      handleQuickDownloadPng,
+      handleQuickDownloadSvg,
+      handleQuickCopyPng,
+      handleQuickCopySvg,
+      handlePrintVisiblePdf,
+      getActiveSvgElement,
+    ]
+  );
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const toggleFullscreen = async () => {
     if (!isFullscreen) {
       setIsFullscreen(true);
@@ -2578,7 +4042,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         if (isDraggingNodeRef.current) {
           const stateId = draggedNodeIdRef.current;
           if (stateId && containerRef.current) {
+<<<<<<< HEAD
+            const svg = getDiagramSvg();
+=======
             const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             if (svg) {
               currentNodeOffsetsRef.current[stateId] = { ...nodeInitialOffsetRef.current };
               applyDiagramOffsetsToSvg(
@@ -2613,6 +4081,150 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         }
       }
 
+<<<<<<< HEAD
+      // 'M' or 'm' to toggle Minimap overlay
+      if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const activeEl = document.activeElement;
+        const isTyping =
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.getAttribute('contenteditable') === 'true');
+        if (!isTyping) {
+          e.preventDefault();
+          setIsMinimapOpen((prev) => !prev);
+          return;
+        }
+      }
+
+      // 'L' or 'l' to toggle Diagram Legend overlay
+      if ((e.key === 'l' || e.key === 'L') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const activeEl = document.activeElement;
+        const isTyping =
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.getAttribute('contenteditable') === 'true');
+        if (!isTyping) {
+          e.preventDefault();
+          setIsLegendOpen((prev) => !prev);
+          return;
+        }
+      }
+
+      // 'S' or 's' to toggle State Machine Statistics panel
+      if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const activeEl = document.activeElement;
+        const isTyping =
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.getAttribute('contenteditable') === 'true');
+        if (!isTyping) {
+          e.preventDefault();
+          setIsStatsOpen((prev) => !prev);
+          return;
+        }
+      }
+
+      // 'F' or 'f' to toggle Keyword Search & Highlighting panel
+      if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const activeEl = document.activeElement;
+        const isTyping =
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.getAttribute('contenteditable') === 'true');
+        if (!isTyping) {
+          e.preventDefault();
+          setIsSearchPanelOpen((prev) => !prev);
+          return;
+        }
+      }
+
+      // 'H' or 'h' to toggle Complexity Heat-map mode and panel
+      if ((e.key === 'h' || e.key === 'H') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const activeEl = document.activeElement;
+        const isTyping =
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.getAttribute('contenteditable') === 'true');
+        if (!isTyping) {
+          e.preventDefault();
+          setIsHeatmapActive((prev) => {
+            const next = !prev;
+            if (next) {
+              setIsHeatmapPanelOpen(true);
+            }
+            return next;
+          });
+          return;
+        }
+      }
+
+      // 'G' or 'g' to toggle Snap to Grid
+      if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const activeEl = document.activeElement;
+        const isTyping =
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.getAttribute('contenteditable') === 'true');
+        if (!isTyping) {
+          e.preventDefault();
+          setSnapConfig((prev) => {
+            const next = { ...prev, enabled: !prev.enabled };
+            setShowSnapToast({
+              message: next.enabled ? `Snap to Grid: ON (${next.gridSize}px)` : 'Snap to Grid: OFF',
+              timestamp: Date.now(),
+            });
+            return next;
+          });
+          return;
+        }
+      }
+
+      // 'K' or 'k' to toggle Lock Diagram Layout
+      if ((e.key === 'k' || e.key === 'K') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const activeEl = document.activeElement;
+        const isTyping =
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.getAttribute('contenteditable') === 'true');
+        if (!isTyping) {
+          e.preventDefault();
+          handleToggleLayoutLocked();
+          return;
+        }
+      }
+
+      // 'A' or 'a' to trigger Auto-Align
+      if ((e.key === 'a' || e.key === 'A') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const activeEl = document.activeElement;
+        const isTyping =
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.getAttribute('contenteditable') === 'true');
+        if (!isTyping) {
+          e.preventDefault();
+          handleAutoAlign();
+          return;
+        }
+      }
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       // Keyboard arrow keys to nudge selected state node position
       if (effectiveSelectedStateId && !isInspectorOpen && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const isArrow =
@@ -2626,7 +4238,13 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
               activeEl.getAttribute('contenteditable') === 'true');
           if (!isTyping) {
             e.preventDefault();
+<<<<<<< HEAD
+            const step = snapConfig.enabled
+              ? (e.shiftKey ? snapConfig.gridSize * 2 : snapConfig.gridSize)
+              : (e.shiftKey ? 15 : 3);
+=======
             const step = e.shiftKey ? 15 : 3;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             const delta = {
               x: e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0,
               y: e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0,
@@ -2637,7 +4255,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
             currentNodeOffsetsRef.current = nextOffsets;
             setNodeOffsets(nextOffsets);
             if (containerRef.current) {
+<<<<<<< HEAD
+              const svg = getDiagramSvg();
+=======
               const svg = containerRef.current.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               if (svg) {
                 applyDiagramOffsetsToSvg(
                   svg,
@@ -2691,7 +4313,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
     if (labelOrBadgeEl) {
       e.stopPropagation();
+<<<<<<< HEAD
+      const svg = getDiagramSvg();
+=======
       const svg = containerRef.current?.querySelector('svg') || null;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       const edge = resolveEdgeFromElement(labelOrBadgeEl, svg, availableEdges);
       if (edge && edge.from && edge.to) {
         setSelectedEdge(edge);
@@ -2721,6 +4347,13 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       {/* Viewer Header / Toolbar */}
       <div
         id="mermaid-toolbar"
+<<<<<<< HEAD
+        className="relative flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-950/90 border-b border-slate-800 backdrop-blur text-xs text-slate-300 z-20 shrink-0"
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          {/* Search Input for States and Transitions */}
+          <div className="relative flex items-center min-w-[150px] max-w-xs w-full">
+=======
         className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2 bg-slate-950/90 border-b border-slate-800 backdrop-blur text-xs text-slate-300 z-10"
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -2738,13 +4371,24 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
           {/* Search Input for States and Transitions */}
           <div className="relative flex items-center min-w-[200px] max-w-xs sm:max-w-sm md:max-w-md w-full">
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
             <input
               ref={searchInputRef}
               id="diagram-search-input"
               type="text"
               value={effectiveSearchQuery}
+<<<<<<< HEAD
+              onChange={(e) => {
+                handleSearchChange(e.target.value);
+                if (!isSearchPanelOpen) setIsSearchPanelOpen(true);
+              }}
+              onFocus={() => {
+                if (!isSearchPanelOpen) setIsSearchPanelOpen(true);
+              }}
+=======
               onChange={(e) => handleSearchChange(e.target.value)}
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               onKeyDown={handleSearchKeyDown}
               placeholder="Search states or transitions... (Ctrl+F)"
               className="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg pl-8 pr-20 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/50 transition-all"
@@ -2794,16 +4438,602 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
                   id="diagram-search-clear-btn"
                   type="button"
                   onClick={clearSearch}
+<<<<<<< HEAD
+                  className="p-0.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded transition-colors cursor-pointer"
+=======
                   className="p-0.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded transition-colors"
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
                   title="Clear search (Esc)"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
+<<<<<<< HEAD
+
+                <button
+                  id="keyword-search-panel-toggle-button"
+                  type="button"
+                  onClick={() => setIsSearchPanelOpen((prev) => !prev)}
+                  className={`p-0.5 rounded transition-colors cursor-pointer ${
+                    isSearchPanelOpen
+                      ? 'text-amber-400 bg-amber-950/80 hover:bg-amber-900/80'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                  title={isSearchPanelOpen ? 'Hide Search Results Panel (Ctrl+F)' : 'Show Search Results Panel (Ctrl+F)'}
+                >
+                  <ListFilter className="w-3.5 h-3.5" />
+                </button>
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               </div>
             )}
           </div>
         </div>
 
+<<<<<<< HEAD
+        {/* Right Side: Logically Grouped Toolbar Controls */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Hidden Controls Menu (Accessible across all monitor sizes) */}
+          <ToolbarHiddenControls
+            isInteractiveMode={isInteractiveMode}
+            setIsInteractiveMode={setIsInteractiveMode}
+            isCompactLabels={isCompactLabels}
+            setIsCompactLabels={setIsCompactLabels}
+            isInspectorOpen={isInspectorOpen}
+            handleToggleInspector={handleToggleInspector}
+            handleOpenMethodEditor={handleOpenMethodEditor}
+            handleOpenEnumEditor={handleOpenEnumEditor}
+            hasPouContent={Boolean(tcPouContent)}
+            hasDutContent={Boolean(tcDutContent || onOpenEnumEditorProp)}
+            handleAutoAlign={handleAutoAlign}
+            isAutoAligning={isAutoAligning}
+            isLayoutLocked={isLayoutLocked}
+            handleToggleLayoutLocked={handleToggleLayoutLocked}
+            movedElementsCount={movedElementsCount}
+            handleResetLayout={handleResetLayout}
+            totalNotesCount={totalNotesCount}
+            onOpenNotesDrawer={() => setIsNotesDrawerOpen(true)}
+            isMinimapOpen={isMinimapOpen}
+            setIsMinimapOpen={setIsMinimapOpen}
+            isLegendOpen={isLegendOpen}
+            setIsLegendOpen={setIsLegendOpen}
+            isStatsOpen={isStatsOpen}
+            setIsStatsOpen={setIsStatsOpen}
+            isHeatmapActive={isHeatmapActive}
+            setIsHeatmapActive={setIsHeatmapActive}
+            setIsHeatmapPanelOpen={setIsHeatmapPanelOpen}
+            refactorCandidatesCount={complexityHeatmapResult.refactorCandidatesCount}
+            complexityThreshold={complexityThreshold}
+            snapConfig={snapConfig}
+            setSnapConfig={setSnapConfig}
+            setShowSnapToast={setShowSnapToast}
+            zoom={zoom}
+            setZoom={setZoom}
+            handleResetZoom={handleResetZoom}
+            isFullscreen={isFullscreen}
+            toggleFullscreen={toggleFullscreen}
+          />
+          <div className="w-[1px] h-4 bg-slate-800 mx-0.5"></div>
+
+          {/* GROUP 1: Display Mode & Code Editors */}
+          <div className="flex items-center gap-1">
+            {/* Interactive Mode Toggle */}
+            <button
+              id="toggle-interactive-mode-btn"
+              type="button"
+              onClick={() => setIsInteractiveMode((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer ${
+                isInteractiveMode
+                  ? 'bg-emerald-600/90 hover:bg-emerald-500 text-white shadow-sm ring-1 ring-emerald-400/40'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
+              }`}
+              title="Toggle Interactive Mode: Clean compact transition labels with click-to-expand condition details overlay"
+            >
+              <MousePointerClick className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">Interactive</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full font-bold text-[10px] ${
+                  isInteractiveMode
+                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60'
+                    : 'bg-slate-900 text-slate-400'
+                }`}
+              >
+                {isInteractiveMode ? 'ON' : 'OFF'}
+              </span>
+            </button>
+
+            {isInteractiveMode && (
+              <button
+                id="toggle-compact-labels-btn"
+                type="button"
+                onClick={() => setIsCompactLabels((prev) => !prev)}
+                className={`hidden md:flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                  isCompactLabels
+                    ? 'bg-slate-800/90 text-sky-300 border border-sky-500/30'
+                    : 'bg-slate-900/60 text-slate-400 hover:text-slate-300 border border-slate-800'
+                }`}
+                title={
+                  isCompactLabels
+                    ? 'Compact labels enabled: long transition guards are shortened for a cleaner diagram layout'
+                    : 'Full labels enabled: showing full condition text on transitions'
+                }
+              >
+                <SlidersHorizontal className="w-3 h-3 text-sky-400" />
+                <span>{isCompactLabels ? 'Clean' : 'Full'}</span>
+              </button>
+            )}
+
+            {/* Node Styles Inspector Toggle */}
+            <button
+              id="toggle-node-styles-btn"
+              type="button"
+              onClick={handleToggleInspector}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer ${
+                isInspectorOpen
+                  ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm ring-1 ring-sky-400/40'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
+              }`}
+              title="Customize State Node Colors (Background & Foreground)"
+            >
+              <Palette className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden xl:inline">Styles</span>
+              {customizedStatesCount > 0 && (
+                <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 font-bold text-[10px]">
+                  {customizedStatesCount}
+                </span>
+              )}
+            </button>
+
+            {/* Consolidated Code Editors Dropdown Menu */}
+            {(tcPouContent || tcDutContent || onOpenEnumEditorProp) && (
+              <div className="relative" ref={codeMenuRef}>
+                <button
+                  id="toolbar-code-editors-dropdown-btn"
+                  type="button"
+                  onClick={() => setIsCodeMenuOpen((prev) => !prev)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer ${
+                    isCodeMenuOpen
+                      ? 'bg-sky-600 text-white shadow-sm ring-1 ring-sky-400/40'
+                      : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
+                  }`}
+                  title="Edit TwinCAT POU Methods (.TcPOU) or State Enum (.TcDUT)"
+                >
+                  <Code2 className="w-3.5 h-3.5 text-sky-400" />
+                  <span className="hidden sm:inline">Edit Code</span>
+                  <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isCodeMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isCodeMenuOpen && (
+                  <div
+                    id="code-editors-dropdown-menu"
+                    className="absolute left-0 top-full mt-1.5 w-52 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1 z-40 text-xs text-slate-200 divide-y divide-slate-800/70"
+                  >
+                    <button
+                      id="open-method-editor-btn"
+                      type="button"
+                      onClick={() => {
+                        setIsCodeMenuOpen(false);
+                        handleOpenMethodEditor('doState()');
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-800 text-slate-200 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <FileCode className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                      <div>
+                        <div className="font-medium text-xs text-slate-100">Edit Methods (.TcPOU)</div>
+                        <div className="text-[10px] text-slate-400">View & edit methods in POU</div>
+                      </div>
+                    </button>
+
+                    {(tcDutContent || onOpenEnumEditorProp) && (
+                      <button
+                        id="open-enum-editor-btn"
+                        type="button"
+                        onClick={() => {
+                          setIsCodeMenuOpen(false);
+                          handleOpenEnumEditor(undefined);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-800 text-slate-200 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Code2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                        <div>
+                          <div className="font-medium text-xs text-slate-100">Edit ENUM (.TcDUT)</div>
+                          <div className="text-[10px] text-slate-400">View & edit states enum</div>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="w-[1px] h-4 bg-slate-800 mx-0.5"></div>
+
+          {/* GROUP 2: Diagram Layout Controls */}
+          <div className="flex items-center gap-1">
+            {/* Auto-Align Diagram Button */}
+            <button
+              id="toolbar-auto-align-btn"
+              type="button"
+              onClick={handleAutoAlign}
+              disabled={isAutoAligning || !svgContent}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer ${
+                isAutoAligning
+                  ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 ring-1 ring-sky-500/20'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 shadow-xs active:scale-95'
+              }`}
+              title={`Auto-Align (Shortcut: A): Re-runs the ${layoutEngine.toUpperCase()} layout engine to organize all nodes according to flowchart or state diagram logic${
+                isLayoutLocked ? ' (Layout remains locked)' : ''
+              }`}
+            >
+              <Workflow
+                className={`w-3.5 h-3.5 text-sky-400 ${
+                  isAutoAligning ? 'animate-spin' : ''
+                }`}
+              />
+              <span className="hidden sm:inline">Auto-Align</span>
+            </button>
+
+            {/* Lock Diagram Layout Button */}
+            <button
+              id="toolbar-lock-diagram-layout-btn"
+              type="button"
+              onClick={handleToggleLayoutLocked}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer ${
+                isLayoutLocked
+                  ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 shadow-xs ring-1 ring-amber-500/30'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
+              }`}
+              title={
+                isLayoutLocked
+                  ? 'Diagram layout is LOCKED (Shortcut: K): automatic re-layout is disabled on code edits. Click to unlock.'
+                  : 'Lock diagram layout (Shortcut: K): maintains custom node positions when tweaking code logic.'
+              }
+            >
+              {isLayoutLocked ? (
+                <Lock className="w-3.5 h-3.5 text-amber-400" />
+              ) : (
+                <Unlock className="w-3.5 h-3.5 text-slate-400" />
+              )}
+              <span className="hidden xl:inline">{isLayoutLocked ? 'Locked' : 'Lock'}</span>
+              {isLayoutLocked && (
+                <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-bold text-[10px]">
+                  ON
+                </span>
+              )}
+            </button>
+
+            {/* Reset Diagram Layout Button (shown when any node or edge has been repositioned) */}
+            {movedElementsCount > 0 && (
+              <button
+                id="reset-diagram-layout-btn"
+                type="button"
+                onClick={handleResetLayout}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-medium transition-all shadow-sm cursor-pointer"
+                title="Reset manual node and edge positions back to default Mermaid layout"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden xl:inline">Reset Layout</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-bold text-[10px]">
+                  {movedElementsCount}
+                </span>
+              </button>
+            )}
+          </div>
+
+          <div className="w-[1px] h-4 bg-slate-800 mx-0.5"></div>
+
+          {/* GROUP 3: Panels & Overlays */}
+          <div className="flex items-center gap-1">
+            {/* Notes Drawer Button */}
+            <button
+              id="toggle-notes-drawer-btn"
+              type="button"
+              onClick={() => setIsNotesDrawerOpen(true)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer ${
+                totalNotesCount > 0
+                  ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30'
+                  : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+              title="View and manage diagram notes (Right-click any node or transition to add a note)"
+            >
+              <StickyNote className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden xl:inline">Notes</span>
+              {totalNotesCount > 0 && (
+                <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-bold text-[10px]">
+                  {totalNotesCount}
+                </span>
+              )}
+            </button>
+
+            {/* Minimap Overlay Toggle Button */}
+            <button
+              id="minimap-toggle-button"
+              type="button"
+              onClick={() => setIsMinimapOpen((prev) => !prev)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors text-xs font-medium cursor-pointer ${
+                isMinimapOpen
+                  ? 'bg-sky-950/90 text-sky-300 border border-sky-600/60 shadow-xs'
+                  : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+              title="Toggle Diagram Minimap (Shortcut: M)"
+            >
+              <Map className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden xl:inline">Minimap</span>
+            </button>
+
+            {/* Diagram Legend Overlay Toggle Button */}
+            <button
+              id="legend-toggle-button"
+              type="button"
+              onClick={() => setIsLegendOpen((prev) => !prev)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors text-xs font-medium cursor-pointer ${
+                isLegendOpen
+                  ? 'bg-sky-950/90 text-sky-300 border border-sky-600/60 shadow-xs'
+                  : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+              title="Toggle Diagram Legend (Shortcut: L)"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden xl:inline">Legend</span>
+            </button>
+
+            {/* State Machine Statistics Panel Toggle Button */}
+            <button
+              id="statistics-panel-toggle-button"
+              type="button"
+              onClick={() => setIsStatsOpen((prev) => !prev)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors text-xs font-medium cursor-pointer ${
+                isStatsOpen
+                  ? 'bg-sky-950/90 text-sky-300 border border-sky-600/60 shadow-xs'
+                  : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+              title="Toggle State Machine Statistics & Cyclomatic Analysis (Shortcut: S)"
+            >
+              <Activity className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden xl:inline">Stats</span>
+            </button>
+
+            {/* Complexity Heat-Map Toggle Button */}
+            <button
+              id="heatmap-toggle-button"
+              type="button"
+              onClick={() => {
+                if (!isHeatmapActive) {
+                  setIsHeatmapActive(true);
+                  setIsHeatmapPanelOpen(true);
+                } else {
+                  setIsHeatmapPanelOpen((prev) => !prev);
+                }
+              }}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors text-xs font-medium cursor-pointer ${
+                isHeatmapActive
+                  ? 'bg-amber-950/90 text-amber-300 border border-amber-500/70 shadow-xs'
+                  : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+              title="Toggle Complexity Heat-Map Mode & Refactoring Assistant (Shortcut: H)"
+            >
+              <Flame className={`w-3.5 h-3.5 ${isHeatmapActive ? 'text-amber-400 animate-pulse' : 'text-amber-500'}`} />
+              <span className="hidden xl:inline">Heat-Map</span>
+              {isHeatmapActive && (
+                <span className="text-[9px] font-bold px-1 rounded bg-amber-500/30 text-amber-300 leading-none">
+                  ON
+                </span>
+              )}
+            </button>
+
+            {/* Visual Complexity Refactor Alert Button */}
+            <button
+              id="refactor-badges-toggle-button"
+              type="button"
+              onClick={() => {
+                setIsHeatmapPanelOpen(true);
+              }}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer ${
+                complexityHeatmapResult.refactorCandidatesCount > 0
+                  ? 'bg-rose-950/80 text-rose-300 border border-rose-500/60 shadow-xs ring-1 ring-rose-500/30'
+                  : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+              }`}
+              title={`Cyclomatic Complexity Refactor Alert: ${
+                complexityHeatmapResult.refactorCandidatesCount
+              } state(s) exceed threshold (M ≥ ${complexityThreshold}) and have visual warning badges on canvas. Click to view refactoring recommendations.`}
+            >
+              <AlertTriangle
+                className={`w-3.5 h-3.5 ${
+                  complexityHeatmapResult.refactorCandidatesCount > 0
+                    ? 'text-rose-400 animate-pulse'
+                    : 'text-slate-400'
+                }`}
+              />
+              <span className="hidden xl:inline">Refactor</span>
+              {complexityHeatmapResult.refactorCandidatesCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white font-extrabold text-[10px]">
+                  {complexityHeatmapResult.refactorCandidatesCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <div className="w-[1px] h-4 bg-slate-800 mx-0.5"></div>
+
+          {/* GROUP 4: Zoom & Snap Navigation */}
+          <div className="flex items-center gap-1">
+            <button
+              id="zoom-out-button"
+              type="button"
+              onClick={() => setZoom((z) => Math.max(0.2, z * 0.85))}
+              className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+              title="Zoom Out"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <span className="px-1.5 py-0.5 font-mono text-[11px] text-slate-400 select-none">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              id="zoom-in-button"
+              type="button"
+              onClick={() => setZoom((z) => Math.min(5, z * 1.15))}
+              className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+              title="Zoom In"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <button
+              id="zoom-reset-button"
+              type="button"
+              onClick={handleResetZoom}
+              className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+              title="Reset View"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+
+            {/* Snap to Grid Toolbar Toggle & Menu */}
+            <div className="relative flex items-center ml-0.5" id="snap-to-grid-toolbar-group">
+              <button
+                id="snap-to-grid-button"
+                type="button"
+                onClick={() => {
+                  setSnapConfig((prev) => {
+                    const next = { ...prev, enabled: !prev.enabled };
+                    setShowSnapToast({
+                      message: next.enabled ? `Snap to Grid: ON (${next.gridSize}px)` : 'Snap to Grid: OFF',
+                      timestamp: Date.now(),
+                    });
+                    return next;
+                  });
+                }}
+                className={`flex items-center gap-1 px-2 py-1 rounded-l-lg transition-colors text-xs font-medium cursor-pointer border-y border-l ${
+                  snapConfig.enabled
+                    ? 'bg-sky-950/90 text-sky-300 border-sky-600/70 shadow-xs'
+                    : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-slate-700/60'
+                }`}
+                title={`Snap to Grid (${snapConfig.enabled ? 'ON' : 'OFF'} - ${snapConfig.gridSize}px) (Shortcut: G)`}
+              >
+                <Magnet className={`w-3.5 h-3.5 ${snapConfig.enabled ? 'text-sky-400' : 'text-slate-400'}`} />
+                <span className="hidden xl:inline">Snap</span>
+                {snapConfig.enabled && (
+                  <span className="text-[10px] font-mono px-1 rounded bg-sky-900/80 text-sky-300 border border-sky-700/50">
+                    {snapConfig.gridSize}px
+                  </span>
+                )}
+              </button>
+              <button
+                id="snap-to-grid-menu-button"
+                type="button"
+                onClick={() => setIsSnapMenuOpen((prev) => !prev)}
+                className={`px-1 py-1 rounded-r-lg border-y border-r transition-colors text-xs font-medium cursor-pointer ${
+                  snapConfig.enabled
+                    ? 'bg-sky-950/90 text-sky-300 border-sky-600/70'
+                    : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-slate-700/60'
+                }`}
+                title="Snap & Grid Configuration"
+              >
+                <ChevronDown className="w-3 h-3" />
+              </button>
+
+              {/* Snap to Grid Configuration Dropdown */}
+              {isSnapMenuOpen && (
+                <div
+                  id="snap-config-dropdown"
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute top-full left-0 mt-1 z-50 w-52 rounded-xl bg-slate-900/95 border border-slate-700 shadow-2xl backdrop-blur-md p-2.5 text-xs text-slate-200 flex flex-col gap-2 animate-in fade-in zoom-in-95 duration-100"
+                >
+                  <div className="flex items-center justify-between font-semibold text-[11px] text-slate-300 pb-1.5 border-b border-slate-800">
+                    <span className="flex items-center gap-1.5">
+                      <Grid className="w-3.5 h-3.5 text-sky-400" />
+                      Grid Alignment
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsSnapMenuOpen(false)}
+                      className="p-0.5 rounded text-slate-400 hover:text-slate-200"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  {/* Grid Size selector */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-slate-400 font-medium">Grid Resolution</span>
+                    <div className="grid grid-cols-3 gap-1">
+                      {[10, 20, 40].map((size) => (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => {
+                            setSnapConfig((prev) => ({ ...prev, gridSize: size, enabled: true }));
+                            setShowSnapToast({
+                              message: `Grid resolution: ${size}px`,
+                              timestamp: Date.now(),
+                            });
+                          }}
+                          className={`px-2 py-1 rounded text-center text-xs font-mono transition-colors ${
+                            snapConfig.gridSize === size && snapConfig.enabled
+                              ? 'bg-sky-600 text-white font-bold shadow-xs'
+                              : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                          }`}
+                        >
+                          {size}px
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Smart Guides Toggle */}
+                  <div className="pt-1 border-t border-slate-800">
+                    <label className="flex items-center justify-between cursor-pointer py-0.5 text-xs text-slate-300 hover:text-white">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        Smart Node Alignment
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={snapConfig.snapToNodes}
+                        onChange={(e) =>
+                          setSnapConfig((prev) => ({ ...prev, snapToNodes: e.target.checked }))
+                        }
+                        className="rounded border-slate-700 bg-slate-800 text-sky-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                      />
+                    </label>
+                    <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                      Magnetically align state nodes with other states.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="w-[1px] h-4 bg-slate-800 mx-0.5"></div>
+
+          {/* GROUP 5: Fullscreen */}
+          <div className="flex items-center gap-1">
+            <button
+              id="fullscreen-button"
+              type="button"
+              onClick={toggleFullscreen}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium cursor-pointer ${
+                isFullscreen
+                  ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm ring-1 ring-sky-400/40'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
+              }`}
+              title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Expand diagram canvas to fill the entire browser window'}
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize2 className="w-3.5 h-3.5" />
+                  <span>Exit Fullscreen</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>Fullscreen</span>
+                </>
+              )}
+            </button>
+          </div>
+=======
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Interactive Mode Toggle */}
           <button
@@ -3109,6 +5339,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
               </>
             )}
           </button>
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         </div>
       </div>
 
@@ -3119,7 +5350,14 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+<<<<<<< HEAD
+        onMouseLeave={(e) => {
+          handleMouseUp(e);
+          setHoveredComplexityMetric(null);
+        }}
+=======
         onMouseLeave={handleMouseUp}
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         onClick={handleClick}
         onWheel={handleWheel}
         onContextMenu={handleContextMenu}
@@ -3147,6 +5385,65 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transformOrigin: '0 0',
+<<<<<<< HEAD
+              transition: canvasTransition,
+            }}
+            className="w-full h-full p-8 select-none flex items-center justify-center [&>svg]:max-w-none [&>svg]:max-h-none relative"
+          >
+            {/* Main Mermaid Diagram SVG Container */}
+            <div
+              id="mermaid-diagram-svg-container"
+              className="contents"
+              dangerouslySetInnerHTML={{ __html: svgContent }}
+            />
+
+            {/* Snap to Grid Background Dot Pattern */}
+            {snapConfig.enabled && (
+              <svg
+                id="diagram-snap-grid-svg"
+                className="absolute inset-0 pointer-events-none -z-10 overflow-visible"
+                style={{
+                  left: -8000,
+                  top: -8000,
+                  width: 16000,
+                  height: 16000,
+                }}
+              >
+                <defs>
+                  <pattern
+                    id="diagram-snap-grid-pattern"
+                    width={snapConfig.gridSize}
+                    height={snapConfig.gridSize}
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <circle
+                      cx={snapConfig.gridSize / 2}
+                      cy={snapConfig.gridSize / 2}
+                      r="1.2"
+                      fill={mermaidTheme === 'dark' ? '#475569' : '#94a3b8'}
+                      opacity={mermaidTheme === 'dark' ? '0.65' : '0.45'}
+                    />
+                  </pattern>
+                </defs>
+                <rect
+                  x="0"
+                  y="0"
+                  width="100%"
+                  height="100%"
+                  fill="url(#diagram-snap-grid-pattern)"
+                />
+              </svg>
+            )}
+
+            {/* Smart Alignment Guides and Crosshair Overlay */}
+            <DiagramSnapGuides
+              snapResult={activeSnapResult}
+              activeNodeId={draggedNodeIdRef.current}
+              canvasPositions={canvasNodePositions}
+              svgElement={renderedSvg || getDiagramSvg()}
+            />
+
+=======
               transition: 'none',
             }}
             className="w-full h-full p-8 select-none flex items-center justify-center [&>svg]:max-w-none [&>svg]:max-h-none relative"
@@ -3155,11 +5452,16 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
               className="contents"
               dangerouslySetInnerHTML={{ __html: svgContent }}
             />
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             <NoteOverlaysLayer
               notes={effectiveNotes}
               availableStates={availableStates}
               availableEdges={availableEdges}
+<<<<<<< HEAD
+              svgElement={renderedSvg || getDiagramSvg()}
+=======
               svgElement={renderedSvg || containerRef.current?.querySelector('svg') || null}
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               zoom={zoom}
               onEditNote={handleOpenAddNote}
               onDeleteNote={handleDeleteActiveNote}
@@ -3183,8 +5485,223 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           </div>
         )}
 
+<<<<<<< HEAD
+        {/* Snap to Grid Status Toast */}
+        {showSnapToast && (
+          <div
+            id="snap-status-toast"
+            className="absolute top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/95 border border-sky-500/50 shadow-2xl backdrop-blur-md text-xs font-medium text-sky-200 animate-in fade-in zoom-in-95 duration-150 pointer-events-none select-none ring-1 ring-sky-500/20"
+          >
+            <Magnet className="w-3.5 h-3.5 text-sky-400" />
+            <span>{showSnapToast.message}</span>
+          </div>
+        )}
+
+        {/* Interactive Diagram Minimap Overlay */}
+        {svgContent && !error && (
+          <DiagramMinimap
+            svgElement={renderedSvg || getDiagramSvg()}
+            containerElement={containerRef.current}
+            pan={pan}
+            zoom={zoom}
+            onPanChange={setPan}
+            onResetZoom={handleResetZoom}
+            selectedStateId={effectiveSelectedStateId}
+            selectedStateLabel={effectiveSelectedStateLabel}
+            availableStatesCount={availableStates.length}
+            canvasPositions={canvasNodePositions}
+            onSelectState={(id) => {
+              handleSelectState(id);
+              panToState(id);
+            }}
+            isOpen={isMinimapOpen}
+            onClose={() => setIsMinimapOpen(false)}
+            theme={mermaidTheme}
+          />
+        )}
+
+        {/* Interactive Diagram Legend Overlay */}
+        {svgContent && !error && (
+          <DiagramLegendOverlay
+            isOpen={isLegendOpen}
+            onClose={() => setIsLegendOpen(false)}
+            customStyles={effectiveCustomStyles}
+            availableStates={availableStates}
+            selectedStateId={effectiveSelectedStateId}
+            onSelectState={(id) => {
+              handleSelectState(id);
+              panToState(id);
+            }}
+            priorityFormat={priorityFormat}
+            availableEdges={availableEdges}
+            notes={effectiveNotes}
+            containerRef={containerRef}
+          />
+        )}
+
+        {/* Real-Time State Machine Statistics & Cyclomatic Analysis Panel */}
+        {svgContent && !error && (
+          <StateMachineStatsPanel
+            isOpen={isStatsOpen}
+            onClose={() => setIsStatsOpen(false)}
+            availableStates={availableStates}
+            availableEdges={availableEdges}
+            tcPouContent={tcPouContent}
+            selectedStateId={effectiveSelectedStateId}
+            onSelectState={(id) => {
+              handleSelectState(id);
+              panToState(id);
+            }}
+            onPanToState={panToState}
+            onOpenComplexityHeatmap={() => {
+              setIsHeatmapActive(true);
+              setIsHeatmapPanelOpen(true);
+            }}
+            diagramVersionKey={`${fileName}_${code}_${availableEdges.length}_${availableStates.length}`}
+          />
+        )}
+
+        {/* Real-Time Complexity Heat-Map Control Panel */}
+        {svgContent && !error && (
+          <ComplexityHeatmapPanel
+            isOpen={isHeatmapPanelOpen}
+            onClose={() => setIsHeatmapPanelOpen(false)}
+            heatmapResult={complexityHeatmapResult}
+            isHeatmapActive={isHeatmapActive}
+            onToggleHeatmap={(active) => setIsHeatmapActive(active)}
+            selectedPalette={heatmapPalette}
+            onChangePalette={(p) => setHeatmapPalette(p)}
+            onlyShowRefactorCandidates={heatmapOnlyRefactor}
+            onToggleOnlyShowRefactorCandidates={(val) => setHeatmapOnlyRefactor(val)}
+            selectedStateId={effectiveSelectedStateId}
+            onSelectState={(id) => {
+              handleSelectState(id);
+              panToState(id);
+            }}
+            onPanToState={panToState}
+            onOpenMethodEditorForState={(stateId) => {
+              setMethodModalInitialMethod(`doState() for ${stateId}`);
+              setIsMethodModalOpen(true);
+            }}
+            refactorThreshold={complexityThreshold}
+            onChangeRefactorThreshold={(th) => setComplexityThreshold(th)}
+            showComplexityBadges={showComplexityBadges}
+            onToggleShowComplexityBadges={(show) => setShowComplexityBadges(show)}
+          />
+        )}
+
+        {/* Complexity Heat-map / Refactor Badge Hover Tooltip */}
+        {(isHeatmapActive || showComplexityBadges) && hoveredComplexityMetric && (
+          <div
+            id="heatmap-state-hover-tooltip"
+            style={{
+              position: 'fixed',
+              left: `${Math.min(window.innerWidth - 280, hoveredComplexityMetric.anchorX + 16)}px`,
+              top: `${Math.min(window.innerHeight - 200, hoveredComplexityMetric.anchorY + 16)}px`,
+              zIndex: 60,
+            }}
+            className="pointer-events-none w-64 p-3 bg-slate-950/95 border border-amber-500/50 rounded-xl shadow-2xl backdrop-blur-md text-xs animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+              <div className="font-bold text-slate-100 truncate flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="truncate">{hoveredComplexityMetric.metric.stateLabel}</span>
+              </div>
+              <span
+                className="font-mono font-extrabold text-[11px] px-1.5 py-0.5 rounded text-white shadow-xs"
+                style={{
+                  backgroundColor: hoveredComplexityMetric.metric.color.badgeBg,
+                  border: `1px solid ${hoveredComplexityMetric.metric.color.badgeBorder}`,
+                }}
+              >
+                M={hoveredComplexityMetric.metric.score}
+              </span>
+            </div>
+
+            <div className="pt-2 space-y-1.5 text-[11px]">
+              <div className="flex items-center justify-between text-slate-400">
+                <span>Tier:</span>
+                <span
+                  className="font-bold uppercase tracking-wider text-[10px]"
+                  style={{ color: hoveredComplexityMetric.metric.color.stroke }}
+                >
+                  {hoveredComplexityMetric.metric.level}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1 py-1 px-1.5 bg-slate-900/90 rounded border border-slate-800/80 text-[10px]">
+                <div className="text-slate-400">
+                  Exits: <span className="text-slate-200 font-semibold">{hoveredComplexityMetric.metric.outgoingTransitionsCount}</span>
+                </div>
+                <div className="text-slate-400">
+                  Guards: <span className="text-sky-300 font-semibold">+{hoveredComplexityMetric.metric.guardedTransitionsCount}</span>
+                </div>
+                <div className="text-slate-400">
+                  Compound: <span className="text-amber-300 font-semibold">+{hoveredComplexityMetric.metric.compoundConditionsCount}</span>
+                </div>
+                <div className="text-slate-400">
+                  ST Logic: <span className="text-indigo-300 font-semibold">+{hoveredComplexityMetric.metric.internalDecisionsCount}</span>
+                </div>
+              </div>
+
+              <div className="text-[10px] text-slate-300 leading-snug">
+                <span className="text-amber-300 font-semibold">Insight: </span>
+                {hoveredComplexityMetric.metric.refactorRecommendation}
+              </div>
+
+              {hoveredComplexityMetric.metric.refactorNeeded && (
+                <div className="text-[10px] text-rose-300 font-semibold flex items-center gap-1 bg-rose-950/60 p-1 rounded border border-rose-800/50">
+                  <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                  <span>Exceeds refactor threshold (M={hoveredComplexityMetric.metric.score} ≥ {complexityThreshold})</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Real-Time Keyword Search & Highlighting Panel (Positioned below Statistics Panel) */}
+        {svgContent && !error && (
+          <DiagramSearchPanel
+            isOpen={isSearchPanelOpen}
+            onClose={() => setIsSearchPanelOpen(false)}
+            searchQuery={effectiveSearchQuery}
+            onSearchChange={handleSearchChange}
+            onClearSearch={clearSearch}
+            matches={matches}
+            activeMatchIndex={activeMatchIndex}
+            matchesBreakdown={matchesBreakdown}
+            onSelectMatch={switchActiveMatch}
+            onNextMatch={goToNextMatch}
+            onPrevMatch={goToPrevMatch}
+            availableStates={availableStates}
+            availableEdges={availableEdges}
+            onSelectState={(id, label) => {
+              handleSelectState(id, label);
+              if (id) panToState(id);
+            }}
+            onSelectEdge={(edge) => {
+              setSelectedEdge(edge);
+            }}
+            onPanToElement={(el) => {
+              panToElement(el);
+              el.classList.remove('diagram-jump-highlight');
+              void (el as HTMLElement).offsetWidth;
+              el.classList.add('diagram-jump-highlight');
+              setTimeout(() => {
+                el.classList.remove('diagram-jump-highlight');
+              }, 2200);
+            }}
+            isStatsOpen={isStatsOpen}
+            diagramVersionKey={`${fileName}_${code}_${availableEdges.length}_${availableStates.length}`}
+          />
+        )}
+
+        {/* Floating State Node Style Inspector (only render if not controlled by parent App) */}
+        {!isInspectorControlled && isInspectorOpen && effectiveSelectedStateId && (
+=======
         {/* Floating State Node Style Inspector */}
         {isInspectorOpen && effectiveSelectedStateId && (
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           <StateNodeStyleInspector
             selectedStateId={effectiveSelectedStateId}
             selectedStateLabel={effectiveSelectedStateLabel}
@@ -3200,6 +5717,36 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
             onClose={handleCloseInspector}
             tcPouContent={tcPouContent}
             tcPouFileName={tcPouFileName || fileName}
+<<<<<<< HEAD
+            tcDutContent={tcDutContent}
+            tcDutFileName={tcDutFileName}
+            onSaveDutContent={onSaveDutContent}
+            onSaveMethodCode={onSaveMethodCode}
+            onSaveStateCode={onSaveStateCode}
+            onSavePreProcessCode={onSavePreProcessCode}
+            initialMode="method"
+            notes={effectiveNotes}
+            onSaveNote={onSaveNote}
+            onDeleteNote={onDeleteNote}
+            onUpdateNoteStyle={onUpdateNoteStyle}
+          />
+        )}
+
+        {/* Modal for Method Editor (only if not handled by parent) */}
+        {!onOpenInspectorProp && !onOpenMethodEditorProp && isMethodModalOpen && (
+          <MethodStructuredTextEditor
+            tcPouContent={tcPouContent}
+            tcPouFileName={tcPouFileName || fileName}
+            initialMethod={methodModalInitialMethod}
+            selectedStateId={effectiveSelectedStateId}
+            selectedStateLabel={effectiveSelectedStateLabel}
+            onSaveMethodCode={onSaveMethodCode}
+            onSavePreProcessCode={onSavePreProcessCode}
+            onClose={() => setIsMethodModalOpen(false)}
+            isModal={true}
+            onJumpToState={(stateId) => {
+              setIsMethodModalOpen(false);
+=======
             onSaveStateCode={onSaveStateCode}
             onSavePreProcessCode={onSavePreProcessCode}
             initialMode="code"
@@ -3216,12 +5763,29 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
             isModal={true}
             onJumpToState={(stateId) => {
               setIsPreProcessModalOpen(false);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               handleSelectState(stateId);
               panToState(stateId);
             }}
           />
         )}
 
+<<<<<<< HEAD
+        {/* Modal for Enum Editor (only if not handled by parent) */}
+        {!onOpenInspectorProp && !onOpenEnumEditorProp && isEnumModalOpen && tcDutContent && onSaveDutContent && (
+          <DutEnumEditor
+            dutContent={tcDutContent}
+            dutFileName={tcDutFileName || 'EnumDeclaration.TcDUT'}
+            pouContent={tcPouContent}
+            onSaveDutContent={onSaveDutContent}
+            initialSelectedMember={enumModalInitialMember}
+            onClose={() => setIsEnumModalOpen(false)}
+            isModal={true}
+          />
+        )}
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         {/* Floating Transition Guard & Condition Inspector */}
         {activeConditionOverlay && (
           <TransitionGuardInspector
@@ -3261,9 +5825,43 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
               handleSelectState(stateId, st?.label || stateId);
               setIsInspectorOpen(true);
             }}
+<<<<<<< HEAD
+            onOpenMethodEditor={(m) => {
+              if (m) setMethodModalInitialMethod(m);
+              setIsMethodModalOpen(true);
+            }}
+            onOpenPreProcessEditor={() => {
+              setMethodModalInitialMethod('preProcess()');
+              setIsMethodModalOpen(true);
+            }}
+            onOpenMermaidLive={onOpenMermaidLive}
+            onOpenEnumEditor={(memberName) => {
+              if (onOpenEnumEditorProp) {
+                onOpenEnumEditorProp(memberName);
+              } else {
+                setEnumModalInitialMember(memberName);
+                setIsEnumModalOpen(true);
+              }
+            }}
+            onExportImage={(fmt) => handleOpenExportModal(fmt)}
+            onToggleLegend={() => setIsLegendOpen((prev) => !prev)}
+            onToggleStats={() => setIsStatsOpen((prev) => !prev)}
+            onToggleSearch={() => setIsSearchPanelOpen((prev) => !prev)}
+            onToggleHeatmap={() => {
+              setIsHeatmapActive((prev) => {
+                const next = !prev;
+                if (next) setIsHeatmapPanelOpen(true);
+                return next;
+              });
+            }}
+            isHeatmapActive={isHeatmapActive}
+            onToggleLockLayout={handleToggleLayoutLocked}
+            isLayoutLocked={isLayoutLocked}
+=======
             onOpenPreProcessEditor={() => setIsPreProcessModalOpen(true)}
             onOpenMermaidLive={onOpenMermaidLive}
             onExportImage={(fmt) => handleOpenExportModal(fmt)}
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             onClose={() => setContextMenuState(null)}
           />
         )}
@@ -3278,10 +5876,18 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           customStyles={effectiveCustomStyles}
           theme={mermaidTheme}
           defaultFormat={exportModalDefaultFormat}
+<<<<<<< HEAD
+          onToast={onToastProp}
+        />
+
+        {/* Export Notification Toast (Fallback if no external toast provider) */}
+        {!onToastProp && exportingNotification && (
+=======
         />
 
         {/* Export Notification Toast */}
         {exportingNotification && (
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           <div
             id="export-toast-notification"
             className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900/95 border border-sky-500/50 shadow-2xl text-xs text-white backdrop-blur animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none"
@@ -3291,6 +5897,28 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           </div>
         )}
 
+<<<<<<< HEAD
+        {/* Layout Lock Toast Notification */}
+        {layoutLockToast && (
+          <div
+            id="layout-lock-toast-notification"
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl border shadow-2xl text-xs backdrop-blur animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none ${
+              layoutLockToast.locked
+                ? 'bg-amber-950/95 border-amber-500/60 text-amber-200'
+                : 'bg-slate-900/95 border-slate-700/60 text-slate-200'
+            }`}
+          >
+            {layoutLockToast.locked ? (
+              <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+            ) : (
+              <Unlock className="w-4 h-4 text-slate-400 shrink-0" />
+            )}
+            <span>{layoutLockToast.message}</span>
+          </div>
+        )}
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         {/* Note Dialog Modal */}
         <NoteDialog
           isOpen={isNoteDialogOpen}

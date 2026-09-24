@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+=======
 import React, { useState, useMemo } from 'react';
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 import {
   ListTree,
   Search,
@@ -24,6 +28,10 @@ export interface IdentifiedStatesSidebarSectionProps {
   onJumpToState: (stateId: string, label?: string) => void;
   customStyles?: CustomNodeStylesMap;
   stateVarName?: string;
+<<<<<<< HEAD
+  onOpenEnumEditor?: () => void;
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 type FilterMode = 'all' | 'logic' | 'errors';
@@ -35,6 +43,10 @@ export const IdentifiedStatesSidebarSection: React.FC<IdentifiedStatesSidebarSec
   onJumpToState,
   customStyles,
   stateVarName = 'machineState',
+<<<<<<< HEAD
+  onOpenEnumEditor,
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -89,6 +101,57 @@ export const IdentifiedStatesSidebarSection: React.FC<IdentifiedStatesSidebarSec
   }, [states, searchQuery, filterMode, selectedGroup, sortMode]);
 
   const logicCount = useMemo(() => states.filter((s) => s.hasCaseBranch).length, [states]);
+<<<<<<< HEAD
+  const scrollListRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to selected state/node when selected from Diagram Canvas
+  useEffect(() => {
+    if (!selectedStateId) return;
+
+    // 1. Ensure section is expanded
+    if (!isExpanded) {
+      setIsExpanded(true);
+    }
+
+    // 2. Ensure the state is not hidden by filters
+    const stateExists = states.some((s) => s.id === selectedStateId);
+    if (!stateExists) return;
+
+    const isVisible = filteredStates.some((s) => s.id === selectedStateId);
+    if (!isVisible) {
+      setSearchQuery('');
+      setFilterMode('all');
+      setSelectedGroup('all');
+    }
+
+    // 3. Scroll to state item after render
+    const timer = setTimeout(() => {
+      const itemEl = document.getElementById(`state-list-item-${selectedStateId}`);
+      if (itemEl) {
+        // Ensure parent sidebar also brings this section into view if scrolled away
+        const sidebar = document.getElementById('source-files-sidebar');
+        if (sidebar) {
+          const itemRect = itemEl.getBoundingClientRect();
+          const sRect = sidebar.getBoundingClientRect();
+          if (itemRect.top < sRect.top || itemRect.bottom > sRect.bottom) {
+            itemEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+
+        // Auto-scroll inside identified states list
+        itemEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        // Add visual pulse indicator
+        itemEl.classList.remove('state-selected-pulse');
+        void itemEl.offsetWidth; // force DOM reflow
+        itemEl.classList.add('state-selected-pulse');
+      }
+    }, 60);
+
+    return () => clearTimeout(timer);
+  }, [selectedStateId, isExpanded, filteredStates, states]);
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   return (
     <section
@@ -106,12 +169,20 @@ export const IdentifiedStatesSidebarSection: React.FC<IdentifiedStatesSidebarSec
             <ListTree className="w-3.5 h-3.5" />
           </div>
           <div className="flex items-center gap-2 min-w-0">
+<<<<<<< HEAD
+            <h3 className="text-xs font-bold text-slate-200 tracking-wide whitespace-nowrap">
+=======
             <h3 className="text-xs font-bold text-slate-200 tracking-wide truncate">
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               Identified States
             </h3>
             <span
               id="states-count-badge"
+<<<<<<< HEAD
+              className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-medium bg-sky-950/90 text-sky-400 border border-sky-800/50 shrink-0"
+=======
               className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-medium bg-sky-950/90 text-sky-400 border border-sky-800/50"
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               title={`${states.length} total states identified in POU`}
             >
               {states.length}
@@ -235,6 +306,10 @@ export const IdentifiedStatesSidebarSection: React.FC<IdentifiedStatesSidebarSec
 
           {/* States Scrollable List */}
           <div
+<<<<<<< HEAD
+            ref={scrollListRef}
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             id="identified-states-scrollable-list"
             className="flex flex-col gap-1 max-h-[340px] overflow-y-auto pr-0.5 custom-scrollbar"
           >

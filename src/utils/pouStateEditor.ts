@@ -382,6 +382,20 @@ export interface ExtractedPreProcessCode {
   error?: string;
 }
 
+<<<<<<< HEAD
+export interface ExtractedMethodCode {
+  success: boolean;
+  methodName: string;
+  code: string;
+  declaration: string;
+  methodFound: boolean;
+  stateVarName: string;
+  detectedTransitions: string[];
+  error?: string;
+}
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 export interface UpdatePreProcessCodeResult {
   success: boolean;
   updatedPou: string;
@@ -390,6 +404,56 @@ export interface UpdatePreProcessCodeResult {
   error?: string;
 }
 
+<<<<<<< HEAD
+export interface UpdateMethodCodeResult {
+  success: boolean;
+  methodName: string;
+  updatedPou: string;
+  action?: 'updated' | 'inserted';
+  detectedTransitions?: string[];
+  error?: string;
+}
+
+/**
+ * Extracts all method names declared in a .TcPOU XML file and returns them sorted in ascending order.
+ */
+export function getAllMethodsFromPou(pouXml: string): string[] {
+  if (!pouXml || !pouXml.trim()) {
+    return ['doState'];
+  }
+
+  const methodRx = /<Method[^>]*\bName=["']([^"']+)["'][^>]*>/gi;
+  const methodsSet = new Set<string>();
+  let match: RegExpExecArray | null;
+
+  while ((match = methodRx.exec(pouXml)) !== null) {
+    if (match[1] && match[1].trim()) {
+      methodsSet.add(match[1].trim());
+    }
+  }
+
+  const methods = Array.from(methodsSet);
+  // Sort in ascending alphabetical order
+  methods.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+  if (methods.length === 0) {
+    return ['doState'];
+  }
+
+  return methods;
+}
+
+/**
+ * Extracts the Structured Text implementation and declaration of any method from a .TcPOU file.
+ */
+export function getMethodCodeFromPou(pouXml: string, methodName: string): ExtractedMethodCode {
+  const cleanName = (methodName || 'doState').replace(/\(\)$/, '').trim();
+
+  if (!pouXml || !pouXml.trim()) {
+    return {
+      success: false,
+      methodName: cleanName,
+=======
 /**
  * Extracts the Structured Text implementation and declaration of preProcess() from a .TcPOU file.
  */
@@ -397,6 +461,7 @@ export function getPreProcessCodeFromPou(pouXml: string): ExtractedPreProcessCod
   if (!pouXml || !pouXml.trim()) {
     return {
       success: false,
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       code: '',
       declaration: '',
       methodFound: false,
@@ -414,6 +479,23 @@ export function getPreProcessCodeFromPou(pouXml: string): ExtractedPreProcessCod
     stateVarName = caseMatch[1].trim();
   }
 
+<<<<<<< HEAD
+  // Escape special regex characters in cleanName
+  const escapedName = cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const methodRx = new RegExp(`<Method[^>]*\\bName=["']${escapedName}["'][^>]*>([\\s\\S]*?)<\\/Method>`, 'i');
+  const methodMatch = pouXml.match(methodRx);
+
+  if (!methodMatch) {
+    return {
+      success: true, // not an error, method can be added
+      methodName: cleanName,
+      code: '',
+      declaration: `METHOD ${cleanName}\nVAR_INPUT\nEND_VAR`,
+      methodFound: false,
+      stateVarName,
+      detectedTransitions: [],
+      error: `Method '${cleanName}' is not present in this .TcPOU file. You can create it here and click Save to insert it.`,
+=======
   // Locate the preProcess method
   const methodRx = /<Method[^>]*\bName=["']preProcess["'][^>]*>([\s\S]*?)<\/Method>/i;
   const methodMatch = pouXml.match(methodRx);
@@ -426,6 +508,7 @@ export function getPreProcessCodeFromPou(pouXml: string): ExtractedPreProcessCod
       stateVarName,
       detectedTransitions: [],
       error: "Method 'preProcess' is not yet present in this .TcPOU file. You can create it here and click Save to insert it.",
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     };
   }
 
@@ -464,6 +547,10 @@ export function getPreProcessCodeFromPou(pouXml: string): ExtractedPreProcessCod
 
   return {
     success: true,
+<<<<<<< HEAD
+    methodName: cleanName,
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     code: stCode,
     declaration,
     methodFound: true,
@@ -473,6 +560,20 @@ export function getPreProcessCodeFromPou(pouXml: string): ExtractedPreProcessCod
 }
 
 /**
+<<<<<<< HEAD
+ * Updates or creates the Structured Text code and declaration for any method inside a .TcPOU file.
+ */
+export function updateMethodCodeInPou(
+  pouXml: string,
+  methodName: string,
+  newCode: string,
+  newDeclaration?: string
+): UpdateMethodCodeResult {
+  const cleanName = (methodName || 'doState').replace(/\(\)$/, '').trim();
+
+  if (!pouXml || !pouXml.trim()) {
+    return { success: false, methodName: cleanName, updatedPou: pouXml, error: 'Empty .TcPOU content' };
+=======
  * Updates or creates the Structured Text code for preProcess() inside a .TcPOU file.
  */
 export function updatePreProcessCodeInPou(
@@ -482,6 +583,7 @@ export function updatePreProcessCodeInPou(
 ): UpdatePreProcessCodeResult {
   if (!pouXml || !pouXml.trim()) {
     return { success: false, updatedPou: pouXml, error: 'Empty .TcPOU content' };
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   }
 
   // Detect state variable name
@@ -492,15 +594,35 @@ export function updatePreProcessCodeInPou(
     stateVarName = caseMatch[1].trim();
   }
 
+<<<<<<< HEAD
+  const escapedName = cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const methodRx = new RegExp(`(<Method[^>]*\\bName=["']${escapedName}["'][^>]*>)([\\s\\S]*?)(<\\/Method>)`, 'i');
+  const methodMatch = pouXml.match(methodRx);
+
+  // If method doesn't exist, insert before </POU> or before doState
+=======
   // 1. Locate preProcess method
   const methodRx = /(<Method[^>]*\bName=["']preProcess["'][^>]*>)([\s\S]*?)(<\/Method>)/i;
   const methodMatch = pouXml.match(methodRx);
 
   // If method doesn't exist, insert before doState or before </POU>
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   if (!methodMatch || methodMatch.index === undefined) {
     const declText =
       newDeclaration && newDeclaration.trim()
         ? newDeclaration.trim()
+<<<<<<< HEAD
+        : `METHOD ${cleanName}\nVAR_INPUT\nEND_VAR`;
+
+    const newMethodXml = `\n    <Method Name="${cleanName}">\n      <Declaration><![CDATA[${declText}]]></Declaration>\n      <Implementation>\n        <ST><![CDATA[${newCode}]]></ST>\n      </Implementation>\n    </Method>\n`;
+
+    const pouEndIdx = pouXml.search(/<\/POU>/i);
+    let updatedPou: string;
+    if (pouEndIdx !== -1) {
+      updatedPou = pouXml.slice(0, pouEndIdx) + newMethodXml + pouXml.slice(pouEndIdx);
+    } else {
+      updatedPou = pouXml + newMethodXml;
+=======
         : 'METHOD preProcess\nVAR_INST\nEND_VAR';
 
     const newMethodXml = `\n    <Method Name="preProcess">\n      <Declaration><![CDATA[${declText}]]></Declaration>\n      <Implementation>\n        <ST><![CDATA[${newCode}]]></ST>\n      </Implementation>\n    </Method>\n`;
@@ -517,11 +639,16 @@ export function updatePreProcessCodeInPou(
       } else {
         return { success: false, updatedPou: pouXml, error: 'Cannot find injection point for preProcess() in .TcPOU.' };
       }
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     }
 
     const detectedTransitions = parseTransitionsFromStateCode(newCode, stateVarName);
     return {
       success: true,
+<<<<<<< HEAD
+      methodName: cleanName,
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       updatedPou,
       action: 'inserted',
       detectedTransitions,
@@ -537,16 +664,36 @@ export function updatePreProcessCodeInPou(
     const declRx = /(<Declaration[^>]*>)([\s\S]*?)(<\/Declaration>)/i;
     const declMatch = methodInner.match(declRx);
     if (declMatch && declMatch.index !== undefined) {
+<<<<<<< HEAD
+      const formattedDecl = `<![CDATA[${newDeclaration}]]>`;
+=======
       const isDeclCdata = /<!\[CDATA\[/i.test(declMatch[2]);
       const formattedDecl = isDeclCdata ? `<![CDATA[${newDeclaration}]]>` : newDeclaration;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       methodInner =
         methodInner.slice(0, declMatch.index + declMatch[1].length) +
         formattedDecl +
         methodInner.slice(declMatch.index + declMatch[1].length + declMatch[2].length);
+<<<<<<< HEAD
+    } else {
+      // Insert declaration before <Implementation>
+      const implIdx = methodInner.search(/<Implementation[^>]*>/i);
+      const declBlock = `\n      <Declaration><![CDATA[${newDeclaration}]]></Declaration>`;
+      if (implIdx !== -1) {
+        methodInner = methodInner.slice(0, implIdx) + declBlock + '\n      ' + methodInner.slice(implIdx);
+      } else {
+        methodInner = declBlock + methodInner;
+      }
+    }
+  }
+
+  // Locate <ST> block inside method
+=======
     }
   }
 
   // Locate <ST> block inside preProcess
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const stRx = /(<ST[^>]*>)([\s\S]*?)(<\/ST>)/i;
   const stMatch = methodInner.match(stRx);
   if (!stMatch || stMatch.index === undefined) {
@@ -560,6 +707,13 @@ export function updatePreProcessCodeInPou(
         newImpl +
         methodInner.slice(implMatch.index + implMatch[0].length);
     } else {
+<<<<<<< HEAD
+      methodInner = `${methodInner}\n      <Implementation>\n        <ST><![CDATA[${newCode}]]></ST>\n      </Implementation>`;
+    }
+  } else {
+    const stPrefix = stMatch[1];
+    const newStContent = `<![CDATA[${newCode}]]>`;
+=======
       return { success: false, updatedPou: pouXml, error: '<Implementation> block not found in preProcess().' };
     }
   } else {
@@ -567,11 +721,16 @@ export function updatePreProcessCodeInPou(
     const stContent = stMatch[2];
     const isCdata = /<!\[CDATA\[/i.test(stContent) || true;
     const newStContent = isCdata ? `<![CDATA[${newCode}]]>` : newCode;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
     methodInner =
       methodInner.slice(0, stMatch.index + stPrefix.length) +
       newStContent +
+<<<<<<< HEAD
+      methodInner.slice(stMatch.index + stPrefix.length + stMatch[2].length);
+=======
       methodInner.slice(stMatch.index + stPrefix.length + stContent.length);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   }
 
   // Reassemble pouXml
@@ -584,8 +743,33 @@ export function updatePreProcessCodeInPou(
 
   return {
     success: true,
+<<<<<<< HEAD
+    methodName: cleanName,
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     updatedPou,
     action: 'updated',
     detectedTransitions,
   };
 }
+<<<<<<< HEAD
+
+/**
+ * Extracts the Structured Text implementation and declaration of preProcess() from a .TcPOU file.
+ */
+export function getPreProcessCodeFromPou(pouXml: string): ExtractedPreProcessCode {
+  return getMethodCodeFromPou(pouXml, 'preProcess');
+}
+
+/**
+ * Updates or creates the Structured Text code for preProcess() inside a .TcPOU file.
+ */
+export function updatePreProcessCodeInPou(
+  pouXml: string,
+  newCode: string,
+  newDeclaration?: string
+): UpdatePreProcessCodeResult {
+  return updateMethodCodeInPou(pouXml, 'preProcess', newCode, newDeclaration);
+}
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323

@@ -34,6 +34,22 @@ export function extractCanvasNodePositions(
   if (typeof document === 'undefined') return {};
 
   let svg: SVGSVGElement | null = null;
+<<<<<<< HEAD
+  if (svgOrContainer instanceof SVGSVGElement && svgOrContainer.id !== 'diagram-snap-grid-svg') {
+    svg = svgOrContainer;
+  } else if (svgOrContainer) {
+    svg = (svgOrContainer.querySelector('#mermaid-diagram-svg-container svg') ||
+      svgOrContainer.querySelector('svg:not(#diagram-snap-grid-svg):not([id*="snap-grid"])') ||
+      svgOrContainer.querySelector('svg')) as SVGSVGElement | null;
+  }
+
+  if (!svg || svg.id === 'diagram-snap-grid-svg') {
+    svg =
+      (document.querySelector('#mermaid-diagram-svg-container svg') as SVGSVGElement | null) ||
+      (document.querySelector('#mermaid-canvas-area svg:not(#diagram-snap-grid-svg):not([id*="snap-grid"])') as SVGSVGElement | null) ||
+      (document.querySelector('.tc-mermaid-svg') as SVGSVGElement | null) ||
+      (document.querySelector('svg:not(#diagram-snap-grid-svg):not([id*="snap-grid"])') as SVGSVGElement | null);
+=======
   if (svgOrContainer instanceof SVGSVGElement) {
     svg = svgOrContainer;
   } else if (svgOrContainer) {
@@ -45,6 +61,7 @@ export function extractCanvasNodePositions(
       document.querySelector('#mermaid-canvas-area svg') ||
       document.querySelector('.tc-mermaid-svg') ||
       document.querySelector('svg');
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   }
 
   if (!svg) return {};

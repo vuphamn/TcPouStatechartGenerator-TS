@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+import React from 'react';
+import { MethodStructuredTextEditor, MethodStructuredTextEditorProps } from './MethodStructuredTextEditor.tsx';
+=======
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Code2,
@@ -23,6 +27,7 @@ import {
   parseTransitionsFromStateCode,
   ExtractedPreProcessCode,
 } from '../utils/pouStateEditor.ts';
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
 export interface PreProcessStructuredTextEditorProps {
   tcPouContent?: string;
@@ -33,6 +38,10 @@ export interface PreProcessStructuredTextEditorProps {
   onJumpToState?: (stateId: string) => void;
 }
 
+<<<<<<< HEAD
+export const PreProcessStructuredTextEditor: React.FC<PreProcessStructuredTextEditorProps> = (props) => {
+  return <MethodStructuredTextEditor {...props} initialMethod="preProcess" />;
+=======
 export const PreProcessStructuredTextEditor: React.FC<PreProcessStructuredTextEditorProps> = ({
   tcPouContent = '',
   tcPouFileName = 'POU.TcPOU',
@@ -690,4 +699,5 @@ export const PreProcessStructuredTextEditor: React.FC<PreProcessStructuredTextEd
   }
 
   return editorContent;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 };

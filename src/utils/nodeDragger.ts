@@ -351,6 +351,98 @@ export function cleanNodeId(raw: string): string {
  * Robustly finds an SVG node element in the diagram by stateId.
  */
 export function findNodeElement(svg: SVGSVGElement, stateId: string): SVGGElement | null {
+<<<<<<< HEAD
+  if (!svg || !stateId) return null;
+  const cleanId = cleanNodeId(stateId);
+  const isStartEnd = cleanId === '[*]' || cleanId === 'root_start' || cleanId === 'root_end' || cleanId === 'startNode';
+
+  try {
+    const escapedStateId = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(stateId) : stateId.replace(/["\\]/g, '\\$&');
+    const escapedCleanId = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(cleanId) : cleanId.replace(/["\\]/g, '\\$&');
+
+    const direct = (
+      svg.querySelector(`g.node[data-state-id="${escapedStateId}"], g[data-state-id="${escapedStateId}"]`) ||
+      svg.querySelector(`g.node[data-state-id="${escapedCleanId}"], g[data-state-id="${escapedCleanId}"]`) ||
+      svg.querySelector(`g.node[id="${escapedStateId}"], g[id="${escapedStateId}"]`) ||
+      svg.querySelector(`g.node[id="${escapedCleanId}"], g[id="${escapedCleanId}"]`) ||
+      svg.querySelector(`g.node[id*="flowchart-${escapedCleanId}-"], g[id*="flowchart-${escapedCleanId}-"]`) ||
+      svg.querySelector(`g.node[id*="state-${escapedCleanId}-"], g[id*="state-${escapedCleanId}-"]`) ||
+      (isStartEnd
+        ? (svg.querySelector('g.node[id*="root_start"], g.node[id*="root_end"], g.node[id*="startNode"], g.node.startNode') as SVGGElement | null)
+        : null)
+    ) as SVGGElement | null;
+    if (direct) return direct;
+  } catch {
+    // If querySelector throws on complex selector, continue to comprehensive node scan below
+  }
+
+  const lowerStateId = stateId.toLowerCase().trim();
+  const lowerCleanId = cleanId.toLowerCase().trim();
+  const strippedSuffix = lowerStateId.includes('.') ? lowerStateId.split('.').pop()! : lowerStateId;
+
+  // Fallback: scan all candidate nodes (g.node, g.statediagram-state, g[data-state-id], g.cluster)
+  const allNodes = Array.from(
+    svg.querySelectorAll('g.node, g.statediagram-state, g[data-state-id], g.cluster')
+  ) as SVGGElement[];
+
+  for (const n of allNodes) {
+    const nStateId = (n.getAttribute('data-state-id') || '').trim();
+    const lowerNStateId = nStateId.toLowerCase();
+    if (
+      nStateId === stateId ||
+      nStateId === cleanId ||
+      cleanNodeId(nStateId) === cleanId ||
+      lowerNStateId === lowerStateId ||
+      lowerNStateId === lowerCleanId ||
+      lowerNStateId === strippedSuffix ||
+      cleanNodeId(lowerNStateId) === lowerCleanId
+    ) {
+      return n;
+    }
+
+    const nId = (n.getAttribute('id') || '').trim();
+    const lowerNId = nId.toLowerCase();
+    const cleanNId = cleanNodeId(nId);
+    const lowerCleanNId = cleanNId.toLowerCase();
+    if (
+      nId === stateId ||
+      cleanNId === cleanId ||
+      cleanNId === stateId ||
+      lowerNId === lowerStateId ||
+      lowerCleanNId === lowerCleanId ||
+      lowerCleanNId === strippedSuffix ||
+      lowerNId.includes(lowerCleanId)
+    ) {
+      return n;
+    }
+
+    const nLabel = (n.getAttribute('data-state-label') || '').trim();
+    const lowerNLabel = nLabel.toLowerCase();
+    if (
+      nLabel &&
+      (nLabel === stateId ||
+        nLabel === cleanId ||
+        lowerNLabel === lowerStateId ||
+        lowerNLabel === lowerCleanId ||
+        lowerNLabel === strippedSuffix)
+    ) {
+      return n;
+    }
+
+    const text = (n.textContent || '').trim().toLowerCase();
+    if (
+      text &&
+      (text === lowerStateId ||
+        text === lowerCleanId ||
+        text === strippedSuffix ||
+        text.startsWith(lowerStateId + ' ') ||
+        text.startsWith(lowerCleanId + ' ') ||
+        text.startsWith(strippedSuffix + ' ') ||
+        text.includes(lowerCleanId))
+    ) {
+      return n;
+    }
+=======
   if (!stateId) return null;
   const cleanId = cleanNodeId(stateId);
   const isStartEnd = cleanId === '[*]' || cleanId === 'root_start' || cleanId === 'root_end' || cleanId === 'startNode';
@@ -381,6 +473,7 @@ export function findNodeElement(svg: SVGSVGElement, stateId: string): SVGGElemen
 
     const nLabel = n.getAttribute('data-state-label') || '';
     if (nLabel && (nLabel === stateId || nLabel === cleanId)) return n;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   }
   return null;
 }

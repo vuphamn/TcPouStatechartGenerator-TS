@@ -11,6 +11,16 @@ import {
   Sparkles,
   FileImage,
   FileCode,
+<<<<<<< HEAD
+  BookOpen,
+  Activity,
+  Search,
+  Code2,
+  Flame,
+  Lock,
+  Unlock,
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 } from 'lucide-react';
 import { ContextMenuTarget } from '../types.ts';
 import { copyTextToClipboard } from '../utils/diagramExport.ts';
@@ -23,9 +33,24 @@ interface DiagramContextMenuProps {
   onAddOrEditNote: (target: ContextMenuTarget) => void;
   onDeleteNote?: (target: ContextMenuTarget) => void;
   onOpenStyleCustomizer?: (nodeId: string) => void;
+<<<<<<< HEAD
+  onOpenMethodEditor?: (methodName?: string) => void;
+  onOpenPreProcessEditor?: () => void;
+  onOpenEnumEditor?: (memberName?: string) => void;
+  onOpenMermaidLive?: () => void;
+  onExportImage?: (format: 'png' | 'svg') => void;
+  onToggleLegend?: () => void;
+  onToggleStats?: () => void;
+  onToggleSearch?: () => void;
+  onToggleHeatmap?: () => void;
+  isHeatmapActive?: boolean;
+  onToggleLockLayout?: () => void;
+  isLayoutLocked?: boolean;
+=======
   onOpenPreProcessEditor?: () => void;
   onOpenMermaidLive?: () => void;
   onExportImage?: (format: 'png' | 'svg') => void;
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
@@ -36,9 +61,24 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
   onAddOrEditNote,
   onDeleteNote,
   onOpenStyleCustomizer,
+<<<<<<< HEAD
+  onOpenMethodEditor,
   onOpenPreProcessEditor,
   onOpenMermaidLive,
   onExportImage,
+  onToggleLegend,
+  onToggleStats,
+  onToggleSearch,
+  onOpenEnumEditor,
+  onToggleHeatmap,
+  isHeatmapActive,
+  onToggleLockLayout,
+  isLayoutLocked,
+=======
+  onOpenPreProcessEditor,
+  onOpenMermaidLive,
+  onExportImage,
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [copySuccess, setCopySuccess] = React.useState(false);
@@ -188,13 +228,25 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
                 <button
                   id="context-menu-edit-code-btn"
                   onClick={() => {
+<<<<<<< HEAD
+                    if (onOpenMethodEditor) {
+                      onOpenMethodEditor('doState()');
+                    } else {
+                      onOpenStyleCustomizer(target.id);
+                    }
+=======
                     onOpenStyleCustomizer(target.id);
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
                     onClose();
                   }}
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-sky-600/20 hover:text-sky-300 text-sky-400 transition-colors font-medium"
                 >
                   <FileCode className="w-3.5 h-3.5 text-sky-400" />
+<<<<<<< HEAD
+                  <span>Open Method Editor...</span>
+=======
                   <span>Edit ST Code (doState)...</span>
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
                 </button>
                 <button
                   id="context-menu-style-btn"
@@ -210,17 +262,47 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
               </>
             )}
 
+<<<<<<< HEAD
+            {(onOpenMethodEditor || onOpenPreProcessEditor) && (
+              <button
+                id="context-menu-edit-preprocess-btn"
+                onClick={() => {
+                  if (onOpenMethodEditor) {
+                    onOpenMethodEditor();
+                  } else if (onOpenPreProcessEditor) {
+                    onOpenPreProcessEditor();
+                  }
+=======
             {onOpenPreProcessEditor && (
               <button
                 id="context-menu-edit-preprocess-btn"
                 onClick={() => {
                   onOpenPreProcessEditor();
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
                   onClose();
                 }}
                 className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-indigo-600/20 hover:text-indigo-300 text-indigo-400 transition-colors font-medium"
               >
                 <FileCode className="w-3.5 h-3.5 text-indigo-400" />
+<<<<<<< HEAD
+                <span>Open Method Editor...</span>
+              </button>
+            )}
+
+            {onOpenEnumEditor && (
+              <button
+                id="context-menu-open-enum-editor-btn"
+                onClick={() => {
+                  onOpenEnumEditor(target.type === 'node' ? target.id : undefined);
+                  onClose();
+                }}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-sky-600/20 hover:text-sky-300 text-sky-400 transition-colors font-medium"
+              >
+                <Code2 className="w-3.5 h-3.5 text-sky-400" />
+                <span>Edit in Enum Editor (.TcDUT)</span>
+=======
                 <span>Edit preProcess() ST...</span>
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               </button>
             )}
 
@@ -263,6 +345,88 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
           </>
         )}
 
+<<<<<<< HEAD
+        {onToggleLegend && (
+          <button
+            id="context-menu-toggle-legend-btn"
+            onClick={() => {
+              onToggleLegend();
+              onClose();
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-slate-800 text-slate-300 hover:text-slate-100 transition-colors"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-sky-400" />
+            <span>Toggle Diagram Legend</span>
+            <span className="ml-auto text-[10px] font-mono text-slate-500">L</span>
+          </button>
+        )}
+
+        {onToggleStats && (
+          <button
+            id="context-menu-toggle-stats-btn"
+            onClick={() => {
+              onToggleStats();
+              onClose();
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-slate-800 text-slate-300 hover:text-slate-100 transition-colors"
+          >
+            <Activity className="w-3.5 h-3.5 text-sky-400" />
+            <span>State Machine Statistics</span>
+            <span className="ml-auto text-[10px] font-mono text-slate-500">S</span>
+          </button>
+        )}
+
+        {onToggleSearch && (
+          <button
+            id="context-menu-toggle-search-btn"
+            onClick={() => {
+              onToggleSearch();
+              onClose();
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-slate-800 text-slate-300 hover:text-slate-100 transition-colors"
+          >
+            <Search className="w-3.5 h-3.5 text-amber-400" />
+            <span>Find States & Transitions</span>
+            <span className="ml-auto text-[10px] font-mono text-slate-500">F</span>
+          </button>
+        )}
+
+        {onToggleHeatmap && (
+          <button
+            id="context-menu-toggle-heatmap-btn"
+            onClick={() => {
+              onToggleHeatmap();
+              onClose();
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-slate-800 text-slate-300 hover:text-slate-100 transition-colors"
+          >
+            <Flame className={`w-3.5 h-3.5 ${isHeatmapActive ? 'text-amber-400' : 'text-slate-400'}`} />
+            <span>Complexity Heat-Map Mode</span>
+            <span className="ml-auto text-[10px] font-mono text-slate-500">H</span>
+          </button>
+        )}
+
+        {onToggleLockLayout && (
+          <button
+            id="context-menu-toggle-lock-layout-btn"
+            onClick={() => {
+              onToggleLockLayout();
+              onClose();
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-slate-800 text-slate-300 hover:text-slate-100 transition-colors"
+          >
+            {isLayoutLocked ? (
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+            ) : (
+              <Unlock className="w-3.5 h-3.5 text-slate-400" />
+            )}
+            <span>{isLayoutLocked ? 'Unlock Diagram Layout' : 'Lock Diagram Layout'}</span>
+            <span className="ml-auto text-[10px] font-mono text-slate-500">K</span>
+          </button>
+        )}
+
+=======
+>>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         {onOpenMermaidLive && (
           <button
             id="context-menu-mermaid-live-btn"
