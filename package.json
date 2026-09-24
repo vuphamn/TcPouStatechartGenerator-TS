@@ -9,10 +9,7 @@
     "build": "tsc && vite build",
     "lint": "tsc --noEmit",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
-<<<<<<< HEAD
     "electron": "electron .",
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     "electron:dev": "cross-env VITE_DEV_SERVER_URL=http://localhost:3000 electron .",
     "build:exe": "npm run build && electron-builder --win"
   },
@@ -42,13 +39,10 @@
   "dependencies": {
     "@mermaid-js/layout-elk": "^1.0.0",
     "@xmldom/xmldom": "^0.9.12",
-<<<<<<< HEAD
     "d3": "^7.9.0",
     "html2canvas": "^1.4.1",
     "html2canvas-pro": "^2.4.5",
     "jspdf": "^4.2.1",
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     "lucide-react": "^1.16.0",
     "mermaid": "^11.4.1",
     "pako": "^2.1.0",
@@ -58,10 +52,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
-<<<<<<< HEAD
     "@types/d3": "^7.4.3",
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     "@types/jsdom": "^30.0.0",
     "@types/pako": "^2.0.3",
     "@types/prismjs": "^1.26.6",

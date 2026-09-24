@@ -11,7 +11,6 @@ import {
   Sparkles,
   FileImage,
   FileCode,
-<<<<<<< HEAD
   BookOpen,
   Activity,
   Search,
@@ -19,8 +18,6 @@ import {
   Flame,
   Lock,
   Unlock,
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 } from 'lucide-react';
 import { ContextMenuTarget } from '../types.ts';
 import { copyTextToClipboard } from '../utils/diagramExport.ts';
@@ -33,7 +30,6 @@ interface DiagramContextMenuProps {
   onAddOrEditNote: (target: ContextMenuTarget) => void;
   onDeleteNote?: (target: ContextMenuTarget) => void;
   onOpenStyleCustomizer?: (nodeId: string) => void;
-<<<<<<< HEAD
   onOpenMethodEditor?: (methodName?: string) => void;
   onOpenPreProcessEditor?: () => void;
   onOpenEnumEditor?: (memberName?: string) => void;
@@ -46,11 +42,6 @@ interface DiagramContextMenuProps {
   isHeatmapActive?: boolean;
   onToggleLockLayout?: () => void;
   isLayoutLocked?: boolean;
-=======
-  onOpenPreProcessEditor?: () => void;
-  onOpenMermaidLive?: () => void;
-  onExportImage?: (format: 'png' | 'svg') => void;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
@@ -61,7 +52,6 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
   onAddOrEditNote,
   onDeleteNote,
   onOpenStyleCustomizer,
-<<<<<<< HEAD
   onOpenMethodEditor,
   onOpenPreProcessEditor,
   onOpenMermaidLive,
@@ -74,11 +64,6 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
   isHeatmapActive,
   onToggleLockLayout,
   isLayoutLocked,
-=======
-  onOpenPreProcessEditor,
-  onOpenMermaidLive,
-  onExportImage,
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [copySuccess, setCopySuccess] = React.useState(false);
@@ -228,25 +213,17 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
                 <button
                   id="context-menu-edit-code-btn"
                   onClick={() => {
-<<<<<<< HEAD
                     if (onOpenMethodEditor) {
                       onOpenMethodEditor('doState()');
                     } else {
                       onOpenStyleCustomizer(target.id);
                     }
-=======
-                    onOpenStyleCustomizer(target.id);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
                     onClose();
                   }}
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-sky-600/20 hover:text-sky-300 text-sky-400 transition-colors font-medium"
                 >
                   <FileCode className="w-3.5 h-3.5 text-sky-400" />
-<<<<<<< HEAD
                   <span>Open Method Editor...</span>
-=======
-                  <span>Edit ST Code (doState)...</span>
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
                 </button>
                 <button
                   id="context-menu-style-btn"
@@ -262,7 +239,6 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
               </>
             )}
 
-<<<<<<< HEAD
             {(onOpenMethodEditor || onOpenPreProcessEditor) && (
               <button
                 id="context-menu-edit-preprocess-btn"
@@ -272,19 +248,11 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
                   } else if (onOpenPreProcessEditor) {
                     onOpenPreProcessEditor();
                   }
-=======
-            {onOpenPreProcessEditor && (
-              <button
-                id="context-menu-edit-preprocess-btn"
-                onClick={() => {
-                  onOpenPreProcessEditor();
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
                   onClose();
                 }}
                 className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md hover:bg-indigo-600/20 hover:text-indigo-300 text-indigo-400 transition-colors font-medium"
               >
                 <FileCode className="w-3.5 h-3.5 text-indigo-400" />
-<<<<<<< HEAD
                 <span>Open Method Editor...</span>
               </button>
             )}
@@ -300,9 +268,6 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
               >
                 <Code2 className="w-3.5 h-3.5 text-sky-400" />
                 <span>Edit in Enum Editor (.TcDUT)</span>
-=======
-                <span>Edit preProcess() ST...</span>
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               </button>
             )}
 
@@ -345,7 +310,6 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
           </>
         )}
 
-<<<<<<< HEAD
         {onToggleLegend && (
           <button
             id="context-menu-toggle-legend-btn"
@@ -425,8 +389,6 @@ export const DiagramContextMenu: React.FC<DiagramContextMenuProps> = ({
           </button>
         )}
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         {onOpenMermaidLive && (
           <button
             id="context-menu-mermaid-live-btn"

@@ -351,7 +351,6 @@ export function cleanNodeId(raw: string): string {
  * Robustly finds an SVG node element in the diagram by stateId.
  */
 export function findNodeElement(svg: SVGSVGElement, stateId: string): SVGGElement | null {
-<<<<<<< HEAD
   if (!svg || !stateId) return null;
   const cleanId = cleanNodeId(stateId);
   const isStartEnd = cleanId === '[*]' || cleanId === 'root_start' || cleanId === 'root_end' || cleanId === 'startNode';
@@ -442,38 +441,6 @@ export function findNodeElement(svg: SVGSVGElement, stateId: string): SVGGElemen
     ) {
       return n;
     }
-=======
-  if (!stateId) return null;
-  const cleanId = cleanNodeId(stateId);
-  const isStartEnd = cleanId === '[*]' || cleanId === 'root_start' || cleanId === 'root_end' || cleanId === 'startNode';
-
-  const direct = (
-    svg.querySelector(`g.node[data-state-id="${stateId}"]`) ||
-    svg.querySelector(`g.node[data-state-id="${cleanId}"]`) ||
-    svg.querySelector(`g.node[id="${stateId}"]`) ||
-    svg.querySelector(`g.node[id="${cleanId}"]`) ||
-    svg.querySelector(`g.node[id="flowchart-${cleanId}-0"]`) ||
-    svg.querySelector(`g.node[id="state-${cleanId}-0"]`) ||
-    svg.querySelector(`g.node[id*="flowchart-${cleanId}-"]`) ||
-    svg.querySelector(`g.node[id*="state-${cleanId}-"]`) ||
-    (isStartEnd
-      ? (svg.querySelector('g.node[id*="root_start"], g.node[id*="root_end"], g.node[id*="startNode"], g.node.startNode') as SVGGElement | null)
-      : null)
-  ) as SVGGElement | null;
-  if (direct) return direct;
-
-  // Fallback: scan all nodes checking cleanNodeId(id) or data-state-label
-  const allNodes = Array.from(svg.querySelectorAll('g.node')) as SVGGElement[];
-  for (const n of allNodes) {
-    const nStateId = n.getAttribute('data-state-id') || '';
-    if (nStateId === stateId || nStateId === cleanId || cleanNodeId(nStateId) === cleanId) return n;
-
-    const nId = n.getAttribute('id') || '';
-    if (nId === stateId || cleanNodeId(nId) === cleanId || cleanNodeId(nId) === stateId) return n;
-
-    const nLabel = n.getAttribute('data-state-label') || '';
-    if (nLabel && (nLabel === stateId || nLabel === cleanId)) return n;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   }
   return null;
 }

@@ -15,7 +15,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Palette,
-<<<<<<< HEAD
   Code2,
   Lock,
   Unlock,
@@ -25,21 +24,16 @@ import {
   FileImage,
   FileCode,
   X,
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 } from 'lucide-react';
 import { generateStatechart, PriorityFormat } from './generator.ts';
 import { MermaidViewer, MermaidViewerHandle, LayoutEngine, FlowchartCurve, MermaidTheme } from './components/MermaidViewer.tsx';
 import { MermaidMarkdownViewer } from './components/MermaidMarkdownViewer.tsx';
 import { FileDropzone } from './components/FileDropzone.tsx';
 import { IdentifiedStatesSidebarSection } from './components/IdentifiedStatesSidebarSection.tsx';
-<<<<<<< HEAD
 import { DutEnumEditor } from './components/DutEnumEditor.tsx';
 import { MethodStructuredTextEditor } from './components/MethodStructuredTextEditor.tsx';
 import { StateNodeStyleInspector, InspectorMode } from './components/StateNodeStyleInspector.tsx';
 import { HeaderHiddenControls } from './components/HeaderHiddenControls.tsx';
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 import { extractIdentifiedStatesFromPou } from './utils/pouStateExtractor.ts';
 import { SAMPLES, SampleItem } from './samples/samplesData.ts';
 import { getMermaidLiveUrl } from './utils/mermaidLive.ts';
@@ -53,12 +47,8 @@ import {
   appendCanvasPositionsToMermaid,
 } from './utils/canvasPositions.ts';
 import { copyTextToClipboard } from './utils/diagramExport.ts';
-<<<<<<< HEAD
 import { exportDiagramVisibleAreaToPdf } from './utils/printToPdf.ts';
 import { updateStateCodeInPou, updatePreProcessCodeInPou, updateMethodCodeInPou } from './utils/pouStateEditor.ts';
-=======
-import { updateStateCodeInPou, updatePreProcessCodeInPou } from './utils/pouStateEditor.ts';
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
 export const App: React.FC = () => {
   // Active sample or custom state
@@ -83,7 +73,6 @@ export const App: React.FC = () => {
   const [mermaidTheme, setMermaidTheme] = useState<MermaidTheme>('dark');
   const [liveUpdate, setLiveUpdate] = useState<boolean>(true);
 
-<<<<<<< HEAD
   // Lock diagram layout toggle: disables automatic re-layout triggered by edits, preserving custom node positions
   const [lockDiagramLayout, setLockDiagramLayout] = useState<boolean>(() => {
     try {
@@ -111,20 +100,12 @@ export const App: React.FC = () => {
   const [inspectorMode, setInspectorMode] = useState<InspectorMode>('method');
   const [inspectorInitialMethod, setInspectorInitialMethod] = useState<string>('doState()');
   const [inspectorInitialEnumMember, setInspectorInitialEnumMember] = useState<string | undefined>(undefined);
-=======
-  // UI tabs & states
-  const [activeTab, setActiveTab] = useState<'diagram' | 'markdown'>('diagram');
-  const [diagramSearchQuery, setDiagramSearchQuery] = useState<string>('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
-  const [copiedMarkdown, setCopiedMarkdown] = useState<boolean>(false);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // Node display customizations
   const [customNodeStyles, setCustomNodeStyles] = useState<CustomNodeStylesMap>({});
   const [selectedStateId, setSelectedStateId] = useState<string | null>(null);
   const [selectedStateLabel, setSelectedStateLabel] = useState<string>('');
 
-<<<<<<< HEAD
   // Diagram notes and state documentation state with localStorage persistence
   const [diagramNotes, setDiagramNotes] = useState<DiagramNotes>(() => {
     try {
@@ -153,14 +134,6 @@ export const App: React.FC = () => {
     }
   }, [diagramNotes]);
 
-=======
-  // Diagram notes state
-  const [diagramNotes, setDiagramNotes] = useState<DiagramNotes>({
-    nodes: {},
-    edges: {},
-  });
-
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   // Node drag offsets and canvas extracted positions
   const [nodeOffsets, setNodeOffsets] = useState<NodeOffsetsMap>({});
   const [canvasPositions, setCanvasPositions] = useState<CanvasNodePositionsMap>({});
@@ -174,7 +147,6 @@ export const App: React.FC = () => {
     return extractIdentifiedStatesFromPou(pouContent, dutContent);
   }, [pouContent, dutContent]);
 
-<<<<<<< HEAD
   // Effective selected state for Inspector (defaults to first identified state if none explicitly selected)
   const effectiveSelectedStateId = useMemo(() => {
     if (selectedStateId) return selectedStateId;
@@ -190,8 +162,6 @@ export const App: React.FC = () => {
     return found?.label || effectiveSelectedStateId;
   }, [selectedStateLabel, identifiedStatesResult.states, effectiveSelectedStateId]);
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   // Jump to state from sidebar list
   const handleJumpToState = useCallback((stateId: string, label?: string) => {
     setActiveTab('diagram');
@@ -199,16 +169,10 @@ export const App: React.FC = () => {
     if (label) {
       setSelectedStateLabel(label);
     }
-<<<<<<< HEAD
     const ts = Date.now();
     setJumpRequest({ stateId, timestamp: ts });
     if (mermaidViewerRef.current) {
       mermaidViewerRef.current.panToState(stateId, ts);
-=======
-    setJumpRequest({ stateId, timestamp: Date.now() });
-    if (mermaidViewerRef.current) {
-      mermaidViewerRef.current.panToState(stateId);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     }
   }, []);
 
@@ -464,7 +428,6 @@ export const App: React.FC = () => {
     ]
   );
 
-<<<<<<< HEAD
   const handleSaveMethodCode = useCallback(
     (methodName: string, newCode: string, newDeclaration?: string) => {
       try {
@@ -522,8 +485,6 @@ export const App: React.FC = () => {
     ]
   );
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const handleSavePreProcessCode = useCallback(
     (newCode: string, newDeclaration?: string) => {
       try {
@@ -581,7 +542,6 @@ export const App: React.FC = () => {
     ]
   );
 
-<<<<<<< HEAD
   const handleSaveDutContent = useCallback(
     (newDutContent: string) => {
       try {
@@ -632,8 +592,6 @@ export const App: React.FC = () => {
     ]
   );
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const customizedStatesCount = useMemo(() => {
     return Object.values(customNodeStyles).filter(
       (s) => s.fill || s.color || s.stroke || s.strokeWidth
@@ -667,11 +625,8 @@ export const App: React.FC = () => {
   // Helper to extract the most up-to-date canvas positions and generate the full exported markdown
   const getLatestFullMarkdown = useCallback(() => {
     const livePositions = extractCanvasNodePositions(
-<<<<<<< HEAD
       document.getElementById('mermaid-diagram-svg-container')?.querySelector('svg') ||
       document.getElementById('mermaid-canvas-area')?.querySelector('svg:not(#diagram-snap-grid-svg):not([id*="snap-grid"])') ||
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       document.getElementById('mermaid-canvas-area')?.querySelector('svg'),
       nodeOffsets
     );
@@ -685,7 +640,6 @@ export const App: React.FC = () => {
   }, [nodeOffsets, canvasPositions, styledMarkdown, diagramNotes, layoutEngine, flowchartCurve, mermaidTheme]);
 
   // Actions
-<<<<<<< HEAD
   const [copyToast, setCopyToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const copyToastTimeoutRef = useRef<number | null>(null);
 
@@ -725,17 +679,6 @@ export const App: React.FC = () => {
         console.error('Error copying markdown:', err);
         showCopyToast('Failed to copy diagram markdown to clipboard', 'error');
       });
-=======
-  const handleCopyMarkdown = () => {
-    const md = getLatestFullMarkdown() || outputMarkdown;
-    if (!md) return;
-    copyTextToClipboard(md).then((ok) => {
-      if (ok) {
-        setCopiedMarkdown(true);
-        setTimeout(() => setCopiedMarkdown(false), 2000);
-      }
-    });
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   };
 
   const handleDownload = () => {
@@ -753,7 +696,6 @@ export const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-<<<<<<< HEAD
   const [isPrintingPdf, setIsPrintingPdf] = useState<boolean>(false);
   const [pdfToast, setPdfToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const pdfToastTimeoutRef = useRef<number | null>(null);
@@ -899,8 +841,6 @@ export const App: React.FC = () => {
     }
   };
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const handleOpenMermaidLive = () => {
     const md = getLatestFullMarkdown() || outputMarkdown;
     if (!md) return;
@@ -917,30 +857,19 @@ export const App: React.FC = () => {
       {/* Top Application Bar */}
       <header
         id="app-header"
-<<<<<<< HEAD
         className="relative z-40 flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 backdrop-blur shrink-0"
       >
         <div className="flex items-center gap-3 min-w-0">
-=======
-        className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 backdrop-blur shrink-0"
-      >
-        <div className="flex items-center gap-3">
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           <button
             id="toggle-sidebar-btn"
             type="button"
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-<<<<<<< HEAD
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors shrink-0"
-=======
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             title={isSidebarOpen ? 'Collapse inputs' : 'Expand inputs'}
           >
             {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
           </button>
 
-<<<<<<< HEAD
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 font-bold shrink-0">
               <GitFork className="w-4 h-4" />
@@ -953,20 +882,6 @@ export const App: React.FC = () => {
                 </span>
               </h1>
               <p className="text-[11px] text-slate-400 truncate hidden xl:block">
-=======
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 font-bold">
-              <GitFork className="w-4 h-4" />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
-                TcPouStatechartGenerator
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-950 text-sky-400 border border-sky-800/60 font-mono">
-                  Web Edition
-                </span>
-              </h1>
-              <p className="text-[11px] text-slate-400">
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
                 TwinCAT PLC Statechart & Flowchart Diagram Generator
               </p>
             </div>
@@ -974,7 +889,6 @@ export const App: React.FC = () => {
         </div>
 
         {/* Header Action Bar */}
-<<<<<<< HEAD
         <div className="flex items-center gap-2 shrink-0">
           {/* Hidden Controls Menu (ALWAYS at the very front of header action bar on any monitor size) */}
           <HeaderHiddenControls
@@ -1014,9 +928,6 @@ export const App: React.FC = () => {
 
           <div className="h-5 w-[1px] bg-slate-800 mx-0.5"></div>
 
-=======
-        <div className="flex items-center gap-2">
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           {/* Sample Selector */}
           <div className="flex items-center gap-1.5 bg-slate-800/80 border border-slate-700/60 rounded-lg px-2 py-1 text-xs">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
@@ -1079,7 +990,6 @@ export const App: React.FC = () => {
             <span className="hidden md:inline">Download</span>
           </button>
 
-<<<<<<< HEAD
           {/* Export Dropdown */}
           <div className="relative" ref={exportMenuRef}>
             <button
@@ -1244,27 +1154,16 @@ export const App: React.FC = () => {
           </button>
 
           {/* Open in Mermaid Live (on wide monitors, always available in Hidden menu) */}
-=======
-          {/* Open in Mermaid Live */}
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           <button
             id="open-mermaid-live-btn"
             type="button"
             onClick={handleOpenMermaidLive}
             disabled={!outputMarkdown}
-<<<<<<< HEAD
             className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-40"
             title="Open in mermaid.live"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span className="hidden xl:inline">Mermaid Live</span>
-=======
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-40"
-            title="Open in mermaid.live"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Mermaid Live</span>
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           </button>
         </div>
       </header>
@@ -1272,11 +1171,7 @@ export const App: React.FC = () => {
       {/* Options Control Ribbon */}
       <div
         id="options-ribbon"
-<<<<<<< HEAD
         className="relative z-30 flex flex-wrap items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800/80 text-xs text-slate-300 gap-3 shrink-0"
-=======
-        className="flex flex-wrap items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800/80 text-xs text-slate-300 gap-3 shrink-0"
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       >
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-1.5 text-slate-400 font-medium">
@@ -1469,7 +1364,6 @@ export const App: React.FC = () => {
             </select>
           </div>
 
-<<<<<<< HEAD
           {/* Lock Diagram Layout Toggle */}
           <button
             id="lock-diagram-layout-toggle-btn"
@@ -1499,8 +1393,6 @@ export const App: React.FC = () => {
             )}
           </button>
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           {/* Custom Node Styles Count Badge */}
           {customizedStatesCount > 0 && (
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-sky-950/60 border border-sky-800/60 text-sky-400 text-[11px]">
@@ -1592,15 +1484,12 @@ export const App: React.FC = () => {
                 setDutContent(text);
               }}
               idPrefix="tcdut"
-<<<<<<< HEAD
               onOpenEditor={() => {
                 setInspectorInitialEnumMember(undefined);
                 setInspectorMode('enum');
                 setIsInspectorOpen(true);
               }}
               editorButtonLabel="Edit ENUM"
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             />
 
             {/* TcPOU File Dropzone */}
@@ -1618,15 +1507,12 @@ export const App: React.FC = () => {
                 setPouContent(text);
               }}
               idPrefix="tcpou"
-<<<<<<< HEAD
               onOpenEditor={() => {
                 setInspectorInitialMethod('doState()');
                 setInspectorMode('method');
                 setIsInspectorOpen(true);
               }}
               editorButtonLabel="Edit Method"
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             />
 
             {/* Identified States Sidebar Section */}
@@ -1636,14 +1522,11 @@ export const App: React.FC = () => {
               onJumpToState={handleJumpToState}
               customStyles={customNodeStyles}
               stateVarName={identifiedStatesResult.stateVarName}
-<<<<<<< HEAD
               onOpenEnumEditor={() => {
                 setInspectorInitialEnumMember(selectedStateId || undefined);
                 setInspectorMode('enum');
                 setIsInspectorOpen(true);
               }}
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             />
 
             {/* Guidance Info Card */}
@@ -1688,7 +1571,6 @@ export const App: React.FC = () => {
               >
                 Mermaid Markdown
               </button>
-<<<<<<< HEAD
               <button
                 id="tab-enum-editor-btn"
                 type="button"
@@ -1702,8 +1584,6 @@ export const App: React.FC = () => {
                 <Code2 className="w-3.5 h-3.5" />
                 <span>Enum Editor (.TcDUT)</span>
               </button>
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             </div>
 
             {generationError && (
@@ -1749,7 +1629,6 @@ export const App: React.FC = () => {
                 fileName={pouFileName.replace(/\.TcPOU$/i, '') || 'statechart'}
                 tcPouContent={pouContent}
                 tcPouFileName={pouFileName}
-<<<<<<< HEAD
                 tcDutContent={dutContent}
                 tcDutFileName={dutFileName}
                 isInspectorOpen={isInspectorOpen}
@@ -1780,18 +1659,11 @@ export const App: React.FC = () => {
                 onToast={showCopyToast}
               />
             ) : activeTab === 'markdown' ? (
-=======
-                onSaveStateCode={handleSaveStateCode}
-                onSavePreProcessCode={handleSavePreProcessCode}
-              />
-            ) : (
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               <MermaidMarkdownViewer
                 code={outputMarkdown}
                 fileName={`${pouFileName.replace(/\.TcPOU$/i, '') || 'statechart'}.statechart.md`}
                 searchQuery={diagramSearchQuery}
                 onSearchQueryChange={setDiagramSearchQuery}
-<<<<<<< HEAD
                 onToast={showCopyToast}
               />
             ) : (
@@ -1805,14 +1677,10 @@ export const App: React.FC = () => {
                   isModal={false}
                 />
               </div>
-=======
-              />
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             )}
           </div>
         </main>
       </div>
-<<<<<<< HEAD
 
       {/* Unified Inspector & Editor Modal (Method Editor, Edit ENUM, Documentation, Style) */}
       {isInspectorOpen && (
@@ -1915,8 +1783,6 @@ export const App: React.FC = () => {
           </div>
         )}
       </div>
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     </div>
   );
 };

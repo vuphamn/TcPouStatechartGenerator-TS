@@ -35,10 +35,7 @@ export interface ExportModalProps {
   customStyles?: Record<string, NodeDisplayProperties>;
   theme?: string;
   defaultFormat?: ExportFormat;
-<<<<<<< HEAD
   onToast?: (message: string, type: 'success' | 'error') => void;
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -50,10 +47,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   customStyles,
   theme,
   defaultFormat = 'png',
-<<<<<<< HEAD
   onToast,
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }) => {
   const [format, setFormat] = useState<ExportFormat>(defaultFormat);
   const [scale, setScale] = useState<ExportScale>(2);
@@ -129,7 +123,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     try {
       const res = await copyToClipboard(svgElement, exportOptions);
       setCopyStatus('copied');
-<<<<<<< HEAD
       const isRestricted = Boolean(res.message && (res.message.includes('restricted') || res.message.includes('downloaded')));
       if (isRestricted) {
         setErrorMessage(res.message || null);
@@ -142,15 +135,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const errMsg = err instanceof Error ? err.message : 'Copy to clipboard failed.';
       setErrorMessage(errMsg);
       onToast?.(errMsg, 'error');
-=======
-      if (res.message && (res.message.includes('restricted') || res.message.includes('downloaded'))) {
-        setErrorMessage(res.message);
-      }
-      setTimeout(() => setCopyStatus('idle'), 2500);
-    } catch (err) {
-      setCopyStatus('error');
-      setErrorMessage(err instanceof Error ? err.message : 'Copy to clipboard failed.');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       setTimeout(() => setCopyStatus('idle'), 3000);
     } finally {
       setIsExporting(false);

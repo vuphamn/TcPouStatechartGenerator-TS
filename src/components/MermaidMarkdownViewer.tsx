@@ -21,10 +21,7 @@ export interface MermaidMarkdownViewerProps {
   fileName?: string;
   searchQuery?: string;
   onSearchQueryChange?: (query: string) => void;
-<<<<<<< HEAD
   onToast?: (message: string, type: 'success' | 'error') => void;
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 export const MermaidMarkdownViewer: React.FC<MermaidMarkdownViewerProps> = ({
@@ -33,10 +30,7 @@ export const MermaidMarkdownViewer: React.FC<MermaidMarkdownViewerProps> = ({
   fileName = 'output.statechart.md',
   searchQuery: externalSearchQuery,
   onSearchQueryChange,
-<<<<<<< HEAD
   onToast,
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }) => {
   const [wrapInMarkdown, setWrapInMarkdown] = useState<boolean>(initialWrapInMarkdown);
   const [wrapLines, setWrapLines] = useState<boolean>(false);
@@ -159,7 +153,6 @@ export const MermaidMarkdownViewer: React.FC<MermaidMarkdownViewerProps> = ({
       await navigator.clipboard.writeText(fullText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-<<<<<<< HEAD
       onToast?.('Mermaid diagram markdown copied to clipboard!', 'success');
     } catch {
       // Fallback
@@ -176,18 +169,6 @@ export const MermaidMarkdownViewer: React.FC<MermaidMarkdownViewerProps> = ({
       } catch {
         onToast?.('Failed to copy markdown to clipboard', 'error');
       }
-=======
-    } catch {
-      // Fallback
-      const textArea = document.createElement('textarea');
-      textArea.value = fullText;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     }
   };
 

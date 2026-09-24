@@ -162,7 +162,6 @@ html, body, #root {
   font-weight: 700;
 }
 
-<<<<<<< HEAD
 /* Structured Text (IEC 61131-3) Syntax Highlighting */
 .token.comment,
 .token.block-comment {
@@ -234,8 +233,6 @@ html, body, #root {
   animation: stateSelectedPulseAnimation 1.5s ease-out;
 }
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 /* Clickable & Draggable State Nodes */
 .clickable-state-node {
   cursor: grab !important;
@@ -530,7 +527,6 @@ g.note,
   text-align: center !important;
 }
 
-<<<<<<< HEAD
 /* State Jump Pulse & Flashing Border/Background Animation */
 @keyframes state-jump-ring-glow {
   0% {
@@ -553,31 +549,12 @@ g.note,
   }
   80% {
     filter: drop-shadow(0 0 14px rgba(56, 189, 248, 0.55));
-=======
-/* State Jump Pulse Animation */
-@keyframes state-jump-ring {
-  0% {
-    filter: drop-shadow(0 0 0px rgba(56, 189, 248, 0));
-  }
-  20% {
-    filter: drop-shadow(0 0 24px rgba(56, 189, 248, 0.95)) drop-shadow(0 0 10px rgba(14, 165, 233, 0.8));
-  }
-  40% {
-    filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.85));
-  }
-  60% {
-    filter: drop-shadow(0 0 22px rgba(56, 189, 248, 0.95));
-  }
-  80% {
-    filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.6));
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   }
   100% {
     filter: drop-shadow(0 0 0px rgba(56, 189, 248, 0));
   }
 }
 
-<<<<<<< HEAD
 @keyframes state-jump-border-bg-flash {
   0% {
     stroke: #38bdf8;
@@ -675,16 +652,11 @@ g.note,
 .diagram-jump-highlight,
 .state-jump-ring-glow {
   animation: state-jump-ring-glow 2.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
-=======
-.diagram-jump-highlight {
-  animation: state-jump-ring 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 .diagram-jump-highlight rect,
 .diagram-jump-highlight polygon,
 .diagram-jump-highlight circle,
-<<<<<<< HEAD
 .diagram-jump-highlight path.basic,
 .diagram-jump-highlight path.label-container,
 .diagram-jump-highlight .label-container,
@@ -702,16 +674,10 @@ path.state-jump-border-bg-flash {
 div.state-jump-div-flash {
   animation: state-jump-div-flash 2.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
   border-radius: 6px;
-=======
-.diagram-jump-highlight path {
-  stroke: #38bdf8 !important;
-  stroke-width: 3.5px !important;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 .diagram-jump-highlight .nodeLabel,
 .diagram-jump-highlight span,
-<<<<<<< HEAD
 .diagram-jump-highlight p,
 .diagram-jump-highlight text,
 .state-jump-text-flash {
@@ -784,11 +750,6 @@ div.state-jump-div-flash {
 
 .tc-refactor-flag-badge.is-high {
   filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.75));
-=======
-.diagram-jump-highlight p {
-  color: #ffffff !important;
-  font-weight: 700 !important;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 

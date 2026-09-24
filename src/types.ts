@@ -34,10 +34,7 @@ export interface EdgeInfo {
   pathId?: string;
   priority?: number;
   condition?: string;
-<<<<<<< HEAD
   guard?: string;
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 export interface NotePosition {
@@ -58,7 +55,6 @@ export type ContextMenuTarget =
   | { type: 'node'; id: string; label: string; note?: string; style?: NodeDisplayProperties }
   | { type: 'edge'; id: string; from: string; to: string; label?: string; note?: string; style?: NodeDisplayProperties; pathId?: string }
   | { type: 'canvas'; x: number; y: number };
-<<<<<<< HEAD
 
 export interface SearchMatchItem {
   type: 'state' | 'transition';
@@ -73,5 +69,3 @@ export interface SearchMatchItem {
   guard?: string;
   priority?: number;
 }
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323

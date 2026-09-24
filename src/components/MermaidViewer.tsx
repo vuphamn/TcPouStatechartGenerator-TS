@@ -16,10 +16,6 @@ import {
   ChevronDown,
   ChevronUp,
   Palette,
-<<<<<<< HEAD
-=======
-  Move,
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   StickyNote,
   FileImage,
   FileCode,
@@ -27,7 +23,6 @@ import {
   Sliders,
   MousePointerClick,
   SlidersHorizontal,
-<<<<<<< HEAD
   Map,
   Grid,
   Magnet,
@@ -64,10 +59,6 @@ import {
   SnapResult,
 } from '../utils/snapToGrid.ts';
 import { StateNodeStyleInspector, InspectorMode } from './StateNodeStyleInspector.tsx';
-=======
-} from 'lucide-react';
-import { StateNodeStyleInspector } from './StateNodeStyleInspector.tsx';
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 import { DiagramContextMenu } from './DiagramContextMenu.tsx';
 import { NoteDialog } from './NoteDialog.tsx';
 import { NotesDrawer } from './NotesDrawer.tsx';
@@ -75,11 +66,8 @@ import { NoteOverlaysLayer } from './NoteOverlaysLayer.tsx';
 import { ExportModal } from './ExportModal.tsx';
 import { TransitionGuardInspector } from './TransitionGuardInspector.tsx';
 import { PreProcessStructuredTextEditor } from './PreProcessStructuredTextEditor.tsx';
-<<<<<<< HEAD
 import { MethodStructuredTextEditor } from './MethodStructuredTextEditor.tsx';
 import { DutEnumEditor } from './DutEnumEditor.tsx';
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 import { createInteractiveMermaidCode } from '../utils/interactiveDiagram.ts';
 import {
   exportHighResSvg,
@@ -96,10 +84,7 @@ import {
   ContextMenuTarget,
   EdgeInfo,
   NotePosition,
-<<<<<<< HEAD
   SearchMatchItem,
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 } from '../types.ts';
 import { extractStateNodesFromMermaid } from '../utils/nodeStyles.ts';
 import {
@@ -118,10 +103,7 @@ import {
   findEdgePathElement,
   getEdgeAnchorPoint,
   parseTranslation,
-<<<<<<< HEAD
   getNodeGeometry,
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 } from '../utils/nodeDragger.ts';
 import {
   CanvasNodePositionsMap,
@@ -145,16 +127,11 @@ function ensureElkRegistered() {
 }
 
 export interface MermaidViewerHandle {
-<<<<<<< HEAD
   panToState: (stateId: string, timestamp?: number) => void;
-=======
-  panToState: (stateId: string) => void;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   resetView: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
   fitToScreen: () => void;
-<<<<<<< HEAD
   autoAlign: () => void;
   openExportModal: (format?: ExportFormat) => void;
   quickDownloadPng: (scale?: ExportScale) => Promise<void>;
@@ -163,8 +140,6 @@ export interface MermaidViewerHandle {
   quickCopySvg: () => Promise<{ success: boolean; message: string }>;
   printVisiblePdf: () => Promise<void>;
   getActiveSvgElement: () => SVGSVGElement | null;
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 export interface MermaidViewerProps {
@@ -196,7 +171,6 @@ export interface MermaidViewerProps {
   onInteractiveModeChange?: (enabled: boolean) => void;
   tcPouContent?: string;
   tcPouFileName?: string;
-<<<<<<< HEAD
   tcDutContent?: string;
   tcDutFileName?: string;
   onSaveDutContent?: (newDutContent: string) => { success: boolean; error?: string };
@@ -214,18 +188,6 @@ export interface MermaidViewerProps {
   onToggleInspector?: () => void;
   onOpenInspector?: (mode?: InspectorMode, methodName?: string, memberName?: string) => void;
   onCloseInspector?: () => void;
-=======
-  onSaveStateCode?: (stateId: string, newCode: string) => { success: boolean; error?: string };
-  onSavePreProcessCode?: (newCode: string, newDeclaration?: string) => { success: boolean; error?: string };
-  focusStateRequest?: { stateId: string; timestamp: number } | null;
-}
-
-interface SearchMatchItem {
-  type: 'state' | 'transition';
-  name: string;
-  element: Element;
-  associatedPaths?: Element[];
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 }
 
 interface ParsedPath {
@@ -700,16 +662,12 @@ function enhanceSvgWithPriorityCircles(
   notes?: DiagramNotes,
   isInteractiveMode?: boolean,
   activeEdgeId?: string | null,
-<<<<<<< HEAD
   availableEdgesList?: EdgeInfo[],
   heatmapResult?: ComplexityHeatmapResult | null,
   isHeatmapActive?: boolean,
   heatmapOnlyRefactor?: boolean,
   complexityThreshold: number = 5,
   showComplexityBadges: boolean = true
-=======
-  availableEdgesList?: EdgeInfo[]
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 ): string {
   if (typeof window === 'undefined' || !svgString) return svgString;
   try {
@@ -758,7 +716,6 @@ function enhanceSvgWithPriorityCircles(
           node.setAttribute('title', `Note: ${notes.nodes[rawId]}`);
         }
 
-<<<<<<< HEAD
         // Complexity Heat-map coloring takes precedence when Heat-map mode is active
         const metric =
           heatmapResult?.metrics.get(rawId) ||
@@ -792,10 +749,6 @@ function enhanceSvgWithPriorityCircles(
           }
         } else if (customStyles && customStyles[rawId]) {
           // Fallback to custom styles directly on SVG elements
-=======
-        // Apply custom styles directly to SVG elements for instant robustness across all themes
-        if (customStyles && customStyles[rawId]) {
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           const st = customStyles[rawId];
           const shapes = node.querySelectorAll('rect, polygon, circle, path.basic');
           shapes.forEach((shape) => {
@@ -808,7 +761,6 @@ function enhanceSvgWithPriorityCircles(
             if (st.color) (txt as HTMLElement).style.setProperty('color', st.color, 'important');
           });
         }
-<<<<<<< HEAD
 
         // If the state exceeds cyclomatic complexity threshold, flag it as needing refactoring
         if (metric && isExceeded) {
@@ -975,8 +927,6 @@ function enhanceSvgWithPriorityCircles(
             node.appendChild(badgeG);
           }
         }
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       }
     }
 
@@ -1280,7 +1230,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     onInteractiveModeChange,
     tcPouContent,
     tcPouFileName,
-<<<<<<< HEAD
     tcDutContent,
     tcDutFileName,
     onSaveDutContent,
@@ -1307,16 +1256,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   const [layoutTrigger, setLayoutTrigger] = useState<number>(0);
   const [isAutoAligning, setIsAutoAligning] = useState<boolean>(false);
   const autoAlignInProgressRef = useRef<boolean>(false);
-=======
-    onSaveStateCode,
-    onSavePreProcessCode,
-    focusStateRequest,
-  } = props;
-  const containerRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
-  const [svgContent, setSvgContent] = useState<string>('');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState<number>(1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -1325,7 +1264,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   const mouseDownPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [copiedSvg, setCopiedSvg] = useState<boolean>(false);
-<<<<<<< HEAD
   const [isMethodModalOpen, setIsMethodModalOpen] = useState<boolean>(false);
   const [methodModalInitialMethod, setMethodModalInitialMethod] = useState<string>('doState()');
   const [isEnumModalOpen, setIsEnumModalOpen] = useState<boolean>(false);
@@ -1374,9 +1312,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     origCenterX: number;
     origCenterY: number;
   } | null>(null);
-=======
-  const [isPreProcessModalOpen, setIsPreProcessModalOpen] = useState<boolean>(false);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // Interactive Mode & Transition Condition Detail Overlay
   const [internalInteractiveMode, setInternalInteractiveMode] = useState<boolean>(true);
@@ -1403,7 +1338,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   } | null>(null);
   const lastOverlayToggleTimeRef = useRef<number>(0);
 
-<<<<<<< HEAD
   const [canvasTransition, setCanvasTransition] = useState<string>('none');
   const [renderedSvg, setRenderedSvg] = useState<SVGSVGElement | null>(null);
 
@@ -1416,8 +1350,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     );
   }, [renderedSvg]);
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const toggleConditionOverlay = (edge: EdgeInfo, anchorPos?: { x: number; y: number }) => {
     const now = Date.now();
     if (now - lastOverlayToggleTimeRef.current < 300) {
@@ -1435,11 +1367,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       }
       let finalAnchor = anchorPos;
       if (!finalAnchor && containerRef.current) {
-<<<<<<< HEAD
         const svg = getDiagramSvg();
-=======
-        const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         if (svg) {
           const el = svg.querySelector(
             `g.edgeLabel[data-edge-id="${edge.id}"], .tc-priority-badge[data-edge-id="${edge.id}"], path[data-edge-id="${edge.id}"]`
@@ -1463,11 +1391,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
   useEffect(() => {
     if (!containerRef.current) return;
-<<<<<<< HEAD
     const svg = getDiagramSvg();
-=======
-    const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
 
     svg.querySelectorAll('.tc-priority-badge-active').forEach((el) => {
@@ -1501,30 +1425,17 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         });
       }
     }
-<<<<<<< HEAD
   }, [activeConditionOverlay, getDiagramSvg]);
-=======
-  }, [activeConditionOverlay]);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // High-Resolution Export States
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [exportModalDefaultFormat, setExportModalDefaultFormat] = useState<ExportFormat>('png');
-<<<<<<< HEAD
-=======
-  const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const [exportingNotification, setExportingNotification] = useState<string | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-<<<<<<< HEAD
       if (codeMenuRef.current && !codeMenuRef.current.contains(e.target as Node)) {
         setIsCodeMenuOpen(false);
-=======
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setIsExportMenuOpen(false);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1541,23 +1452,15 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState<boolean>(false);
   const [activeNoteTarget, setActiveNoteTarget] = useState<ContextMenuTarget | null>(null);
   const [isNotesDrawerOpen, setIsNotesDrawerOpen] = useState<boolean>(false);
-<<<<<<< HEAD
-=======
-  const [renderedSvg, setRenderedSvg] = useState<SVGSVGElement | null>(null);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   useEffect(() => {
     if (!containerRef.current || !svgContent) {
       setRenderedSvg(null);
       return;
     }
-<<<<<<< HEAD
     const svg = (containerRef.current.querySelector('#mermaid-diagram-svg-container svg') ||
       containerRef.current.querySelector('svg:not(#diagram-snap-grid-svg):not([id*="snap-grid"])') ||
       containerRef.current.querySelector('svg')) as SVGSVGElement | null;
-=======
-    const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     setRenderedSvg(svg);
   }, [svgContent]);
 
@@ -1617,7 +1520,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   // State selection and inspector
   const [internalSelectedStateId, setInternalSelectedStateId] = useState<string | null>(null);
   const [internalSelectedStateLabel, setInternalSelectedStateLabel] = useState<string>('');
-<<<<<<< HEAD
   const [internalIsInspectorOpen, setInternalIsInspectorOpen] = useState<boolean>(false);
   const isInspectorControlled = externalIsInspectorOpen !== undefined;
   const isInspectorOpen = isInspectorControlled ? externalIsInspectorOpen! : internalIsInspectorOpen;
@@ -1639,16 +1541,12 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     },
     [onOpenInspectorProp, onCloseInspectorProp]
   );
-=======
-  const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(false);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   const effectiveSelectedStateId =
     externalSelectedStateId !== undefined ? externalSelectedStateId : internalSelectedStateId;
   const effectiveSelectedStateLabel =
     externalSelectedStateLabel !== undefined ? externalSelectedStateLabel : internalSelectedStateLabel;
 
-<<<<<<< HEAD
   // Lock Diagram Layout state: disables automatic re-layout triggered by edits, preserving custom node positions
   const [internalLayoutLocked, setInternalLayoutLocked] = useState<boolean>(false);
   const isLayoutLocked = externalLayoutLocked !== undefined ? externalLayoutLocked : internalLayoutLocked;
@@ -1725,8 +1623,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     }
   }, [externalLayoutLocked, effectiveNodeOffsets]);
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   // Custom node styles (fallback to local if not controlled)
   const [internalCustomStyles, setInternalCustomStyles] = useState<CustomNodeStylesMap>({});
   const effectiveCustomStyles = externalCustomStyles !== undefined ? externalCustomStyles : internalCustomStyles;
@@ -1736,7 +1632,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     return extractStateNodesFromMermaid(code);
   }, [code]);
 
-<<<<<<< HEAD
   // Auto-Align: triggers a re-run of the layout engine to organize all nodes according to the current flowchart or stateDiagram-v2 logic, while respecting the locked layout state
   const handleAutoAlign = useCallback(() => {
     autoAlignInProgressRef.current = true;
@@ -1802,8 +1697,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     );
   }, [availableStates, availableEdges, tcPouContent, heatmapPalette, complexityThreshold]);
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   // Search state
   const [internalSearchQuery, setInternalSearchQuery] = useState<string>('');
   const effectiveSearchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
@@ -1814,7 +1707,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     transitions: 0,
   });
 
-<<<<<<< HEAD
   // State jump animation and auto-centering refs
   const jumpAttemptTimerRef = useRef<number | null>(null);
   const jumpHighlightTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -1834,8 +1726,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   const lastPanStateIdRef = useRef<{ id: string; timestamp: number } | null>(null);
   const lastHandledFocusRequestTimestampRef = useRef<number | null>(null);
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const panToElement = (elem: Element) => {
     if (!containerRef.current) return;
     const containerRect = containerRef.current.getBoundingClientRect();
@@ -1843,7 +1733,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
     if (elemRect.width === 0 && elemRect.height === 0) return;
 
-<<<<<<< HEAD
     const wrapper = containerRef.current.querySelector('#mermaid-svg-wrapper') as HTMLElement | null;
     let currentPanX = pan.x;
     let currentPanY = pan.y;
@@ -1862,8 +1751,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       }
     }
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     const currentElemCenterX = elemRect.left + elemRect.width / 2;
     const currentElemCenterY = elemRect.top + elemRect.height / 2;
     const targetCenterX = containerRect.left + containerRect.width / 2;
@@ -1872,7 +1759,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     const deltaX = targetCenterX - currentElemCenterX;
     const deltaY = targetCenterY - currentElemCenterY;
 
-<<<<<<< HEAD
     // Apply smooth animated glide on the canvas wrapper via state
     setCanvasTransition('transform 0.45s cubic-bezier(0.16, 1, 0.3, 1)');
 
@@ -1888,21 +1774,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     jumpTransitionTimerRef.current = setTimeout(() => {
       setCanvasTransition('none');
     }, 500);
-=======
-    setPan((prev) => ({
-      x: prev.x + deltaX,
-      y: prev.y + deltaY,
-    }));
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   };
 
   const clearHighlighting = () => {
     if (!containerRef.current) return;
-<<<<<<< HEAD
     const svg = getDiagramSvg();
-=======
-    const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
 
     svg.classList.remove('diagram-search-active');
@@ -1925,11 +1801,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     shouldPan = false
   ) => {
     if (!containerRef.current) return;
-<<<<<<< HEAD
     const svg = getDiagramSvg();
-=======
-    const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
 
     const term = query.trim().toLowerCase();
@@ -1954,7 +1826,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     const nodes = Array.from(svg.querySelectorAll('g.node'));
     nodes.forEach((node) => {
       const text = node.textContent || '';
-<<<<<<< HEAD
       const stateId =
         node.getAttribute('data-state-id') ||
         node.id?.replace(/^flowchart-/, '').replace(/-\d+$/, '') ||
@@ -1967,22 +1838,14 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         stateLabel.toLowerCase().includes(term);
 
       if (isMatch) {
-=======
-      if (text.toLowerCase().includes(term)) {
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         node.classList.add('diagram-match-node');
         stateMatches++;
         newMatches.push({
           type: 'state',
-<<<<<<< HEAD
           name: stateLabel || text.trim().replace(/\s+/g, ' '),
           element: node,
           stateId,
           stateLabel,
-=======
-          name: text.trim().replace(/\s+/g, ' '),
-          element: node,
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         });
       }
     });
@@ -1998,7 +1861,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
     edgeLabels.forEach((labelEl, idx) => {
       const text = labelEl.textContent || '';
-<<<<<<< HEAD
 
       // Find linked path
       let matchedPath: Element | null = null;
@@ -2037,28 +1899,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         labelEl.classList.add('diagram-match-edge');
         transitionMatches++;
 
-=======
-      if (text.toLowerCase().includes(term)) {
-        labelEl.classList.add('diagram-match-edge');
-        transitionMatches++;
-
-        // Find linked path
-        let matchedPath: Element | null = null;
-        const labelDataId =
-          labelEl.getAttribute('data-id') ||
-          labelEl.querySelector('[data-id]')?.getAttribute('data-id');
-
-        if (labelDataId) {
-          matchedPath =
-            allPaths.find((p) => p.getAttribute('data-id') === labelDataId) ||
-            null;
-        }
-
-        if (!matchedPath && idx < allPaths.length) {
-          matchedPath = allPaths[idx];
-        }
-
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         const associatedPaths: Element[] = [];
         if (matchedPath) {
           matchedPath.classList.add('diagram-match-path');
@@ -2081,7 +1921,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
         newMatches.push({
           type: 'transition',
-<<<<<<< HEAD
           name: text.trim().replace(/\s+/g, ' ') || label || `${fromState} -> ${toState}`,
           element: labelEl,
           associatedPaths,
@@ -2090,11 +1929,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           toState,
           guard,
           priority: edge?.priority,
-=======
-          name: text.trim().replace(/\s+/g, ' '),
-          element: labelEl,
-          associatedPaths,
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         });
       }
     });
@@ -2201,10 +2035,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
-<<<<<<< HEAD
         setIsSearchPanelOpen(true);
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
       }
@@ -2256,16 +2087,12 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
             effectiveNotes,
             isInteractiveMode,
             activeConditionOverlay?.edge?.id,
-<<<<<<< HEAD
             availableEdges,
             complexityHeatmapResult,
             isHeatmapActive,
             heatmapOnlyRefactor,
             complexityThreshold,
             showComplexityBadges
-=======
-            availableEdges
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           );
           setSvgContent(enhancedSvg);
         }
@@ -2281,7 +2108,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     return () => {
       isMounted = false;
     };
-<<<<<<< HEAD
   }, [
     code,
     layoutEngine,
@@ -2298,18 +2124,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     showComplexityBadges,
     layoutTrigger,
   ]);
-=======
-  }, [code, layoutEngine, flowchartCurve, mermaidTheme, effectiveCustomStyles, isInteractiveMode, isCompactLabels, effectiveNotes]);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // Synchronize active transition detail overlay label highlighting in SVG
   useEffect(() => {
     if (!containerRef.current) return;
-<<<<<<< HEAD
     const svg = getDiagramSvg();
-=======
-    const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
     svg.querySelectorAll('.tc-interactive-edge-label-active').forEach((el) => {
       el.classList.remove('tc-interactive-edge-label-active');
@@ -2330,16 +2149,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         }
       }
     }
-<<<<<<< HEAD
   }, [activeConditionOverlay, getDiagramSvg]);
-=======
-  }, [activeConditionOverlay]);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // 1. Initialize SVG metadata and active offsets whenever SVG content updates
   useEffect(() => {
     if (!containerRef.current || !svgContent) return;
-<<<<<<< HEAD
     const svg = getDiagramSvg();
     if (!svg) return;
     initializeSvgDragMetadata(svg, availableEdges);
@@ -2384,21 +2198,12 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     applyDiagramOffsetsToSvg(
       svg,
       targetNodeOffsets,
-=======
-    const svg = containerRef.current.querySelector('svg');
-    if (!svg) return;
-    initializeSvgDragMetadata(svg, availableEdges);
-    applyDiagramOffsetsToSvg(
-      svg,
-      effectiveNodeOffsets,
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       edgeOffsets,
       null,
       selectedEdge?.id || null,
       layoutEngine,
       flowchartCurve
     );
-<<<<<<< HEAD
     const positions = extractCanvasNodePositions(svg, targetNodeOffsets);
     setCanvasNodePositions(positions);
 
@@ -2420,52 +2225,29 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       onCanvasPositionsChange(positions);
     }
   }, [svgContent, availableEdges, isLayoutLocked, getDiagramSvg]);
-=======
-    if (onCanvasPositionsChange) {
-      const positions = extractCanvasNodePositions(svg, effectiveNodeOffsets);
-      onCanvasPositionsChange(positions);
-    }
-  }, [svgContent, availableEdges]);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // 2. Synchronize node selection highlight class in SVG
   useEffect(() => {
     if (!containerRef.current) return;
-<<<<<<< HEAD
     const svg = getDiagramSvg();
-=======
-    const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
     svg.querySelectorAll('.diagram-selected-node').forEach((el) => {
       el.classList.remove('diagram-selected-node');
     });
     if (effectiveSelectedStateId) {
-<<<<<<< HEAD
       const target =
         findNodeElement(svg as SVGSVGElement, effectiveSelectedStateId) ||
         (svg.querySelector(`g.node[data-state-id="${effectiveSelectedStateId}"]`) as SVGGElement | null);
-=======
-      const target = svg.querySelector(`g.node[data-state-id="${effectiveSelectedStateId}"]`);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       if (target) {
         target.classList.add('diagram-selected-node');
       }
     }
-<<<<<<< HEAD
   }, [effectiveSelectedStateId, svgContent, getDiagramSvg]);
-=======
-  }, [effectiveSelectedStateId, svgContent]);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 
   // 3. Synchronize edge selection highlight and active offsets in SVG
   useEffect(() => {
     if (!containerRef.current || !svgContent) return;
-<<<<<<< HEAD
     const svg = getDiagramSvg();
-=======
-    const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
 
     svg.querySelectorAll('.diagram-selected-edge, .selected-edge').forEach((el) => {
@@ -2514,19 +2296,13 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       flowchartCurve
     );
 
-<<<<<<< HEAD
     const positions = extractCanvasNodePositions(svg, effectiveNodeOffsets);
     setCanvasNodePositions(positions);
     if (onCanvasPositionsChange) {
-=======
-    if (onCanvasPositionsChange) {
-      const positions = extractCanvasNodePositions(svg, effectiveNodeOffsets);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       onCanvasPositionsChange(positions);
     }
   }, [selectedEdge, effectiveNodeOffsets, edgeOffsets, layoutEngine, flowchartCurve]);
 
-<<<<<<< HEAD
   const panToState = useCallback((stateId: string, timestamp?: number) => {
     if (!stateId) return;
 
@@ -2683,8 +2459,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     attempt();
   }, [getDiagramSvg]);
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const handleSelectState = (stateId: string | null, label?: string) => {
     if (onSelectStateProp) {
       onSelectStateProp(stateId, label);
@@ -2693,28 +2467,20 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       if (label) setInternalSelectedStateLabel(label);
     }
     if (stateId) {
-<<<<<<< HEAD
       if (onOpenInspectorProp) {
         onOpenInspectorProp('style');
       } else {
         setIsInspectorOpen(true);
       }
-=======
-      setIsInspectorOpen(true);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     }
   };
 
   const handleCloseInspector = () => {
-<<<<<<< HEAD
     if (onCloseInspectorProp) {
       onCloseInspectorProp();
     } else {
       setIsInspectorOpen(false);
     }
-=======
-    setIsInspectorOpen(false);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (onSelectStateProp) {
       onSelectStateProp(null);
     } else {
@@ -2723,7 +2489,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   };
 
   const handleToggleInspector = () => {
-<<<<<<< HEAD
     if (onToggleInspectorProp) {
       onToggleInspectorProp();
     } else {
@@ -2734,19 +2499,10 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         if (!effectiveSelectedStateId && availableStates.length > 0) {
           handleSelectState(availableStates[0].id, availableStates[0].label);
         }
-=======
-    if (isInspectorOpen) {
-      handleCloseInspector();
-    } else {
-      setIsInspectorOpen(true);
-      if (!effectiveSelectedStateId && availableStates.length > 0) {
-        handleSelectState(availableStates[0].id, availableStates[0].label);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       }
     }
   };
 
-<<<<<<< HEAD
   useEffect(() => {
     if (focusStateRequest?.stateId) {
       if (
@@ -2756,58 +2512,10 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         return;
       }
       lastHandledFocusRequestTimestampRef.current = focusStateRequest.timestamp || Date.now();
-=======
-  const panToState = useCallback((stateId: string) => {
-    const attempt = (retriesLeft = 4) => {
-      if (!containerRef.current) return;
-      const svg = containerRef.current.querySelector('svg');
-      if (!svg) {
-        if (retriesLeft > 0) {
-          requestAnimationFrame(() => attempt(retriesLeft - 1));
-        }
-        return;
-      }
-      const nodeEl = findNodeElement(svg as SVGSVGElement, stateId) || svg.querySelector(`g.node[data-state-id="${stateId}"]`);
-      if (!nodeEl) {
-        if (retriesLeft > 0) {
-          requestAnimationFrame(() => attempt(retriesLeft - 1));
-        }
-        return;
-      }
-      panToElement(nodeEl);
-
-      // Trigger pulse highlight animation
-      nodeEl.classList.remove('diagram-jump-highlight');
-      void (nodeEl as unknown as HTMLElement).offsetWidth;
-      nodeEl.classList.add('diagram-jump-highlight');
-      setTimeout(() => {
-        nodeEl.classList.remove('diagram-jump-highlight');
-      }, 2200);
-    };
-
-    attempt();
-  }, []);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      panToState,
-      resetView: handleResetZoom,
-      zoomIn: () => setZoom((prev) => Math.min(5, prev * 1.2)),
-      zoomOut: () => setZoom((prev) => Math.max(0.2, prev / 1.2)),
-      fitToScreen: handleResetZoom,
-    }),
-    [panToState]
-  );
-
-  useEffect(() => {
-    if (focusStateRequest?.stateId) {
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       panToState(focusStateRequest.stateId);
     }
   }, [focusStateRequest, panToState]);
 
-<<<<<<< HEAD
   useEffect(() => {
     return () => {
       if (jumpAttemptTimerRef.current) cancelAnimationFrame(jumpAttemptTimerRef.current);
@@ -2820,12 +2528,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     // 1. Immediately update DOM element in SVG for instantaneous live response
     if (containerRef.current) {
       const svg = getDiagramSvg();
-=======
-  const handleStyleChange = (stateId: string, style: NodeDisplayProperties) => {
-    // 1. Immediately update DOM element in SVG for instantaneous live response
-    if (containerRef.current) {
-      const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       if (svg) {
         const nodeEl = svg.querySelector(`g.node[data-state-id="${stateId}"]`);
         if (nodeEl) {
@@ -2888,15 +2590,12 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     if (e.button !== 0) return;
     mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
 
-<<<<<<< HEAD
     // Reset any active jump transition immediately on mouse interaction
     const wrapper = containerRef.current?.querySelector('#mermaid-svg-wrapper') as HTMLElement | null;
     if (wrapper) {
       wrapper.style.transition = 'none';
     }
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     const target = e.target as Element;
     // If clicking inside inspector, toolbar, context menu, dialogs, or detail overlay, don't initiate drag
     if (
@@ -2958,7 +2657,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         nodeMovedRef.current = false;
         const currentOffset = effectiveNodeOffsets[stateId] || { x: 0, y: 0 };
         nodeInitialOffsetRef.current = { ...currentOffset };
-<<<<<<< HEAD
 
         const svgEl = getDiagramSvg();
         const geom = getNodeGeometry(nodeEl, svgEl);
@@ -2969,8 +2667,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           origCenterY: geom.origCenterY,
         };
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         nodeEl.classList.add('dragging-state-node');
         setIsNodeDragging(true);
         return;
@@ -2978,11 +2674,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     }
 
     // C. Check if user clicked on an edge path or hitbox
-<<<<<<< HEAD
     const svg = getDiagramSvg();
-=======
-    const svg = containerRef.current?.querySelector('svg') || null;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     let clickedEdge = resolveEdgeFromElement(target, svg, availableEdges);
     if (!clickedEdge && svg && (target.tagName.toLowerCase() === 'svg' || target.closest('svg'))) {
       clickedEdge = findEdgeNearPoint(svg, e.clientX, e.clientY, availableEdges, 24);
@@ -3058,11 +2750,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         };
 
         if (containerRef.current) {
-<<<<<<< HEAD
           const svg = getDiagramSvg();
-=======
-          const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           if (svg) {
             applyDiagramOffsetsToSvg(
               svg,
@@ -3092,17 +2780,12 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       if (nodeMovedRef.current) {
         const canvasDx = screenDx / zoom;
         const canvasDy = screenDy / zoom;
-<<<<<<< HEAD
 
         let newOffset = {
-=======
-        const newOffset = {
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           x: Math.round(nodeInitialOffsetRef.current.x + canvasDx),
           y: Math.round(nodeInitialOffsetRef.current.y + canvasDy),
         };
 
-<<<<<<< HEAD
         if (snapConfig.enabled && nodeInitialCenterRef.current) {
           const rawCenterX = nodeInitialCenterRef.current.x + canvasDx;
           const rawCenterY = nodeInitialCenterRef.current.y + canvasDy;
@@ -3125,19 +2808,13 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           setActiveSnapResult(null);
         }
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         currentNodeOffsetsRef.current = {
           ...currentNodeOffsetsRef.current,
           [stateId]: newOffset,
         };
 
         if (containerRef.current) {
-<<<<<<< HEAD
           const svg = getDiagramSvg();
-=======
-          const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           if (svg) {
             applyDiagramOffsetsToSvg(
               svg,
@@ -3155,7 +2832,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     }
 
     // 3. Panning canvas
-<<<<<<< HEAD
     if (isDragging) {
       setPan({
         x: e.clientX - dragStart.x,
@@ -3211,13 +2887,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     } else if (hoveredComplexityMetric) {
       setHoveredComplexityMetric(null);
     }
-=======
-    if (!isDragging) return;
-    setPan({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
-    });
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
@@ -3228,11 +2897,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       const dx = Math.abs(e.clientX - clientX);
       const dy = Math.abs(e.clientY - clientY);
       if (dx < 10 && dy < 10) {
-<<<<<<< HEAD
         const svg = getDiagramSvg();
-=======
-        const svg = containerRef.current?.querySelector('svg') || null;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         const edge = resolveEdgeFromElement(el, svg, availableEdges);
         if (edge && edge.from && edge.to) {
           setSelectedEdge(edge);
@@ -3278,11 +2943,8 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       isDraggingNodeRef.current = false;
       draggedNodeIdRef.current = null;
       draggedNodeElRef.current = null;
-<<<<<<< HEAD
       nodeInitialCenterRef.current = null;
       setActiveSnapResult(null);
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       setIsNodeDragging(false);
 
       if (wasMoved && stateId) {
@@ -3291,7 +2953,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         if (onNodeOffsetsChange) {
           onNodeOffsetsChange(nextOffsets);
         }
-<<<<<<< HEAD
         if (containerRef.current) {
           const svg = getDiagramSvg();
           if (svg) {
@@ -3306,12 +2967,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
             if (onCanvasPositionsChange) {
               onCanvasPositionsChange(nextPositions);
             }
-=======
-        if (onCanvasPositionsChange && containerRef.current) {
-          const svg = containerRef.current.querySelector('svg');
-          if (svg) {
-            onCanvasPositionsChange(extractCanvasNodePositions(svg, nextOffsets));
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           }
         }
         return;
@@ -3376,22 +3031,15 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           handleSelectState(stateId, stateLabel);
           setSelectedEdge(null);
           setActiveConditionOverlay(null);
-<<<<<<< HEAD
           if (target.closest('.tc-refactor-flag-badge, .tc-complexity-badge')) {
             setIsHeatmapPanelOpen(true);
           }
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           return;
         }
       }
 
       // Check if user clicked on an edge path, label, or priority badge
-<<<<<<< HEAD
       const svg = getDiagramSvg();
-=======
-      const svg = containerRef.current?.querySelector('svg') || null;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       let clickedEdge = resolveEdgeFromElement(target, svg, availableEdges);
       if (!clickedEdge && svg && (target.tagName.toLowerCase() === 'svg' || target.closest('svg'))) {
         clickedEdge = findEdgeNearPoint(svg, e.clientX, e.clientY, availableEdges, 24);
@@ -3525,11 +3173,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     }
 
     // 2. Clicked on an edge
-<<<<<<< HEAD
     const svg = getDiagramSvg();
-=======
-    const svg = containerRef.current?.querySelector('svg') || null;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     let edge = resolveEdgeFromElement(target, svg, availableEdges);
     if (!edge && svg) {
       edge = findEdgeNearPoint(svg, e.clientX, e.clientY, availableEdges, 24);
@@ -3608,11 +3252,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
   const panToEdge = (edgeId: string) => {
     if (!containerRef.current) return;
-<<<<<<< HEAD
     const svg = getDiagramSvg();
-=======
-    const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!svg) return;
     const pathEl = findEdgePathElement(svg, edgeId, availableEdges);
     if (pathEl) {
@@ -3644,11 +3284,8 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         isDraggingNodeRef.current = false;
         draggedNodeIdRef.current = null;
         draggedNodeElRef.current = null;
-<<<<<<< HEAD
         nodeInitialCenterRef.current = null;
         setActiveSnapResult(null);
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         setIsNodeDragging(false);
 
         if (wasMoved && stateId) {
@@ -3664,7 +3301,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     };
   }, []);
 
-<<<<<<< HEAD
   // Close Snap to Grid configuration menu on outside click
   useEffect(() => {
     if (!isSnapMenuOpen) return;
@@ -3689,19 +3325,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
   const handleResetLayout = () => {
     handleAutoAlign();
-=======
-  const handleResetLayout = () => {
-    currentNodeOffsetsRef.current = {};
-    currentEdgeOffsetsRef.current = {};
-    setNodeOffsets({});
-    setEdgeOffsets({});
-    if (containerRef.current) {
-      const svg = containerRef.current.querySelector('svg');
-      if (svg) {
-        resetSvgDiagramOffsets(svg);
-      }
-    }
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   };
 
   const movedElementsCount =
@@ -3719,7 +3342,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     ).length;
 
   const handleWheel = (e: React.WheelEvent) => {
-<<<<<<< HEAD
     const target = e.target as HTMLElement | null;
     if (
       target &&
@@ -3744,8 +3366,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       // Allow normal scrolling inside editors and UI overlays; do NOT zoom canvas
       return;
     }
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.1 : 0.9;
     setZoom((prev) => Math.min(Math.max(0.2, prev * factor), 5));
@@ -3757,29 +3377,17 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   };
 
   const getActiveSvgElement = (): SVGSVGElement | null => {
-<<<<<<< HEAD
     return getDiagramSvg();
-=======
-    return renderedSvg || containerRef.current?.querySelector('svg') || null;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   };
 
   const handleOpenExportModal = (format: ExportFormat = 'png') => {
     setExportModalDefaultFormat(format);
     setIsExportModalOpen(true);
-<<<<<<< HEAD
-=======
-    setIsExportMenuOpen(false);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   };
 
   const handleQuickDownloadPng = async (scale: ExportScale = 2) => {
     const svgEl = getActiveSvgElement();
     if (!svgEl) return;
-<<<<<<< HEAD
-=======
-    setIsExportMenuOpen(false);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     setExportingNotification(`Exporting ${scale}x PNG...`);
     try {
       const result = await exportHighResPng(svgEl, {
@@ -3804,10 +3412,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
   const handleQuickDownloadSvg = async (scale: ExportScale = 1) => {
     const svgEl = getActiveSvgElement();
     if (!svgEl) return;
-<<<<<<< HEAD
-=======
-    setIsExportMenuOpen(false);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     setExportingNotification('Exporting vector SVG...');
     try {
       const result = await exportHighResSvg(svgEl, {
@@ -3829,7 +3433,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     }
   };
 
-<<<<<<< HEAD
   const handleQuickCopyPng = async (scale: ExportScale = 2): Promise<{ success: boolean; message: string }> => {
     const svgEl = getActiveSvgElement();
     if (!svgEl) {
@@ -3840,13 +3443,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     if (!onToastProp) {
       setExportingNotification('Copying PNG to clipboard...');
     }
-=======
-  const handleQuickCopyPng = async (scale: ExportScale = 2) => {
-    const svgEl = getActiveSvgElement();
-    if (!svgEl) return;
-    setIsExportMenuOpen(false);
-    setExportingNotification('Copying 2x PNG to clipboard...');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     try {
       const res = await copyToClipboard(svgEl, {
         format: 'png',
@@ -3856,7 +3452,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         customStyles: effectiveCustomStyles,
         theme: mermaidTheme,
       });
-<<<<<<< HEAD
       const isRestricted = Boolean(res.message && (res.message.includes('restricted') || res.message.includes('downloaded')));
       const msg = res.message || `Copied PNG (${scale}x Retina) to clipboard!`;
       if (!onToastProp) {
@@ -3887,23 +3482,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     if (!onToastProp) {
       setExportingNotification('Copying SVG to clipboard...');
     }
-=======
-      setExportingNotification(res.message || 'Copied 2x PNG to clipboard!');
-      setTimeout(() => setExportingNotification(null), 2500);
-    } catch (e) {
-      console.error('Copy PNG failed:', e);
-      const msg = e instanceof Error ? e.message : 'Clipboard copy failed';
-      setExportingNotification(`Copy failed: ${msg}`);
-      setTimeout(() => setExportingNotification(null), 3500);
-    }
-  };
-
-  const handleQuickCopySvg = async () => {
-    const svgEl = getActiveSvgElement();
-    if (!svgEl) return;
-    setIsExportMenuOpen(false);
-    setExportingNotification('Copying SVG to clipboard...');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     try {
       const res = await copyToClipboard(svgEl, {
         format: 'svg',
@@ -3913,7 +3491,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       });
       setCopiedSvg(true);
       setTimeout(() => setCopiedSvg(false), 2000);
-<<<<<<< HEAD
       const isRestricted = Boolean(res.message && (res.message.includes('restricted') || res.message.includes('downloaded')));
       const msg = res.message || 'Copied SVG vector to clipboard!';
       if (!onToastProp) {
@@ -3931,22 +3508,12 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       }
       onToastProp?.(`Copy failed: ${msg}`, 'error');
       return { success: false, message: msg };
-=======
-      setExportingNotification(res.message || 'Copied SVG vector to clipboard!');
-      setTimeout(() => setExportingNotification(null), 2500);
-    } catch (e) {
-      console.error('Copy SVG failed:', e);
-      const msg = e instanceof Error ? e.message : 'Clipboard copy failed';
-      setExportingNotification(`Copy failed: ${msg}`);
-      setTimeout(() => setExportingNotification(null), 3500);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     }
   };
 
   const handleCopySvg = handleQuickCopySvg;
   const handleDownloadSvg = () => handleQuickDownloadSvg(1);
 
-<<<<<<< HEAD
   const [isPrintingPdf, setIsPrintingPdf] = useState<boolean>(false);
 
   const handlePrintVisiblePdf = async () => {
@@ -4012,8 +3579,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
     ]
   );
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const toggleFullscreen = async () => {
     if (!isFullscreen) {
       setIsFullscreen(true);
@@ -4042,11 +3607,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         if (isDraggingNodeRef.current) {
           const stateId = draggedNodeIdRef.current;
           if (stateId && containerRef.current) {
-<<<<<<< HEAD
             const svg = getDiagramSvg();
-=======
-            const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             if (svg) {
               currentNodeOffsetsRef.current[stateId] = { ...nodeInitialOffsetRef.current };
               applyDiagramOffsetsToSvg(
@@ -4081,7 +3642,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         }
       }
 
-<<<<<<< HEAD
       // 'M' or 'm' to toggle Minimap overlay
       if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const activeEl = document.activeElement;
@@ -4223,8 +3783,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         }
       }
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       // Keyboard arrow keys to nudge selected state node position
       if (effectiveSelectedStateId && !isInspectorOpen && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const isArrow =
@@ -4238,13 +3796,9 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
               activeEl.getAttribute('contenteditable') === 'true');
           if (!isTyping) {
             e.preventDefault();
-<<<<<<< HEAD
             const step = snapConfig.enabled
               ? (e.shiftKey ? snapConfig.gridSize * 2 : snapConfig.gridSize)
               : (e.shiftKey ? 15 : 3);
-=======
-            const step = e.shiftKey ? 15 : 3;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             const delta = {
               x: e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0,
               y: e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0,
@@ -4255,11 +3809,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
             currentNodeOffsetsRef.current = nextOffsets;
             setNodeOffsets(nextOffsets);
             if (containerRef.current) {
-<<<<<<< HEAD
               const svg = getDiagramSvg();
-=======
-              const svg = containerRef.current.querySelector('svg');
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               if (svg) {
                 applyDiagramOffsetsToSvg(
                   svg,
@@ -4313,11 +3863,7 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
     if (labelOrBadgeEl) {
       e.stopPropagation();
-<<<<<<< HEAD
       const svg = getDiagramSvg();
-=======
-      const svg = containerRef.current?.querySelector('svg') || null;
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       const edge = resolveEdgeFromElement(labelOrBadgeEl, svg, availableEdges);
       if (edge && edge.from && edge.to) {
         setSelectedEdge(edge);
@@ -4347,38 +3893,17 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
       {/* Viewer Header / Toolbar */}
       <div
         id="mermaid-toolbar"
-<<<<<<< HEAD
         className="relative flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-950/90 border-b border-slate-800 backdrop-blur text-xs text-slate-300 z-20 shrink-0"
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {/* Search Input for States and Transitions */}
           <div className="relative flex items-center min-w-[150px] max-w-xs w-full">
-=======
-        className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2 bg-slate-950/90 border-b border-slate-800 backdrop-blur text-xs text-slate-300 z-10"
-      >
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="flex items-center gap-2 font-medium shrink-0">
-            <span className={`inline-block w-2 h-2 rounded-full ${isFullscreen ? 'bg-sky-400 animate-pulse' : 'bg-emerald-400'}`}></span>
-            <span className="hidden xl:inline">Interactive Diagram View</span>
-            <span className="xl:hidden font-semibold">Diagram</span>
-          </div>
-
-          {/* Drag layout hint badge */}
-          <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-900/80 border border-slate-800 text-[11px] text-slate-400 select-none">
-            <Move className="w-3 h-3 text-sky-400" />
-            <span>Drag nodes to adjust layout</span>
-          </div>
-
-          {/* Search Input for States and Transitions */}
-          <div className="relative flex items-center min-w-[200px] max-w-xs sm:max-w-sm md:max-w-md w-full">
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
             <input
               ref={searchInputRef}
               id="diagram-search-input"
               type="text"
               value={effectiveSearchQuery}
-<<<<<<< HEAD
               onChange={(e) => {
                 handleSearchChange(e.target.value);
                 if (!isSearchPanelOpen) setIsSearchPanelOpen(true);
@@ -4386,9 +3911,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
               onFocus={() => {
                 if (!isSearchPanelOpen) setIsSearchPanelOpen(true);
               }}
-=======
-              onChange={(e) => handleSearchChange(e.target.value)}
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               onKeyDown={handleSearchKeyDown}
               placeholder="Search states or transitions... (Ctrl+F)"
               className="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg pl-8 pr-20 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/50 transition-all"
@@ -4438,16 +3960,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
                   id="diagram-search-clear-btn"
                   type="button"
                   onClick={clearSearch}
-<<<<<<< HEAD
                   className="p-0.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded transition-colors cursor-pointer"
-=======
-                  className="p-0.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded transition-colors"
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
                   title="Clear search (Esc)"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
-<<<<<<< HEAD
 
                 <button
                   id="keyword-search-panel-toggle-button"
@@ -4462,14 +3979,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
                 >
                   <ListFilter className="w-3.5 h-3.5" />
                 </button>
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               </div>
             )}
           </div>
         </div>
 
-<<<<<<< HEAD
         {/* Right Side: Logically Grouped Toolbar Controls */}
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Hidden Controls Menu (Accessible across all monitor sizes) */}
@@ -5033,313 +4547,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
               )}
             </button>
           </div>
-=======
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Interactive Mode Toggle */}
-          <button
-            id="toggle-interactive-mode-btn"
-            type="button"
-            onClick={() => setIsInteractiveMode((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium ${
-              isInteractiveMode
-                ? 'bg-emerald-600/90 hover:bg-emerald-500 text-white shadow-sm ring-1 ring-emerald-400/40'
-                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
-            }`}
-            title="Toggle Interactive Mode: Clean compact transition labels with click-to-expand condition details overlay"
-          >
-            <MousePointerClick className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden sm:inline">Interactive</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full font-bold text-[10px] ${
-                isInteractiveMode
-                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60'
-                  : 'bg-slate-900 text-slate-400'
-              }`}
-            >
-              {isInteractiveMode ? 'ON' : 'OFF'}
-            </span>
-          </button>
-
-          {isInteractiveMode && (
-            <button
-              id="toggle-compact-labels-btn"
-              type="button"
-              onClick={() => setIsCompactLabels((prev) => !prev)}
-              className={`hidden md:flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-                isCompactLabels
-                  ? 'bg-slate-800/90 text-sky-300 border border-sky-500/30'
-                  : 'bg-slate-900/60 text-slate-400 hover:text-slate-300 border border-slate-800'
-              }`}
-              title={
-                isCompactLabels
-                  ? 'Compact labels enabled: long transition guards are shortened for a cleaner diagram layout'
-                  : 'Full labels enabled: showing full condition text on transitions'
-              }
-            >
-              <SlidersHorizontal className="w-3 h-3 text-sky-400" />
-              <span>{isCompactLabels ? 'Clean Layout' : 'Full Labels'}</span>
-            </button>
-          )}
-
-          {/* preProcess() Method Structured Text Editor Button */}
-          {isInteractiveMode && (
-            <button
-              id="open-preprocess-editor-btn"
-              type="button"
-              onClick={() => setIsPreProcessModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-300 hover:text-white border border-indigo-700/60 transition-all text-xs font-medium shadow-sm"
-              title="View and edit preProcess() Structured Text method in .TcPOU"
-            >
-              <FileCode className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="hidden sm:inline">preProcess()</span>
-            </button>
-          )}
-
-          {/* Node Styles Inspector Toggle */}
-          <button
-            id="toggle-node-styles-btn"
-            type="button"
-            onClick={handleToggleInspector}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium ${
-              isInspectorOpen
-                ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm ring-1 ring-sky-400/40'
-                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
-            }`}
-            title="Customize State Node Colors (Background & Foreground)"
-          >
-            <Palette className="w-3.5 h-3.5 text-sky-400" />
-            <span className="hidden sm:inline">Node Styles</span>
-            {customizedStatesCount > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 font-bold text-[10px]">
-                {customizedStatesCount}
-              </span>
-            )}
-          </button>
-
-          {/* Reset Diagram Layout Button (shown when any node or edge has been repositioned) */}
-          {movedElementsCount > 0 && (
-            <button
-              id="reset-diagram-layout-btn"
-              type="button"
-              onClick={handleResetLayout}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-medium transition-all shadow-sm"
-              title="Reset manual node and edge positions back to default Mermaid layout"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Reset Layout</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-bold text-[10px]">
-                {movedElementsCount}
-              </span>
-            </button>
-          )}
-
-          {/* Notes Drawer Button */}
-          <button
-            id="toggle-notes-drawer-btn"
-            type="button"
-            onClick={() => setIsNotesDrawerOpen(true)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium ${
-              totalNotesCount > 0
-                ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30'
-                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
-            }`}
-            title="View and manage diagram notes (Right-click any node or transition to add a note)"
-          >
-            <StickyNote className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Notes</span>
-            {totalNotesCount > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-bold text-[10px]">
-                {totalNotesCount}
-              </span>
-            )}
-          </button>
-
-          <div className="w-[1px] h-4 bg-slate-800 mx-1"></div>
-
-          <button
-            id="zoom-out-button"
-            type="button"
-            onClick={() => setZoom((z) => Math.max(0.2, z * 0.85))}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-            title="Zoom Out"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </button>
-          <span className="px-2 py-0.5 font-mono text-[11px] text-slate-400 select-none">
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            id="zoom-in-button"
-            type="button"
-            onClick={() => setZoom((z) => Math.min(5, z * 1.15))}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-            title="Zoom In"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </button>
-          <button
-            id="zoom-reset-button"
-            type="button"
-            onClick={handleResetZoom}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-            title="Reset View"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-          <div className="w-[1px] h-4 bg-slate-800 mx-1"></div>
-
-          {/* Quick High-Res PNG Button */}
-          <button
-            id="quick-download-png-button"
-            type="button"
-            onClick={() => handleQuickDownloadPng(2)}
-            disabled={!svgContent}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors disabled:opacity-40 text-xs font-medium border border-slate-700/50 bg-slate-800/40"
-            title="Download High-Resolution 2x PNG (Retina Quality)"
-          >
-            <FileImage className="w-3.5 h-3.5 text-sky-400" />
-            <span>PNG</span>
-            <span className="text-[10px] px-1 py-0.2 rounded bg-sky-950 text-sky-400 font-mono border border-sky-800/60 leading-none">2x</span>
-          </button>
-
-          {/* Quick SVG Vector Button */}
-          <button
-            id="quick-download-svg-button"
-            type="button"
-            onClick={() => handleQuickDownloadSvg(1)}
-            disabled={!svgContent}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40 text-xs font-medium"
-            title="Download Standalone Vector SVG diagram"
-          >
-            <FileCode className="w-3.5 h-3.5 text-indigo-400" />
-            <span>SVG</span>
-          </button>
-
-          {/* High-Resolution Export Dropdown Menu */}
-          <div className="relative" ref={exportMenuRef}>
-            <button
-              id="export-dropdown-button"
-              type="button"
-              onClick={() => setIsExportMenuOpen((prev) => !prev)}
-              disabled={!svgContent}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-600/90 hover:bg-sky-500 text-white font-medium text-xs shadow-sm transition-all disabled:opacity-40"
-              title="Export high-resolution PNG/SVG with custom scale and options"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export</span>
-              <ChevronDown className={`w-3 h-3 transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isExportMenuOpen && (
-              <div
-                id="export-options-dropdown"
-                className="absolute right-0 top-full mt-1.5 w-60 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 z-40 text-xs text-slate-200 divide-y divide-slate-800/70"
-              >
-                <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  High-Resolution Export
-                </div>
-                <div className="py-1">
-                  <button
-                    id="dropdown-open-modal-btn"
-                    type="button"
-                    onClick={() => handleOpenExportModal('png')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-800 text-sky-400 font-medium transition-colors"
-                  >
-                    <Sparkles className="w-4 h-4 text-sky-400 shrink-0" />
-                    <div>
-                      <div className="text-white text-xs">High-Res Export Dialog...</div>
-                      <div className="text-[10px] text-slate-400">Custom scale (1x-4x), background & DPI</div>
-                    </div>
-                  </button>
-                </div>
-                <div className="py-1">
-                  <div className="px-3 py-1 text-[10px] text-slate-500 font-medium">Quick Downloads</div>
-                  <button
-                    id="dropdown-png-2x-btn"
-                    type="button"
-                    onClick={() => handleQuickDownloadPng(2)}
-                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
-                  >
-                    <span className="flex items-center gap-2">
-                      <FileImage className="w-3.5 h-3.5 text-sky-400" />
-                      Download PNG
-                    </span>
-                    <span className="text-[10px] font-mono text-sky-400 bg-sky-950/80 px-1 rounded border border-sky-800/50">2x Retina</span>
-                  </button>
-                  <button
-                    id="dropdown-png-4x-btn"
-                    type="button"
-                    onClick={() => handleQuickDownloadPng(4)}
-                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
-                  >
-                    <span className="flex items-center gap-2">
-                      <FileImage className="w-3.5 h-3.5 text-emerald-400" />
-                      Download PNG
-                    </span>
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-1 rounded border border-emerald-800/50">4x UHD 4K</span>
-                  </button>
-                  <button
-                    id="dropdown-svg-btn"
-                    type="button"
-                    onClick={() => handleQuickDownloadSvg(1)}
-                    className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
-                  >
-                    <span className="flex items-center gap-2">
-                      <FileCode className="w-3.5 h-3.5 text-indigo-400" />
-                      Download SVG
-                    </span>
-                    <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/80 px-1 rounded border border-indigo-800/50">Vector</span>
-                  </button>
-                </div>
-                <div className="py-1">
-                  <div className="px-3 py-1 text-[10px] text-slate-500 font-medium">Copy to System Clipboard</div>
-                  <button
-                    id="dropdown-copy-png-btn"
-                    type="button"
-                    onClick={() => handleQuickCopyPng(2)}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Copy PNG (2x Retina)</span>
-                  </button>
-                  <button
-                    id="dropdown-copy-svg-btn"
-                    type="button"
-                    onClick={handleQuickCopySvg}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
-                  >
-                    {copiedSvg ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
-                    <span>{copiedSvg ? 'Copied SVG!' : 'Copy SVG Vector'}</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="w-[1px] h-4 bg-slate-800 mx-1"></div>
-          <button
-            id="fullscreen-button"
-            type="button"
-            onClick={toggleFullscreen}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all text-xs font-medium ${
-              isFullscreen
-                ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm ring-1 ring-sky-400/40'
-                : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
-            }`}
-            title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Expand diagram canvas to fill the entire browser window'}
-          >
-            {isFullscreen ? (
-              <>
-                <Minimize2 className="w-3.5 h-3.5" />
-                <span>Exit Fullscreen</span>
-              </>
-            ) : (
-              <>
-                <Maximize2 className="w-3.5 h-3.5" />
-                <span>Fullscreen</span>
-              </>
-            )}
-          </button>
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         </div>
       </div>
 
@@ -5350,14 +4557,10 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-<<<<<<< HEAD
         onMouseLeave={(e) => {
           handleMouseUp(e);
           setHoveredComplexityMetric(null);
         }}
-=======
-        onMouseLeave={handleMouseUp}
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         onClick={handleClick}
         onWheel={handleWheel}
         onContextMenu={handleContextMenu}
@@ -5385,7 +4588,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transformOrigin: '0 0',
-<<<<<<< HEAD
               transition: canvasTransition,
             }}
             className="w-full h-full p-8 select-none flex items-center justify-center [&>svg]:max-w-none [&>svg]:max-h-none relative"
@@ -5443,25 +4645,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
               svgElement={renderedSvg || getDiagramSvg()}
             />
 
-=======
-              transition: 'none',
-            }}
-            className="w-full h-full p-8 select-none flex items-center justify-center [&>svg]:max-w-none [&>svg]:max-h-none relative"
-          >
-            <div
-              className="contents"
-              dangerouslySetInnerHTML={{ __html: svgContent }}
-            />
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             <NoteOverlaysLayer
               notes={effectiveNotes}
               availableStates={availableStates}
               availableEdges={availableEdges}
-<<<<<<< HEAD
               svgElement={renderedSvg || getDiagramSvg()}
-=======
-              svgElement={renderedSvg || containerRef.current?.querySelector('svg') || null}
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               zoom={zoom}
               onEditNote={handleOpenAddNote}
               onDeleteNote={handleDeleteActiveNote}
@@ -5485,7 +4673,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           </div>
         )}
 
-<<<<<<< HEAD
         {/* Snap to Grid Status Toast */}
         {showSnapToast && (
           <div
@@ -5698,10 +4885,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
 
         {/* Floating State Node Style Inspector (only render if not controlled by parent App) */}
         {!isInspectorControlled && isInspectorOpen && effectiveSelectedStateId && (
-=======
-        {/* Floating State Node Style Inspector */}
-        {isInspectorOpen && effectiveSelectedStateId && (
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           <StateNodeStyleInspector
             selectedStateId={effectiveSelectedStateId}
             selectedStateLabel={effectiveSelectedStateLabel}
@@ -5717,7 +4900,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
             onClose={handleCloseInspector}
             tcPouContent={tcPouContent}
             tcPouFileName={tcPouFileName || fileName}
-<<<<<<< HEAD
             tcDutContent={tcDutContent}
             tcDutFileName={tcDutFileName}
             onSaveDutContent={onSaveDutContent}
@@ -5746,31 +4928,12 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
             isModal={true}
             onJumpToState={(stateId) => {
               setIsMethodModalOpen(false);
-=======
-            onSaveStateCode={onSaveStateCode}
-            onSavePreProcessCode={onSavePreProcessCode}
-            initialMode="code"
-          />
-        )}
-
-        {/* Modal for preProcess() Structured Text Editor */}
-        {isPreProcessModalOpen && (
-          <PreProcessStructuredTextEditor
-            tcPouContent={tcPouContent}
-            tcPouFileName={tcPouFileName || fileName}
-            onSavePreProcessCode={onSavePreProcessCode}
-            onClose={() => setIsPreProcessModalOpen(false)}
-            isModal={true}
-            onJumpToState={(stateId) => {
-              setIsPreProcessModalOpen(false);
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
               handleSelectState(stateId);
               panToState(stateId);
             }}
           />
         )}
 
-<<<<<<< HEAD
         {/* Modal for Enum Editor (only if not handled by parent) */}
         {!onOpenInspectorProp && !onOpenEnumEditorProp && isEnumModalOpen && tcDutContent && onSaveDutContent && (
           <DutEnumEditor
@@ -5784,8 +4947,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           />
         )}
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         {/* Floating Transition Guard & Condition Inspector */}
         {activeConditionOverlay && (
           <TransitionGuardInspector
@@ -5825,7 +4986,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
               handleSelectState(stateId, st?.label || stateId);
               setIsInspectorOpen(true);
             }}
-<<<<<<< HEAD
             onOpenMethodEditor={(m) => {
               if (m) setMethodModalInitialMethod(m);
               setIsMethodModalOpen(true);
@@ -5857,11 +5017,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
             isHeatmapActive={isHeatmapActive}
             onToggleLockLayout={handleToggleLayoutLocked}
             isLayoutLocked={isLayoutLocked}
-=======
-            onOpenPreProcessEditor={() => setIsPreProcessModalOpen(true)}
-            onOpenMermaidLive={onOpenMermaidLive}
-            onExportImage={(fmt) => handleOpenExportModal(fmt)}
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             onClose={() => setContextMenuState(null)}
           />
         )}
@@ -5876,18 +5031,11 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           customStyles={effectiveCustomStyles}
           theme={mermaidTheme}
           defaultFormat={exportModalDefaultFormat}
-<<<<<<< HEAD
           onToast={onToastProp}
         />
 
         {/* Export Notification Toast (Fallback if no external toast provider) */}
         {!onToastProp && exportingNotification && (
-=======
-        />
-
-        {/* Export Notification Toast */}
-        {exportingNotification && (
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
           <div
             id="export-toast-notification"
             className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900/95 border border-sky-500/50 shadow-2xl text-xs text-white backdrop-blur animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none"
@@ -5897,7 +5045,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           </div>
         )}
 
-<<<<<<< HEAD
         {/* Layout Lock Toast Notification */}
         {layoutLockToast && (
           <div
@@ -5917,8 +5064,6 @@ export const MermaidViewer = forwardRef<MermaidViewerHandle, MermaidViewerProps>
           </div>
         )}
 
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         {/* Note Dialog Modal */}
         <NoteDialog
           isOpen={isNoteDialogOpen}

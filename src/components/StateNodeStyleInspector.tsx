@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-=======
-import React, { useState } from 'react';
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 import {
   Palette,
   X,
@@ -15,7 +11,6 @@ import {
   Check,
   Code2,
   FileCode,
-<<<<<<< HEAD
   Move,
   BookOpen,
   FileText,
@@ -30,19 +25,14 @@ import {
   PanelRightClose,
   PanelRightOpen,
   ListOrdered,
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 } from 'lucide-react';
 import {
   ColorPreset,
   CustomNodeStylesMap,
   NodeDisplayProperties,
   StateNodeInfo,
-<<<<<<< HEAD
   DiagramNotes,
   ContextMenuTarget,
-=======
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
 } from '../types.ts';
 import {
   BORDER_WIDTH_OPTIONS,
@@ -51,7 +41,6 @@ import {
   QUICK_BORDER_SWATCHES,
   QUICK_TEXT_SWATCHES,
 } from '../utils/nodeStyles.ts';
-<<<<<<< HEAD
 import { MethodStructuredTextEditor } from './MethodStructuredTextEditor.tsx';
 import { DutEnumEditor } from './DutEnumEditor.tsx';
 import {
@@ -448,50 +437,6 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
   });
 
   const currentStyle: NodeDisplayProperties = (selectedStateId && customStyles[selectedStateId]) || {};
-=======
-import { StateStructuredTextEditor } from './StateStructuredTextEditor.tsx';
-import { PreProcessStructuredTextEditor } from './PreProcessStructuredTextEditor.tsx';
-
-export interface StateNodeStyleInspectorProps {
-  selectedStateId: string;
-  selectedStateLabel?: string;
-  availableStates: StateNodeInfo[];
-  customStyles: CustomNodeStylesMap;
-  onStyleChange: (stateId: string, style: NodeDisplayProperties) => void;
-  onResetStateStyle: (stateId: string) => void;
-  onClearAllCustomStyles: () => void;
-  onSelectState: (stateId: string, label?: string) => void;
-  onClose: () => void;
-  tcPouContent?: string;
-  tcPouFileName?: string;
-  onSaveStateCode?: (stateId: string, newCode: string) => { success: boolean; error?: string };
-  onSavePreProcessCode?: (newCode: string, newDeclaration?: string) => { success: boolean; error?: string };
-  initialMode?: 'code' | 'preprocess' | 'style';
-}
-
-export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = ({
-  selectedStateId,
-  selectedStateLabel,
-  availableStates,
-  customStyles,
-  onStyleChange,
-  onResetStateStyle,
-  onClearAllCustomStyles,
-  onSelectState,
-  onClose,
-  tcPouContent,
-  tcPouFileName,
-  onSaveStateCode,
-  onSavePreProcessCode,
-  initialMode = 'code',
-}) => {
-  const [inspectorMode, setInspectorMode] = useState<'code' | 'preprocess' | 'style'>(initialMode);
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'presets' | 'custom'>('custom');
-  const [isStateDropdownOpen, setIsStateDropdownOpen] = useState(false);
-
-  const currentStyle: NodeDisplayProperties = customStyles[selectedStateId] || {};
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
   const isCustomized = Boolean(
     currentStyle.fill || currentStyle.color || currentStyle.stroke || currentStyle.strokeWidth
   );
@@ -505,10 +450,6 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
       ...currentStyle,
       ...updates,
     };
-<<<<<<< HEAD
-=======
-    // If all are cleared, remove
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
     if (!nextStyle.fill && !nextStyle.color && !nextStyle.stroke && !nextStyle.strokeWidth) {
       onResetStateStyle(selectedStateId);
     } else {
@@ -533,7 +474,6 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
   return (
     <div
       id="state-style-inspector"
-<<<<<<< HEAD
       onWheel={(e) => e.stopPropagation()}
       style={containerStyle}
       className={`fixed z-40 bg-slate-900/95 border border-slate-700/90 shadow-2xl backdrop-blur-md text-slate-200 overflow-hidden flex flex-col animate-in fade-in duration-150 transition-all ${
@@ -573,46 +513,11 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
               <ListOrdered className="w-4 h-4" />
             ) : inspectorMode === 'docs' ? (
               <BookOpen className="w-4 h-4" />
-=======
-      style={{
-        width:
-          inspectorMode === 'code' || inspectorMode === 'preprocess'
-            ? isExpanded
-              ? '780px'
-              : '560px'
-            : '340px',
-        height:
-          inspectorMode === 'code' || inspectorMode === 'preprocess'
-            ? isExpanded
-              ? 'calc(100vh - 24px)'
-              : '700px'
-            : undefined,
-      }}
-      className="absolute top-3 right-3 z-30 max-w-[calc(100%-24px)] max-h-[calc(100vh-24px)] bg-slate-900/95 border border-slate-700/90 rounded-xl shadow-2xl backdrop-blur-md text-slate-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150 transition-all"
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-950/80 border-b border-slate-800">
-        <div className="flex items-center gap-2 min-w-0">
-          <div
-            className={`p-1 rounded-md ${
-              inspectorMode === 'code'
-                ? 'bg-sky-500/20 text-sky-400'
-                : inspectorMode === 'preprocess'
-                ? 'bg-indigo-500/20 text-indigo-400'
-                : 'bg-emerald-500/20 text-emerald-400'
-            }`}
-          >
-            {inspectorMode === 'code' ? (
-              <Code2 className="w-4 h-4" />
-            ) : inspectorMode === 'preprocess' ? (
-              <FileCode className="w-4 h-4" />
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             ) : (
               <Palette className="w-4 h-4" />
             )}
           </div>
           <div className="min-w-0">
-<<<<<<< HEAD
             <h3 className="text-xs font-semibold text-white truncate flex items-center gap-1.5">
               <span>
                 {inspectorMode === 'method'
@@ -637,24 +542,11 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
                 ? `Enumeration DUT in ${tcDutFileName || 'DUT'}`
                 : inspectorMode === 'docs'
                 ? `Purpose & Notes for ${selectedStateLabel || selectedStateId}`
-=======
-            <h3 className="text-xs font-semibold text-white truncate">
-              {inspectorMode === 'code'
-                ? 'State Structured Text Editor'
-                : inspectorMode === 'preprocess'
-                ? 'preProcess() Method Editor'
-                : 'State Node Appearance'}
-            </h3>
-            <p className="text-[10px] text-slate-400 truncate">
-              {inspectorMode === 'preprocess'
-                ? 'preProcess() Structured Text in .TcPOU'
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
                 : selectedStateLabel || selectedStateId}
             </p>
           </div>
         </div>
 
-<<<<<<< HEAD
         <div className="flex items-center gap-1 shrink-0">
           {/* Dock / Undock Button */}
           <button
@@ -736,60 +628,13 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
               title="Documentation present"
             />
           )}
-=======
-        <button
-          id="close-inspector-btn"
-          type="button"
-          onClick={onClose}
-          className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-          title="Close Inspector (Esc)"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Mode Switcher Tabs */}
-      <div className="flex border-b border-slate-800 bg-slate-950/60 p-1 gap-1">
-        <button
-          type="button"
-          id="inspector-mode-code-tab"
-          onClick={() => setInspectorMode('code')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${
-            inspectorMode === 'code'
-              ? 'bg-sky-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-          }`}
-          title="View and edit doState() code for this state branch"
-        >
-          <Code2 className="w-3.5 h-3.5" />
-          <span>doState()</span>
-        </button>
-
-        <button
-          type="button"
-          id="inspector-mode-preprocess-tab"
-          onClick={() => setInspectorMode('preprocess')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${
-            inspectorMode === 'preprocess'
-              ? 'bg-sky-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-          }`}
-          title="View and edit preProcess() Structured Text method in .TcPOU"
-        >
-          <FileCode className="w-3.5 h-3.5" />
-          <span>preProcess()</span>
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         </button>
 
         <button
           type="button"
           id="inspector-mode-style-tab"
           onClick={() => setInspectorMode('style')}
-<<<<<<< HEAD
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-=======
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
             inspectorMode === 'style'
               ? 'bg-sky-600 text-white shadow-sm'
               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -804,13 +649,8 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
         </button>
       </div>
 
-<<<<<<< HEAD
       {/* State Switcher & Customization Status (Shown only when viewing Style tab) */}
       {inspectorMode === 'style' && (
-=======
-      {/* State Switcher & Customization Status (Hidden when viewing preProcess) */}
-      {inspectorMode !== 'preprocess' && (
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
         <div className="px-3.5 py-2 bg-slate-900/90 border-b border-slate-800/80 flex items-center justify-between gap-2 text-xs">
           {/* Dropdown to pick different state */}
           <div className="relative flex-1 min-w-0">
@@ -872,7 +712,6 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
         </div>
       )}
 
-<<<<<<< HEAD
       {/* Main Content: Method Editor OR Enum Editor OR Documentation OR Appearance Customizer */}
       {inspectorMode === 'method' ? (
         <div className="flex-1 min-h-0 flex flex-col">
@@ -1389,29 +1228,6 @@ export const StateNodeStyleInspector: React.FC<StateNodeStyleInspectorProps> = (
             </div>
           </div>
         </div>
-=======
-      {/* Main Content: ST Code Editor OR preProcess Editor OR Appearance Customizer */}
-      {inspectorMode === 'code' ? (
-        <StateStructuredTextEditor
-          selectedStateId={selectedStateId}
-          selectedStateLabel={selectedStateLabel}
-          tcPouContent={tcPouContent}
-          tcPouFileName={tcPouFileName}
-          onSaveStateCode={onSaveStateCode}
-          isExpanded={isExpanded}
-          onToggleExpand={() => setIsExpanded((prev) => !prev)}
-        />
-      ) : inspectorMode === 'preprocess' ? (
-        <div className="flex-1 min-h-0 flex flex-col">
-          <PreProcessStructuredTextEditor
-            tcPouContent={tcPouContent}
-            tcPouFileName={tcPouFileName}
-            onSavePreProcessCode={onSavePreProcessCode}
-            onJumpToState={(target) => onSelectState(target)}
-            isModal={false}
-          />
-        </div>
->>>>>>> 6743ef0ad9a3d2bf2f03684fb34e4c0fe64f9323
       ) : (
         <>
 
